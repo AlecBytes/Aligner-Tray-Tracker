@@ -1,28 +1,69 @@
-# Treatment Plan History
+# Treatment Plan History V1
 
 ## Status
 
-Planned feature after **Statistics**.
+Treatment Plan History V1 is the source of truth for the first user-facing treatment-plan history feature.
 
-## Existing Data Model
+## Goal
 
-Treatment plan edits already create append-only `TreatmentPlanVersion` records.
+Let a user review every saved version of the configured treatment plan without changing historical data.
 
-The current UI shows only the latest active treatment plan.
+## Access and Navigation
 
-## Direction
+- Add a `View Plan History` action to the existing Treatment Plan screen.
+- Open history as a separate stack screen titled `Plan History`.
+- Do not add Treatment Plan History to the main menu.
 
-This future feature will expose historical treatment-plan versions to the user.
+## History List
 
-The detailed product specification has **not yet been finalized**.
+- Show every `TreatmentPlanVersion` for the configured treatment.
+- Order versions newest first using `effective_at DESC, id DESC`.
+- Use the record id as the deterministic tie-breaker when effective timestamps match.
+- The first record in that ordering is the current version and is labeled `Current`.
+- Each version displays:
+  - its effective local date and time, using the device locale
+  - total trays
+  - days per tray
+  - prescribed hours per day
+- Convert the stored prescribed-minute value to a compact hours/minutes value:
+  - `1320` minutes displays as `22h`
+  - `1350` minutes displays as `22h 30m`
+  - values below one hour display as minutes, such as `30m`
+- Keep each version in a compact card consistent with the existing minimal UI.
 
-Before implementation, define:
+## Read-Only Behavior
 
-- list/order of historical versions
-- fields displayed for each version
-- effective-date presentation
-- whether comparison between versions is needed
-- whether historical versions are read-only
-- how plan versions relate visually to tray history
+- History has no edit, delete, restore, comparison, or rollback actions.
+- Saving the existing Treatment Plan form continues to insert a new append-only `TreatmentPlanVersion`.
+- A later edit must not update or remove any earlier version.
+- The history screen reads through a repository/read-model boundary. React components must not contain raw SQLite queries or row mapping.
+- Normal history viewing remains local-first and requires no network access.
 
-Do not modify or overwrite historical plan versions.
+## Loading, Empty, and Error States
+
+- Show a loading state while versions are being read.
+- If no versions exist, explain that no treatment-plan history was found.
+- If history cannot be loaded, show a clear error and a retry action.
+- A configured treatment should normally have at least one version, but the UI must handle an empty result safely.
+
+## V1 Verification
+
+Focused tests cover:
+
+- versions are returned newest first
+- the newest version is identified as current
+- multiple saved edits remain visible
+- later edits leave historical values unchanged
+- prescribed minutes format correctly as hours/minutes
+- same-day versions use the full effective timestamp and id for deterministic ordering
+
+## Out of Scope
+
+- plan rollback, restore, or deletion
+- version comparison UI
+- statistics changes
+- CSV export
+- authentication
+- cloud sync
+- backend work
+- tray-history visualization or other unrelated features

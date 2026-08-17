@@ -57,6 +57,25 @@ export async function getCurrentTreatmentPlan(
   return row === null ? null : mapTreatmentPlanVersion(row);
 }
 
+export async function getTreatmentPlanHistory(
+  db: SQLiteDatabase,
+): Promise<TreatmentPlanVersion[]> {
+  const rows = await db.getAllAsync<TreatmentPlanVersionRow>(
+    `SELECT
+       id,
+       treatment_id,
+       total_trays,
+       days_per_tray,
+       daily_wear_goal_minutes,
+       effective_at,
+       created_at
+     FROM treatment_plan_versions
+     ORDER BY effective_at DESC, id DESC`,
+  );
+
+  return rows.map(mapTreatmentPlanVersion);
+}
+
 export async function getActiveTrayNumber(db: SQLiteDatabase) {
   const row = await db.getFirstAsync<{ tray_number: number }>(
     `SELECT tray_number

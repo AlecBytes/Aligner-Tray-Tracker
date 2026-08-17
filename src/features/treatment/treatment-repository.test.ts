@@ -4,6 +4,7 @@ import {
   createTreatmentPlanVersion,
   createInitialTreatment,
   getCurrentTreatmentPlan,
+  getTreatmentPlanHistory,
   hasTreatment,
 } from '@/features/treatment/treatment-repository';
 
@@ -143,6 +144,13 @@ function createPlanDatabaseMock(
       )[0] ?? null
     );
   });
+  const getAllAsync = jest.fn(async (sql: string) => {
+    expect(sql).toContain('FROM treatment_plan_versions');
+
+    return [...versions].sort(
+      (left, right) => right.effective_at - left.effective_at || right.id - left.id,
+    );
+  });
   const runAsync = jest.fn(async (sql: string, ...params: number[]) => {
     expect(sql).toContain('INSERT INTO treatment_plan_versions');
 
@@ -173,7 +181,8 @@ function createPlanDatabaseMock(
   });
 
   return {
-    db: { getFirstAsync, runAsync } as unknown as SQLiteDatabase,
+    db: { getAllAsync, getFirstAsync, runAsync } as unknown as SQLiteDatabase,
+    getAllAsync,
     getFirstAsync,
     runAsync,
     versions,
@@ -203,6 +212,49 @@ describe('getCurrentTreatmentPlan', () => {
     expect(database.getFirstAsync).toHaveBeenCalledWith(
       expect.stringContaining('ORDER BY effective_at DESC, id DESC'),
     );
+  });
+});
+
+describe('getTreatmentPlanHistory', () => {
+  it('returns every treatment plan version newest first', async () => {
+    const database = createPlanDatabaseMock([
+      ORIGINAL_PLAN,
+      {
+        ...ORIGINAL_PLAN,
+        created_at: ORIGINAL_PLAN.created_at + 2000,
+        effective_at: ORIGINAL_PLAN.effective_at + 2000,
+        id: 203,
+      },
+      {
+        ...ORIGINAL_PLAN,
+        created_at: ORIGINAL_PLAN.created_at + 1000,
+        effective_at: ORIGINAL_PLAN.effective_at + 1000,
+        id: 202,
+      },
+    ]);
+
+    const history = await getTreatmentPlanHistory(database.db);
+
+    expect(history.map((version) => version.id)).toEqual([203, 202, 201]);
+    expect(database.getAllAsync).toHaveBeenCalledWith(
+      expect.stringContaining('ORDER BY effective_at DESC, id DESC'),
+    );
+  });
+
+  it('orders same-day versions by full effective timestamp and then id', async () => {
+    const morning = new Date(2026, 7, 17, 9, 0).getTime();
+    const afternoon = new Date(2026, 7, 17, 15, 30).getTime();
+    const database = createPlanDatabaseMock([
+      { ...ORIGINAL_PLAN, effective_at: morning, id: 301 },
+      { ...ORIGINAL_PLAN, effective_at: afternoon, id: 302 },
+      { ...ORIGINAL_PLAN, effective_at: afternoon, id: 303 },
+    ]);
+
+    await expect(getTreatmentPlanHistory(database.db)).resolves.toEqual([
+      expect.objectContaining({ effectiveAt: afternoon, id: 303 }),
+      expect.objectContaining({ effectiveAt: afternoon, id: 302 }),
+      expect.objectContaining({ effectiveAt: morning, id: 301 }),
+    ]);
   });
 });
 
@@ -261,6 +313,56 @@ describe('createTreatmentPlanVersion', () => {
       daysPerTray: 7,
       id: 201,
       totalTrays: 48,
+    });
+  });
+
+  it('keeps multiple edits visible in history', async () => {
+    const database = createPlanDatabaseMock([ORIGINAL_PLAN]);
+
+    await createTreatmentPlanVersion(
+      database.db,
+      { daysPerTray: 10, prescribedHoursPerDay: 22.5, totalTrays: 50 },
+      ORIGINAL_PLAN.effective_at + 1000,
+    );
+    await createTreatmentPlanVersion(
+      database.db,
+      { daysPerTray: 14, prescribedHoursPerDay: 21, totalTrays: 52 },
+      ORIGINAL_PLAN.effective_at + 2000,
+    );
+
+    const history = await getTreatmentPlanHistory(database.db);
+
+    expect(history).toHaveLength(3);
+    expect(history.map((version) => version.id)).toEqual([203, 202, 201]);
+    expect(history.map((version) => version.daysPerTray)).toEqual([14, 10, 7]);
+  });
+
+  it('leaves historical values unchanged after later edits', async () => {
+    const database = createPlanDatabaseMock([ORIGINAL_PLAN]);
+    const originalValues = { ...ORIGINAL_PLAN };
+
+    await createTreatmentPlanVersion(
+      database.db,
+      { daysPerTray: 10, prescribedHoursPerDay: 22.5, totalTrays: 50 },
+      ORIGINAL_PLAN.effective_at + 1000,
+    );
+    await createTreatmentPlanVersion(
+      database.db,
+      { daysPerTray: 14, prescribedHoursPerDay: 21, totalTrays: 52 },
+      ORIGINAL_PLAN.effective_at + 2000,
+    );
+
+    expect(database.versions.find((version) => version.id === ORIGINAL_PLAN.id)).toEqual(
+      originalValues,
+    );
+    await expect(getTreatmentPlanHistory(database.db)).resolves.toContainEqual({
+      createdAt: originalValues.created_at,
+      dailyWearGoalMinutes: originalValues.daily_wear_goal_minutes,
+      daysPerTray: originalValues.days_per_tray,
+      effectiveAt: originalValues.effective_at,
+      id: originalValues.id,
+      totalTrays: originalValues.total_trays,
+      treatmentId: originalValues.treatment_id,
     });
   });
 });

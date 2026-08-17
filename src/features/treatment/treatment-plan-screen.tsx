@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { type Href, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -214,6 +214,22 @@ export function TreatmentPlanScreen() {
         <AppText muted>Update the plan prescribed for your current treatment.</AppText>
       </View>
 
+      <Pressable
+        accessibilityRole="button"
+        disabled={isSaving}
+        onPress={() => router.push('/treatment-plan-history' as Href)}
+        style={({ pressed }) => [
+          styles.historyButton,
+          {
+            backgroundColor: pressed ? theme.border : theme.surface,
+            borderColor: theme.border,
+            opacity: isSaving ? 0.6 : 1,
+          },
+        ]}>
+        <AppText style={styles.historyButtonLabel}>View Plan History</AppText>
+        <AppText muted>›</AppText>
+      </Pressable>
+
       <View style={styles.form}>
         <TreatmentPlanField
           disabled={isSaving}
@@ -281,6 +297,18 @@ const styles = StyleSheet.create({
   },
   heading: {
     gap: spacing.sm,
+  },
+  historyButton: {
+    alignItems: 'center',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    minHeight: 52,
+    paddingHorizontal: spacing.md,
+  },
+  historyButtonLabel: {
+    fontWeight: '700',
   },
   input: {
     borderRadius: radius.md,
