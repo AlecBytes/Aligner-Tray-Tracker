@@ -1,0 +1,74 @@
+import type { SQLiteDatabase } from 'expo-sqlite';
+
+export const DATABASE_VERSION = 1;
+
+const migrationOne = `
+  CREATE TABLE IF NOT EXISTS treatments (
+    id INTEGER PRIMARY KEY NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS treatment_plan_versions (
+    id INTEGER PRIMARY KEY NOT NULL,
+    treatment_id INTEGER NOT NULL,
+    total_trays INTEGER NOT NULL CHECK (total_trays > 0),
+    days_per_tray INTEGER NOT NULL CHECK (days_per_tray > 0),
+    daily_wear_goal_minutes INTEGER NOT NULL
+      CHECK (daily_wear_goal_minutes BETWEEN 0 AND 1440),
+    effective_at INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (treatment_id) REFERENCES treatments (id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS tray_periods (
+    id INTEGER PRIMARY KEY NOT NULL,
+    treatment_id INTEGER NOT NULL,
+    tray_number INTEGER NOT NULL CHECK (tray_number > 0),
+    started_at INTEGER NOT NULL,
+    ended_at INTEGER CHECK (ended_at IS NULL OR ended_at >= started_at),
+    FOREIGN KEY (treatment_id) REFERENCES treatments (id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS wear_punches (
+    id INTEGER PRIMARY KEY NOT NULL,
+    tray_period_id INTEGER NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('IN', 'OUT')),
+    timestamp INTEGER NOT NULL,
+    FOREIGN KEY (tray_period_id) REFERENCES tray_periods (id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS settings (
+    id INTEGER PRIMARY KEY NOT NULL DEFAULT 1 CHECK (id = 1),
+    out_reminder_minutes INTEGER NOT NULL DEFAULT 45 CHECK (out_reminder_minutes > 0),
+    notifications_enabled INTEGER NOT NULL DEFAULT 0 CHECK (notifications_enabled IN (0, 1))
+  );
+
+  CREATE INDEX IF NOT EXISTS treatment_plan_versions_current_idx
+    ON treatment_plan_versions (treatment_id, effective_at DESC);
+  CREATE INDEX IF NOT EXISTS tray_periods_current_idx
+    ON tray_periods (treatment_id, ended_at, started_at DESC);
+  CREATE INDEX IF NOT EXISTS wear_punches_timeline_idx
+    ON wear_punches (tray_period_id, timestamp);
+
+  INSERT OR IGNORE INTO settings (id) VALUES (1);
+`;
+
+export async function migrateDatabase(db: SQLiteDatabase) {
+  await db.execAsync('PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;');
+
+  const result = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
+  const currentVersion = result?.user_version ?? 0;
+
+  if (currentVersion > DATABASE_VERSION) {
+    throw new Error(
+      `Database version ${currentVersion} is newer than supported version ${DATABASE_VERSION}.`,
+    );
+  }
+
+  if (currentVersion < 1) {
+    await db.withTransactionAsync(async () => {
+      await db.execAsync(migrationOne);
+      await db.execAsync('PRAGMA user_version = 1');
+    });
+  }
+}
