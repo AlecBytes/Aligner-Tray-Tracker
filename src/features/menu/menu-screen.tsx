@@ -39,6 +39,7 @@ export function MenuScreen() {
       <View style={styles.menuItems}>
         <MenuItem label="Account" onPress={() => router.push('/account')} />
         <MenuItem label="Treatment Plan" onPress={() => router.push('/treatment-plan')} />
+        <MenuItem label="Notifications" onPress={() => router.push('/notifications')} />
         <MenuItem
           label="Edit In/Out Times"
           onPress={() => router.push('/edit-times' as Href)}

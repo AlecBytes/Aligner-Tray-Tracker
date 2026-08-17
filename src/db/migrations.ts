@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-export const DATABASE_VERSION = 1;
+export const DATABASE_VERSION = 2;
 
 const migrationOne = `
   CREATE TABLE IF NOT EXISTS treatments (
@@ -53,6 +53,21 @@ const migrationOne = `
   INSERT OR IGNORE INTO settings (id) VALUES (1);
 `;
 
+const migrationTwo = `
+  ALTER TABLE settings
+    ADD COLUMN out_reminder_enabled INTEGER NOT NULL DEFAULT 1
+      CHECK (out_reminder_enabled IN (0, 1));
+  ALTER TABLE settings
+    ADD COLUMN tray_change_reminder_enabled INTEGER NOT NULL DEFAULT 1
+      CHECK (tray_change_reminder_enabled IN (0, 1));
+  ALTER TABLE settings
+    ADD COLUMN tray_change_reminder_hour INTEGER NOT NULL DEFAULT 9
+      CHECK (tray_change_reminder_hour BETWEEN 0 AND 23);
+  ALTER TABLE settings
+    ADD COLUMN tray_change_reminder_minute INTEGER NOT NULL DEFAULT 0
+      CHECK (tray_change_reminder_minute BETWEEN 0 AND 59);
+`;
+
 export async function migrateDatabase(db: SQLiteDatabase) {
   await db.execAsync('PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;');
 
@@ -69,6 +84,13 @@ export async function migrateDatabase(db: SQLiteDatabase) {
     await db.withTransactionAsync(async () => {
       await db.execAsync(migrationOne);
       await db.execAsync('PRAGMA user_version = 1');
+    });
+  }
+
+  if (currentVersion < 2) {
+    await db.withTransactionAsync(async () => {
+      await db.execAsync(migrationTwo);
+      await db.execAsync('PRAGMA user_version = 2');
     });
   }
 }

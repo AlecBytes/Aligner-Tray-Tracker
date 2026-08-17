@@ -8,9 +8,21 @@ import {
   REMINDER_KIND_DATA_KEY,
   type ScheduledReminder,
 } from '@/features/notifications/notification-policy';
+import { getNotificationSettings } from '@/features/notifications/notification-settings-repository';
 import { getTrackerSnapshot } from '@/features/tracker/tracker-repository';
 
 const REMINDER_CHANNEL_ID = 'treatment-reminders';
+
+const REMINDER_IDENTIFIERS = {
+  'out-too-long': 'aligner-tracker-out-too-long',
+  'tray-change': 'aligner-tracker-tray-change',
+} as const;
+
+export type LocalNotificationPermissionState =
+  | 'denied'
+  | 'granted'
+  | 'unavailable'
+  | 'undetermined';
 
 type NotificationsModule = typeof import('expo-notifications');
 
@@ -93,9 +105,34 @@ async function requestPermissionIfNeeded(notifications: NotificationsModule) {
   return notificationsAreAllowed(notifications, permissions);
 }
 
-async function reconcile(db: SQLiteDatabase, notifications: NotificationsModule) {
+function permissionState(
+  notifications: NotificationsModule,
+  permissions: import('expo-notifications').NotificationPermissionsStatus,
+): LocalNotificationPermissionState {
+  if (notificationsAreAllowed(notifications, permissions)) {
+    return 'granted';
+  }
+
+  if (
+    permissions.status === notifications.PermissionStatus.UNDETERMINED ||
+    permissions.ios?.status === notifications.IosAuthorizationStatus.NOT_DETERMINED
+  ) {
+    return 'undetermined';
+  }
+
+  return 'denied';
+}
+
+async function reconcile(
+  db: SQLiteDatabase,
+  notifications: NotificationsModule,
+  canSchedule: boolean,
+) {
   const now = Date.now();
-  const snapshot = await getTrackerSnapshot(db, now);
+  const [snapshot, settings] = await Promise.all([
+    getTrackerSnapshot(db, now),
+    getNotificationSettings(db),
+  ]);
   const scheduled = await notifications.getAllScheduledNotificationsAsync();
   const scheduledReminders: ScheduledReminder[] = scheduled.map((request) => ({
     fingerprint: request.content.data?.[REMINDER_FINGERPRINT_DATA_KEY],
@@ -103,7 +140,7 @@ async function reconcile(db: SQLiteDatabase, notifications: NotificationsModule)
     kind: request.content.data?.[REMINDER_KIND_DATA_KEY],
   }));
   const reconciliation = planReminderReconciliation(
-    buildReminderRequests(snapshot, now),
+    canSchedule ? buildReminderRequests(snapshot, settings, now) : [],
     scheduledReminders,
   );
 
@@ -124,6 +161,7 @@ async function reconcile(db: SQLiteDatabase, notifications: NotificationsModule)
         sound: 'default',
         title: 'Aligner Tracker',
       },
+      identifier: REMINDER_IDENTIFIERS[reminder.kind],
       trigger: {
         channelId: Platform.OS === 'android' ? REMINDER_CHANNEL_ID : undefined,
         date: reminder.scheduledAt,
@@ -139,19 +177,22 @@ export function initializeLocalNotifications(db: SQLiteDatabase) {
   }
 
   return enqueueNotificationWork(async () => {
-    const snapshot = await getTrackerSnapshot(db);
+    const settings = await getNotificationSettings(db);
+    const notifications = await getNotificationsModule();
+    const hasEnabledReminder =
+      settings.outReminderEnabled || settings.trayChangeReminderEnabled;
+    const allowed = hasEnabledReminder
+      ? await requestPermissionIfNeeded(notifications)
+      : notificationsAreAllowed(notifications, await notifications.getPermissionsAsync());
 
-    if (snapshot !== null) {
-      const notifications = await getNotificationsModule();
-
-      if (await requestPermissionIfNeeded(notifications)) {
-        await reconcile(db, notifications);
-      }
-    }
+    await reconcile(db, notifications, allowed);
   });
 }
 
-export function reconcileLocalNotifications(db: SQLiteDatabase) {
+export function reconcileLocalNotifications(
+  db: SQLiteDatabase,
+  options: { requestPermission?: boolean } = {},
+) {
   if (Platform.OS === 'web') {
     return Promise.resolve();
   }
@@ -159,10 +200,24 @@ export function reconcileLocalNotifications(db: SQLiteDatabase) {
   return enqueueNotificationWork(async () => {
     const notifications = await getNotificationsModule();
     await prepareAndroidChannel(notifications);
-    const permissions = await notifications.getPermissionsAsync();
+    const allowed = options.requestPermission
+      ? await requestPermissionIfNeeded(notifications)
+      : notificationsAreAllowed(notifications, await notifications.getPermissionsAsync());
 
-    if (notificationsAreAllowed(notifications, permissions)) {
-      await reconcile(db, notifications);
-    }
+    await reconcile(db, notifications, allowed);
   });
+}
+
+export async function getLocalNotificationPermissionState(): Promise<LocalNotificationPermissionState> {
+  if (Platform.OS === 'web') {
+    return 'unavailable';
+  }
+
+  try {
+    const notifications = await getNotificationsModule();
+    const permissions = await notifications.getPermissionsAsync();
+    return permissionState(notifications, permissions);
+  } catch {
+    return 'unavailable';
+  }
 }

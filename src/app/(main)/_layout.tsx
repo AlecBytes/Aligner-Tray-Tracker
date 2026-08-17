@@ -20,6 +20,7 @@ export default function MainLayout() {
         <Stack.Screen name="menu" options={{ title: 'Menu' }} />
         <Stack.Screen name="account" options={{ title: 'Account' }} />
         <Stack.Screen name="treatment-plan" options={{ title: 'Treatment Plan' }} />
+        <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
         <Stack.Screen name="edit-times/index" options={{ title: 'Edit In/Out Times' }} />
         <Stack.Screen name="edit-times/day" options={{ title: 'Punch History' }} />
         <Stack.Screen name="edit-times/event" options={{ title: 'Edit Event' }} />

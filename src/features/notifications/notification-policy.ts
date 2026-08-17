@@ -1,8 +1,8 @@
+import type { Settings } from '@/db/schema';
 import type { TrackerSnapshot } from '@/features/tracker/tracker-model';
 
 const MILLISECONDS_PER_MINUTE = 60 * 1000;
 
-export const OUT_REMINDER_MINUTES = 45;
 export const REMINDER_KIND_DATA_KEY = 'alignerReminderKind';
 export const REMINDER_FINGERPRINT_DATA_KEY = 'alignerReminderFingerprint';
 
@@ -32,12 +32,19 @@ function addLocalCalendarDays(timestamp: number, days: number) {
   return date.getTime();
 }
 
+function setLocalTime(timestamp: number, hour: number, minute: number) {
+  const date = new Date(timestamp);
+  date.setHours(hour, minute, 0, 0);
+  return date.getTime();
+}
+
 function reminderFingerprint(kind: ReminderKind, scheduledAt: number, subject: number) {
   return `${kind}:${scheduledAt}:${subject}`;
 }
 
 export function buildReminderRequests(
   snapshot: TrackerSnapshot | null,
+  settings: Settings,
   now = Date.now(),
 ): ReminderRequest[] {
   if (snapshot === null) {
@@ -45,10 +52,22 @@ export function buildReminderRequests(
   }
 
   const reminders: ReminderRequest[] = [];
-  const trayChangeAt = addLocalCalendarDays(snapshot.trayStartedAt, snapshot.daysPerTray);
+  const trayChangeDueDate = addLocalCalendarDays(
+    snapshot.trayStartedAt,
+    snapshot.daysPerTray,
+  );
+  const trayChangeAt = setLocalTime(
+    trayChangeDueDate,
+    settings.trayChangeReminderHour,
+    settings.trayChangeReminderMinute,
+  );
   const nextTrayNumber = snapshot.currentTrayNumber + 1;
 
-  if (nextTrayNumber <= snapshot.totalTrays && trayChangeAt > now) {
+  if (
+    settings.trayChangeReminderEnabled &&
+    nextTrayNumber <= snapshot.totalTrays &&
+    trayChangeAt > now
+  ) {
     reminders.push({
       body: `You are scheduled to change to Tray ${nextTrayNumber} today.`,
       fingerprint: reminderFingerprint(
@@ -71,13 +90,13 @@ export function buildReminderRequests(
     snapshot.punches[0] ?? null,
   );
 
-  if (latestPunch?.status === 'OUT') {
+  if (settings.outReminderEnabled && latestPunch?.status === 'OUT') {
     const outReminderAt =
-      latestPunch.timestamp + OUT_REMINDER_MINUTES * MILLISECONDS_PER_MINUTE;
+      latestPunch.timestamp + settings.outReminderMinutes * MILLISECONDS_PER_MINUTE;
 
     if (outReminderAt > now) {
       reminders.push({
-        body: 'Your trays have been out for 45 minutes.',
+        body: `Your trays have been out for ${settings.outReminderMinutes} minutes.`,
         fingerprint: reminderFingerprint(
           'out-too-long',
           outReminderAt,

@@ -33,6 +33,9 @@ export type WearPunch = {
 };
 
 export type Settings = {
-  notificationsEnabled: boolean;
+  outReminderEnabled: boolean;
   outReminderMinutes: number;
+  trayChangeReminderEnabled: boolean;
+  trayChangeReminderHour: number;
+  trayChangeReminderMinute: number;
 };
