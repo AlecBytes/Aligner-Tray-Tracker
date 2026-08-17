@@ -2,6 +2,7 @@ import {
   addLocalDays,
   buildTreatmentDateHistory,
   formatLocalDateKey,
+  formatLocalTime,
   parseLocalDateTime,
 } from '@/features/edit-times/edit-times-dates';
 
@@ -24,11 +25,20 @@ describe('Edit In/Out Times date helpers', () => {
   });
 
   it('parses an editable local date and time without converting it to UTC', () => {
-    const timestamp = parseLocalDateTime('2026-08-16', '08:02:15');
+    const timestamp = parseLocalDateTime('2026-08-16', '08:02');
 
     expect(timestamp).not.toBeNull();
     expect(formatLocalDateKey(timestamp!)).toBe('2026-08-16');
     expect(new Date(timestamp!).getHours()).toBe(8);
+    expect(new Date(timestamp!).getMinutes()).toBe(2);
+    expect(new Date(timestamp!).getSeconds()).toBe(0);
+  });
+
+  it('formats time at minute precision and rejects seconds input', () => {
+    const timestamp = new Date(2026, 7, 16, 8, 2, 15).getTime();
+
+    expect(formatLocalTime(timestamp)).toBe('08:02');
+    expect(parseLocalDateTime('2026-08-16', '08:02:15')).toBeNull();
   });
 
   it('advances calendar days safely for day query boundaries', () => {
@@ -39,4 +49,3 @@ describe('Edit In/Out Times date helpers', () => {
     expect(new Date(nextDay).getHours()).toBe(0);
   });
 });
-

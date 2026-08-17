@@ -8,6 +8,7 @@ import { AppScreen } from '@/components/app-screen';
 import { AppText } from '@/components/app-text';
 import {
   addLocalDays,
+  formatLocalTime,
   parseLocalDateKey,
 } from '@/features/edit-times/edit-times-dates';
 import type { EditableWearPunch } from '@/features/edit-times/edit-times-model';
@@ -20,12 +21,6 @@ const headingFormatter = new Intl.DateTimeFormat(undefined, {
   month: 'long',
   weekday: 'long',
 });
-const timeFormatter = new Intl.DateTimeFormat(undefined, {
-  hour: 'numeric',
-  minute: '2-digit',
-  second: '2-digit',
-});
-
 function firstParameter(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
@@ -123,7 +118,7 @@ export function DailyPunchHistoryScreen() {
                   borderColor: theme.border,
                 },
               ]}>
-              <AppText style={styles.time}>{timeFormatter.format(punch.timestamp)}</AppText>
+              <AppText style={styles.time}>{formatLocalTime(punch.timestamp)}</AppText>
               <AppText style={[styles.status, { color: theme.primary }]}>{punch.status}</AppText>
               <AppText muted>›</AppText>
             </Pressable>
@@ -182,4 +177,3 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
 });
-

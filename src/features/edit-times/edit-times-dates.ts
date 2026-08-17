@@ -64,12 +64,12 @@ export function parseLocalDateKey(value: string) {
 
 export function formatLocalTime(timestamp: number) {
   const date = new Date(timestamp);
-  return `${padDatePart(date.getHours())}:${padDatePart(date.getMinutes())}:${padDatePart(date.getSeconds())}`;
+  return `${padDatePart(date.getHours())}:${padDatePart(date.getMinutes())}`;
 }
 
 export function parseLocalDateTime(dateValue: string, timeValue: string) {
   const dayStart = parseLocalDateKey(dateValue.trim());
-  const timeMatch = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(timeValue.trim());
+  const timeMatch = /^(\d{1,2}):(\d{2})$/.exec(timeValue.trim());
 
   if (dayStart === null || !timeMatch) {
     return null;
@@ -77,20 +77,15 @@ export function parseLocalDateTime(dateValue: string, timeValue: string) {
 
   const hours = Number(timeMatch[1]);
   const minutes = Number(timeMatch[2]);
-  const seconds = Number(timeMatch[3] ?? 0);
 
-  if (hours > 23 || minutes > 59 || seconds > 59) {
+  if (hours > 23 || minutes > 59) {
     return null;
   }
 
   const parsed = new Date(dayStart);
-  parsed.setHours(hours, minutes, seconds, 0);
+  parsed.setHours(hours, minutes, 0, 0);
 
-  if (
-    parsed.getHours() !== hours ||
-    parsed.getMinutes() !== minutes ||
-    parsed.getSeconds() !== seconds
-  ) {
+  if (parsed.getHours() !== hours || parsed.getMinutes() !== minutes) {
     return null;
   }
 
@@ -140,4 +135,3 @@ export function buildTreatmentDateHistory(treatmentStartedAt: number, now = Date
     previousWeeks,
   };
 }
-

@@ -57,7 +57,7 @@ export function AddMissingTimeScreen() {
     const endTimestamp = parseLocalDateTime(endDate, endTime);
 
     if (startTimestamp === null || endTimestamp === null) {
-      setError('Enter valid dates and times using YYYY-MM-DD and HH:MM:SS.');
+      setError('Enter valid dates and times using YYYY-MM-DD and HH:MM.');
       return;
     }
 
@@ -197,4 +197,3 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
   },
 });
-

@@ -59,7 +59,7 @@ export function DateTimeFields({
             autoCorrect={false}
             editable={!disabled}
             onChangeText={onChangeTime}
-            placeholder="HH:MM:SS"
+            placeholder="HH:MM"
             placeholderTextColor={theme.textMuted}
             selectTextOnFocus
             style={inputStyle}
@@ -96,4 +96,3 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
 });
-
