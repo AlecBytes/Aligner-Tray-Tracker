@@ -1,0 +1,3 @@
+import { StatisticsScreen } from '@/features/statistics/statistics-screen';
+
+export default StatisticsScreen;

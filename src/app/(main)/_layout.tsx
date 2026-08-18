@@ -26,6 +26,8 @@ export default function MainLayout() {
         <Stack.Screen name="edit-times/day" options={{ title: 'Punch History' }} />
         <Stack.Screen name="edit-times/event" options={{ title: 'Edit Event' }} />
         <Stack.Screen name="edit-times/add" options={{ title: 'Add Missing Time' }} />
+        <Stack.Screen name="statistics" options={{ title: 'Statistics' }} />
+        <Stack.Screen name="support" options={{ title: 'Support Aligner Tracker' }} />
         <Stack.Screen name="help" options={{ title: 'Help' }} />
       </Stack>
     </TreatmentRouteGate>

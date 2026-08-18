@@ -1,4 +1,4 @@
-import { type Href, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppScreen } from '@/components/app-screen';
@@ -42,8 +42,15 @@ export function MenuScreen() {
         <MenuItem label="Notifications" onPress={() => router.push('/notifications')} />
         <MenuItem
           label="Edit In/Out Times"
-          onPress={() => router.push('/edit-times' as Href)}
+          onPress={() => router.push('/edit-times')}
         />
+        <MenuItem label="Statistics" onPress={() => router.push('/statistics')} />
+        {__DEV__ ? (
+          <MenuItem
+            label="Support Aligner Tracker (Preview)"
+            onPress={() => router.push('/support')}
+          />
+        ) : null}
         <MenuItem label="Help" onPress={() => router.push('/help')} />
       </View>
     </AppScreen>
