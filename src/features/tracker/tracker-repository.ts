@@ -112,22 +112,25 @@ export async function toggleWearStatus(
   const result = await db.runAsync(
     `INSERT INTO wear_punches (tray_period_id, status, timestamp)
      SELECT ?, ?, ?
-     WHERE EXISTS (
-       SELECT 1 FROM tray_periods WHERE id = ? AND ended_at IS NULL
-     )
-       AND (
-         SELECT status
-         FROM wear_punches
-         WHERE tray_period_id = ?
-         ORDER BY timestamp DESC, id DESC
-         LIMIT 1
-       ) = ?`,
+     FROM (
+       SELECT status, timestamp
+       FROM wear_punches
+       WHERE tray_period_id = ?
+       ORDER BY timestamp DESC, id DESC
+       LIMIT 1
+     ) AS latest_punch
+     WHERE latest_punch.status = ?
+       AND latest_punch.timestamp < ?
+       AND EXISTS (
+         SELECT 1 FROM tray_periods WHERE id = ? AND ended_at IS NULL
+       )`,
     trayPeriodId,
     nextStatus,
     timestamp,
     trayPeriodId,
-    trayPeriodId,
     expectedStatus,
+    timestamp,
+    trayPeriodId,
   );
 
   if (result.changes !== 1) {

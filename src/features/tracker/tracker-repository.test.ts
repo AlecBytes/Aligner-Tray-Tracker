@@ -67,8 +67,9 @@ describe('toggleWearStatus', () => {
       nextStatus,
       timestamp,
       33,
-      33,
       currentStatus,
+      timestamp,
+      33,
     );
   });
 
@@ -77,6 +78,25 @@ describe('toggleWearStatus', () => {
 
     await expect(toggleWearStatus(databaseWithRunAsync(runAsync), 33, 'IN')).rejects.toBeInstanceOf(
       TrackerStateChangedError,
+    );
+  });
+
+  it('requires the new punch to be later than the saved punch', async () => {
+    const runAsync = jest.fn().mockResolvedValue({ changes: 0, lastInsertRowId: 0 });
+
+    await expect(
+      toggleWearStatus(databaseWithRunAsync(runAsync), 33, 'IN', 1000),
+    ).rejects.toBeInstanceOf(TrackerStateChangedError);
+
+    expect(runAsync).toHaveBeenCalledWith(
+      expect.stringContaining('latest_punch.timestamp < ?'),
+      33,
+      'OUT',
+      1000,
+      33,
+      'IN',
+      1000,
+      33,
     );
   });
 

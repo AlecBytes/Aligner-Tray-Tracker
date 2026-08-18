@@ -1,4 +1,4 @@
-import { type Href, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -217,7 +217,7 @@ export function TreatmentPlanScreen() {
       <Pressable
         accessibilityRole="button"
         disabled={isSaving}
-        onPress={() => router.push('/treatment-plan-history' as Href)}
+        onPress={() => router.push('/treatment-plan-history')}
         style={({ pressed }) => [
           styles.historyButton,
           {

@@ -8,21 +8,28 @@ import {
 
 type DatabaseOptions = {
   currentStatus?: 'IN' | 'OUT';
+  currentTimestamp?: number;
   totalTrays?: number;
 };
 
-function createDatabaseMock({ currentStatus = 'OUT', totalTrays = 48 }: DatabaseOptions = {}) {
+function createDatabaseMock({
+  currentStatus = 'OUT',
+  currentTimestamp = 0,
+  totalTrays = 48,
+}: DatabaseOptions = {}) {
   let insideTransaction = false;
   const insertedIds = [101, 102, 103, 104];
   const getFirstAsync = jest.fn(
     async (): Promise<{
       active_period_count: number;
       current_status: 'IN' | 'OUT';
+      current_timestamp: number;
       total_trays: number;
       treatment_id: number;
     } | null> => ({
       active_period_count: 1,
       current_status: currentStatus,
+      current_timestamp: currentTimestamp,
       total_trays: totalTrays,
       treatment_id: 12,
     }),
@@ -131,6 +138,15 @@ describe('changeTray', () => {
     expect(database.runAsync).not.toHaveBeenCalled();
   });
 
+  it('rejects a tray change that would duplicate the latest punch timestamp', async () => {
+    const database = createDatabaseMock({ currentStatus: 'IN', currentTimestamp: timestamp });
+
+    await expect(
+      changeTray(database.db, { currentTrayPeriodId: 33, trayNumber: 10 }, timestamp),
+    ).rejects.toBeInstanceOf(TrayChangeConflictError);
+    expect(database.runAsync).not.toHaveBeenCalled();
+  });
+
   it('rolls back the ended tray and inserted records when a write fails', async () => {
     const state: {
       punches: {
@@ -155,6 +171,7 @@ describe('changeTray', () => {
     const getFirstAsync = jest.fn(async () => ({
       active_period_count: 1,
       current_status: 'IN',
+      current_timestamp: timestamp - 1000,
       total_trays: 48,
       treatment_id: 12,
     }));

@@ -5,6 +5,7 @@ import type { WearStatus } from '@/db/schema';
 type ActiveTrayRow = {
   active_period_count: number;
   current_status: WearStatus | null;
+  current_timestamp: number | null;
   total_trays: number;
   treatment_id: number;
 };
@@ -60,7 +61,14 @@ export async function changeTray(
            WHERE wear_punches.tray_period_id = tray_periods.id
            ORDER BY wear_punches.timestamp DESC, wear_punches.id DESC
            LIMIT 1
-         ) AS current_status
+         ) AS current_status,
+         (
+           SELECT wear_punches.timestamp
+           FROM wear_punches
+           WHERE wear_punches.tray_period_id = tray_periods.id
+           ORDER BY wear_punches.timestamp DESC, wear_punches.id DESC
+           LIMIT 1
+         ) AS current_timestamp
        FROM tray_periods
        JOIN treatment_plan_versions
          ON treatment_plan_versions.id = (
@@ -78,7 +86,9 @@ export async function changeTray(
     if (
       activeTray === null ||
       activeTray.active_period_count !== 1 ||
-      activeTray.current_status === null
+      activeTray.current_status === null ||
+      activeTray.current_timestamp === null ||
+      timestamp <= activeTray.current_timestamp
     ) {
       throw new TrayChangeConflictError();
     }
