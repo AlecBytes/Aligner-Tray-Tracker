@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { AppLoadingScreen } from '@/components/app-loading-screen';
 import { AppScreen } from '@/components/app-screen';
 import { AppText } from '@/components/app-text';
+import { useFormKeyboardNavigation } from '@/components/form-keyboard-navigation';
 import { reconcileLocalNotifications } from '@/features/notifications/local-notifications';
 import { createTrackerReadModel } from '@/features/tracker/tracker-calculations';
 import type { TrackerSnapshot } from '@/features/tracker/tracker-model';
@@ -23,6 +24,7 @@ export function ChangeTrayScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
   const theme = useAppTheme();
+  const keyboardNavigation = useFormKeyboardNavigation(1, 'change-tray-keyboard');
   const changeInProgress = useRef(false);
   const [snapshot, setSnapshot] = useState<TrackerSnapshot | null>(null);
   const [readAt, setReadAt] = useState(0);
@@ -160,7 +162,7 @@ export function ChangeTrayScreen() {
       : `Your trays are OUT. Start tray ${pendingTrayNumber} now? The new tray will remain OUT until you mark it IN.`;
 
   return (
-    <AppScreen>
+    <AppScreen keyboardAccessory={keyboardNavigation.accessory}>
       <View style={styles.heading}>
         <AppText muted>
           Current tray: {tracker.currentTrayNumber} / {tracker.totalTrays}
@@ -221,6 +223,7 @@ export function ChangeTrayScreen() {
               setValidationError(null);
               setPendingTrayNumber(null);
             }}
+            {...keyboardNavigation.getInputProps(0)}
             onSubmitEditing={requestManualTrayChange}
             placeholder={`1–${tracker.totalTrays}`}
             placeholderTextColor={theme.textMuted}

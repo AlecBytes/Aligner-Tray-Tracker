@@ -11,6 +11,10 @@ import {
 
 import { AppScreen } from '@/components/app-screen';
 import { AppText } from '@/components/app-text';
+import {
+  type FormKeyboardInputProps,
+  useFormKeyboardNavigation,
+} from '@/components/form-keyboard-navigation';
 import { initializeLocalNotifications } from '@/features/notifications/local-notifications';
 import { createInitialTreatment } from '@/features/treatment/treatment-repository';
 import {
@@ -28,15 +32,15 @@ const INITIAL_VALUES: TreatmentSetupFormValues = {
   totalTrays: '',
 };
 
-type SetupFieldProps = Pick<TextInputProps, 'inputMode' | 'keyboardType' | 'returnKeyType'> & {
+type SetupFieldProps = Pick<TextInputProps, 'inputMode' | 'keyboardType'> & {
   error?: string;
   label: string;
+  navigation: FormKeyboardInputProps;
   onChangeText: (value: string) => void;
-  onSubmitEditing?: () => void;
   value: string;
 };
 
-function SetupField({ error, label, ...inputProps }: SetupFieldProps) {
+function SetupField({ error, label, navigation, ...inputProps }: SetupFieldProps) {
   const theme = useAppTheme();
 
   return (
@@ -54,6 +58,7 @@ function SetupField({ error, label, ...inputProps }: SetupFieldProps) {
             color: theme.text,
           },
         ]}
+        {...navigation}
         {...inputProps}
       />
       {error ? (
@@ -69,6 +74,7 @@ export function SetupScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
   const theme = useAppTheme();
+  const keyboardNavigation = useFormKeyboardNavigation(4, 'treatment-setup-keyboard');
   const submissionInProgress = useRef(false);
   const [values, setValues] = useState(INITIAL_VALUES);
   const [errors, setErrors] = useState<TreatmentSetupValidationErrors>({});
@@ -90,6 +96,16 @@ export function SetupScreen() {
 
     if (!validation.success) {
       setErrors(validation.errors);
+      const firstInvalidField = [
+        validation.errors.totalTrays,
+        validation.errors.startingTrayNumber,
+        validation.errors.daysPerTray,
+        validation.errors.prescribedHoursPerDay,
+      ].findIndex(Boolean);
+
+      if (firstInvalidField >= 0) {
+        requestAnimationFrame(() => keyboardNavigation.focusField(firstInvalidField));
+      }
       return;
     }
 
@@ -110,7 +126,7 @@ export function SetupScreen() {
   }
 
   return (
-    <AppScreen>
+    <AppScreen keyboardAccessory={keyboardNavigation.accessory}>
       <View style={styles.heading}>
         <AppText variant="title">Treatment setup</AppText>
         <AppText muted>Enter the plan prescribed for your current treatment.</AppText>
@@ -122,6 +138,7 @@ export function SetupScreen() {
           inputMode="numeric"
           keyboardType="number-pad"
           label="Total number of trays"
+          navigation={keyboardNavigation.getInputProps(0)}
           onChangeText={(value) => updateValue('totalTrays', value)}
           value={values.totalTrays}
         />
@@ -130,6 +147,7 @@ export function SetupScreen() {
           inputMode="numeric"
           keyboardType="number-pad"
           label="Starting tray number"
+          navigation={keyboardNavigation.getInputProps(1)}
           onChangeText={(value) => updateValue('startingTrayNumber', value)}
           value={values.startingTrayNumber}
         />
@@ -138,6 +156,7 @@ export function SetupScreen() {
           inputMode="numeric"
           keyboardType="number-pad"
           label="Days per tray"
+          navigation={keyboardNavigation.getInputProps(2)}
           onChangeText={(value) => updateValue('daysPerTray', value)}
           value={values.daysPerTray}
         />
@@ -146,9 +165,8 @@ export function SetupScreen() {
           inputMode="decimal"
           keyboardType="decimal-pad"
           label="Prescribed hours per day"
+          navigation={keyboardNavigation.getInputProps(3)}
           onChangeText={(value) => updateValue('prescribedHoursPerDay', value)}
-          onSubmitEditing={() => void submitSetup()}
-          returnKeyType="done"
           value={values.prescribedHoursPerDay}
         />
 

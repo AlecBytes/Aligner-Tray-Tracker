@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppScreen } from '@/components/app-screen';
 import { AppText } from '@/components/app-text';
+import { useFormKeyboardNavigation } from '@/components/form-keyboard-navigation';
 import type { WearStatus } from '@/db/schema';
 import { DateTimeFields } from '@/features/edit-times/date-time-fields';
 import { CorrectionValidationError } from '@/features/edit-times/edit-times-corrections';
@@ -31,6 +32,7 @@ export function AddMissingTimeScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
   const theme = useAppTheme();
+  const keyboardNavigation = useFormKeyboardNavigation(4, 'add-missing-time-keyboard');
   const params = useLocalSearchParams<{ date?: string | string[] }>();
   const initialDate = firstParameter(params.date) ?? '';
   const validInitialDate = parseLocalDateKey(initialDate) === null ? '' : initialDate;
@@ -58,6 +60,7 @@ export function AddMissingTimeScreen() {
 
     if (startTimestamp === null || endTimestamp === null) {
       setError('Enter valid dates and times using YYYY-MM-DD and HH:MM.');
+      requestAnimationFrame(() => keyboardNavigation.focusField(startTimestamp === null ? 0 : 2));
       return;
     }
 
@@ -77,7 +80,7 @@ export function AddMissingTimeScreen() {
   }
 
   return (
-    <AppScreen>
+    <AppScreen keyboardAccessory={keyboardNavigation.accessory}>
       <AppText muted>
         Add one missing period. Both state transitions will be saved together.
       </AppText>
@@ -119,6 +122,7 @@ export function AddMissingTimeScreen() {
       </View>
 
       <DateTimeFields
+        dateInputNavigation={keyboardNavigation.getInputProps(0)}
         dateValue={startDate}
         disabled={isSaving}
         label="Start"
@@ -130,9 +134,11 @@ export function AddMissingTimeScreen() {
           setStartTime(value);
           setError(null);
         }}
+        timeInputNavigation={keyboardNavigation.getInputProps(1)}
         timeValue={startTime}
       />
       <DateTimeFields
+        dateInputNavigation={keyboardNavigation.getInputProps(2)}
         dateValue={endDate}
         disabled={isSaving}
         label="End"
@@ -144,6 +150,7 @@ export function AddMissingTimeScreen() {
           setEndTime(value);
           setError(null);
         }}
+        timeInputNavigation={keyboardNavigation.getInputProps(3)}
         timeValue={endTime}
       />
 

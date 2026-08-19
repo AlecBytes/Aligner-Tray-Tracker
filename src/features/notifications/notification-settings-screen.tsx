@@ -6,6 +6,7 @@ import { Linking, Platform, Pressable, StyleSheet, Switch, TextInput, View } fro
 import { AppLoadingScreen } from '@/components/app-loading-screen';
 import { AppScreen } from '@/components/app-screen';
 import { AppText } from '@/components/app-text';
+import { useFormKeyboardNavigation } from '@/components/form-keyboard-navigation';
 import type { Settings } from '@/db/schema';
 import {
   getLocalNotificationPermissionState,
@@ -68,6 +69,7 @@ function permissionMessage(permission: LocalNotificationPermissionState) {
 export function NotificationSettingsScreen() {
   const db = useSQLiteContext();
   const theme = useAppTheme();
+  const keyboardNavigation = useFormKeyboardNavigation(2, 'notification-settings-keyboard');
   const saveInProgress = useRef(false);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [values, setValues] = useState<NotificationSettingsFormValues | null>(null);
@@ -149,6 +151,14 @@ export function NotificationSettingsScreen() {
 
     if (!validation.success) {
       setErrors(validation.errors);
+      const firstInvalidField = [
+        validation.errors.outReminderMinutes,
+        validation.errors.trayChangeReminderTime,
+      ].findIndex(Boolean);
+
+      if (firstInvalidField >= 0) {
+        requestAnimationFrame(() => keyboardNavigation.focusField(firstInvalidField));
+      }
       return;
     }
 
@@ -212,7 +222,7 @@ export function NotificationSettingsScreen() {
   const canOpenDeviceSettings = Platform.OS !== 'web' && permission !== 'granted';
 
   return (
-    <AppScreen>
+    <AppScreen keyboardAccessory={keyboardNavigation.accessory}>
       <View style={[styles.permissionCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
         <AppText muted variant="caption">
           {permissionMessage(permission)}
@@ -247,8 +257,6 @@ export function NotificationSettingsScreen() {
               inputMode="numeric"
               keyboardType="number-pad"
               onChangeText={(value) => updateValue('outReminderMinutes', value)}
-              onSubmitEditing={() => void saveSettings()}
-              returnKeyType="done"
               selectTextOnFocus
               style={[
                 styles.numberInput,
@@ -259,6 +267,7 @@ export function NotificationSettingsScreen() {
                 },
               ]}
               value={values.outReminderMinutes}
+              {...keyboardNavigation.getInputProps(0)}
             />
             <AppText>minutes</AppText>
           </View>
@@ -286,10 +295,8 @@ export function NotificationSettingsScreen() {
             autoCorrect={false}
             editable={!isSaving}
             onChangeText={(value) => updateValue('trayChangeReminderTime', value)}
-            onSubmitEditing={() => void saveSettings()}
             placeholder="9:00 AM"
             placeholderTextColor={theme.textMuted}
-            returnKeyType="done"
             selectTextOnFocus
             style={[
               styles.timeInput,
@@ -300,6 +307,7 @@ export function NotificationSettingsScreen() {
               },
             ]}
             value={values.trayChangeReminderTime}
+            {...keyboardNavigation.getInputProps(1)}
           />
           {errors.trayChangeReminderTime ? (
             <AppText accessibilityLiveRegion="polite" style={{ color: theme.error }} variant="caption">

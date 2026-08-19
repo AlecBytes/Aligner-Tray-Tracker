@@ -12,6 +12,10 @@ import {
 import { AppLoadingScreen } from '@/components/app-loading-screen';
 import { AppScreen } from '@/components/app-screen';
 import { AppText } from '@/components/app-text';
+import {
+  type FormKeyboardInputProps,
+  useFormKeyboardNavigation,
+} from '@/components/form-keyboard-navigation';
 import { reconcileLocalNotifications } from '@/features/notifications/local-notifications';
 import {
   type TreatmentPlanFormValues,
@@ -28,17 +32,23 @@ import { useAppTheme } from '@/theme/use-app-theme';
 
 type TreatmentPlanFieldProps = Pick<
   TextInputProps,
-  'inputMode' | 'keyboardType' | 'returnKeyType'
+  'inputMode' | 'keyboardType'
 > & {
   disabled: boolean;
   error?: string;
   label: string;
+  navigation: FormKeyboardInputProps;
   onChangeText: (value: string) => void;
-  onSubmitEditing?: () => void;
   value: string;
 };
 
-function TreatmentPlanField({ disabled, error, label, ...inputProps }: TreatmentPlanFieldProps) {
+function TreatmentPlanField({
+  disabled,
+  error,
+  label,
+  navigation,
+  ...inputProps
+}: TreatmentPlanFieldProps) {
   const theme = useAppTheme();
 
   return (
@@ -58,6 +68,7 @@ function TreatmentPlanField({ disabled, error, label, ...inputProps }: Treatment
             opacity: disabled ? 0.65 : 1,
           },
         ]}
+        {...navigation}
         {...inputProps}
       />
       {error ? (
@@ -73,6 +84,7 @@ export function TreatmentPlanScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
   const theme = useAppTheme();
+  const keyboardNavigation = useFormKeyboardNavigation(3, 'treatment-plan-keyboard');
   const submissionInProgress = useRef(false);
   const [values, setValues] = useState<TreatmentPlanFormValues | null>(null);
   const [currentTrayNumber, setCurrentTrayNumber] = useState<number | null>(null);
@@ -161,6 +173,15 @@ export function TreatmentPlanScreen() {
 
     if (!validation.success) {
       setErrors(validation.errors);
+      const firstInvalidField = [
+        validation.errors.totalTrays,
+        validation.errors.daysPerTray,
+        validation.errors.prescribedHoursPerDay,
+      ].findIndex(Boolean);
+
+      if (firstInvalidField >= 0) {
+        requestAnimationFrame(() => keyboardNavigation.focusField(firstInvalidField));
+      }
       return;
     }
 
@@ -209,7 +230,7 @@ export function TreatmentPlanScreen() {
   }
 
   return (
-    <AppScreen>
+    <AppScreen keyboardAccessory={keyboardNavigation.accessory}>
       <View style={styles.heading}>
         <AppText muted>Update the plan prescribed for your current treatment.</AppText>
       </View>
@@ -237,6 +258,7 @@ export function TreatmentPlanScreen() {
           inputMode="numeric"
           keyboardType="number-pad"
           label="Total trays"
+          navigation={keyboardNavigation.getInputProps(0)}
           onChangeText={(value) => updateValue('totalTrays', value)}
           value={values.totalTrays}
         />
@@ -246,6 +268,7 @@ export function TreatmentPlanScreen() {
           inputMode="numeric"
           keyboardType="number-pad"
           label="Days per tray"
+          navigation={keyboardNavigation.getInputProps(1)}
           onChangeText={(value) => updateValue('daysPerTray', value)}
           value={values.daysPerTray}
         />
@@ -255,9 +278,8 @@ export function TreatmentPlanScreen() {
           inputMode="decimal"
           keyboardType="decimal-pad"
           label="Prescribed hours per day"
+          navigation={keyboardNavigation.getInputProps(2)}
           onChangeText={(value) => updateValue('prescribedHoursPerDay', value)}
-          onSubmitEditing={() => void savePlan()}
-          returnKeyType="done"
           value={values.prescribedHoursPerDay}
         />
 

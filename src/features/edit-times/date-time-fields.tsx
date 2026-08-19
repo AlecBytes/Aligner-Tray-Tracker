@@ -1,24 +1,29 @@
 import { StyleSheet, TextInput, View } from 'react-native';
 
 import { AppText } from '@/components/app-text';
+import type { FormKeyboardInputProps } from '@/components/form-keyboard-navigation';
 import { radius, spacing } from '@/theme/tokens';
 import { useAppTheme } from '@/theme/use-app-theme';
 
 type DateTimeFieldsProps = {
+  dateInputNavigation: FormKeyboardInputProps;
   dateValue: string;
   disabled?: boolean;
   label: string;
   onChangeDate: (value: string) => void;
   onChangeTime: (value: string) => void;
+  timeInputNavigation: FormKeyboardInputProps;
   timeValue: string;
 };
 
 export function DateTimeFields({
+  dateInputNavigation,
   dateValue,
   disabled = false,
   label,
   onChangeDate,
   onChangeTime,
+  timeInputNavigation,
   timeValue,
 }: DateTimeFieldsProps) {
   const theme = useAppTheme();
@@ -49,6 +54,7 @@ export function DateTimeFields({
             selectTextOnFocus
             style={inputStyle}
             value={dateValue}
+            {...dateInputNavigation}
           />
         </View>
         <View style={styles.timeField}>
@@ -64,6 +70,7 @@ export function DateTimeFields({
             selectTextOnFocus
             style={inputStyle}
             value={timeValue}
+            {...timeInputNavigation}
           />
         </View>
       </View>

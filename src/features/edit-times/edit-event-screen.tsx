@@ -6,6 +6,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { AppLoadingScreen } from '@/components/app-loading-screen';
 import { AppScreen } from '@/components/app-screen';
 import { AppText } from '@/components/app-text';
+import { useFormKeyboardNavigation } from '@/components/form-keyboard-navigation';
 import { DateTimeFields } from '@/features/edit-times/date-time-fields';
 import { CorrectionValidationError } from '@/features/edit-times/edit-times-corrections';
 import {
@@ -37,6 +38,7 @@ export function EditEventScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
   const theme = useAppTheme();
+  const keyboardNavigation = useFormKeyboardNavigation(2, 'edit-event-keyboard');
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const idValue = firstParameter(params.id);
   const punchId = idValue && /^\d+$/.test(idValue) ? Number(idValue) : null;
@@ -103,6 +105,7 @@ export function EditEventScreen() {
 
     if (timestamp === null) {
       setError('Enter a valid date and time using YYYY-MM-DD and HH:MM.');
+      requestAnimationFrame(() => keyboardNavigation.focusField(0));
       return;
     }
 
@@ -143,7 +146,7 @@ export function EditEventScreen() {
   }
 
   return (
-    <AppScreen>
+    <AppScreen keyboardAccessory={keyboardNavigation.accessory}>
       <AppText muted>Correct the recorded time. The IN/OUT status cannot be changed.</AppText>
 
       <View style={[styles.statusCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -152,6 +155,7 @@ export function EditEventScreen() {
       </View>
 
       <DateTimeFields
+        dateInputNavigation={keyboardNavigation.getInputProps(0)}
         dateValue={dateValue}
         disabled={isSaving}
         label="Recorded date and time"
@@ -163,6 +167,7 @@ export function EditEventScreen() {
           setTimeValue(value);
           setError(null);
         }}
+        timeInputNavigation={keyboardNavigation.getInputProps(1)}
         timeValue={timeValue}
       />
 
