@@ -1,21 +1,13 @@
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useRef, useState } from 'react';
-import {
-  Pressable,
-  StyleSheet,
-  TextInput,
-  type TextInputProps,
-  View,
-} from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppScreen } from '@/components/app-screen';
 import { AppText } from '@/components/app-text';
-import {
-  type FormKeyboardInputProps,
-  useFormKeyboardNavigation,
-} from '@/components/form-keyboard-navigation';
+import { useFormKeyboardNavigation } from '@/components/form-keyboard-navigation';
 import { initializeLocalNotifications } from '@/features/notifications/local-notifications';
+import { TreatmentFormField } from '@/features/treatment/treatment-form-field';
 import { createInitialTreatment } from '@/features/treatment/treatment-repository';
 import {
   type TreatmentSetupFormValues,
@@ -31,44 +23,6 @@ const INITIAL_VALUES: TreatmentSetupFormValues = {
   startingTrayNumber: '',
   totalTrays: '',
 };
-
-type SetupFieldProps = Pick<TextInputProps, 'inputMode' | 'keyboardType'> & {
-  error?: string;
-  label: string;
-  navigation: FormKeyboardInputProps;
-  onChangeText: (value: string) => void;
-  value: string;
-};
-
-function SetupField({ error, label, navigation, ...inputProps }: SetupFieldProps) {
-  const theme = useAppTheme();
-
-  return (
-    <View style={styles.field}>
-      <AppText>{label}</AppText>
-      <TextInput
-        accessibilityLabel={label}
-        autoCorrect={false}
-        selectTextOnFocus
-        style={[
-          styles.input,
-          {
-            backgroundColor: theme.surface,
-            borderColor: error ? theme.error : theme.border,
-            color: theme.text,
-          },
-        ]}
-        {...navigation}
-        {...inputProps}
-      />
-      {error ? (
-        <AppText accessibilityLiveRegion="polite" style={{ color: theme.error }} variant="caption">
-          {error}
-        </AppText>
-      ) : null}
-    </View>
-  );
-}
 
 export function SetupScreen() {
   const db = useSQLiteContext();
@@ -96,16 +50,12 @@ export function SetupScreen() {
 
     if (!validation.success) {
       setErrors(validation.errors);
-      const firstInvalidField = [
+      keyboardNavigation.focusFirstInvalid([
         validation.errors.totalTrays,
         validation.errors.startingTrayNumber,
         validation.errors.daysPerTray,
         validation.errors.prescribedHoursPerDay,
-      ].findIndex(Boolean);
-
-      if (firstInvalidField >= 0) {
-        requestAnimationFrame(() => keyboardNavigation.focusField(firstInvalidField));
-      }
+      ]);
       return;
     }
 
@@ -133,7 +83,7 @@ export function SetupScreen() {
       </View>
 
       <View style={styles.form}>
-        <SetupField
+        <TreatmentFormField
           error={errors.totalTrays}
           inputMode="numeric"
           keyboardType="number-pad"
@@ -142,7 +92,7 @@ export function SetupScreen() {
           onChangeText={(value) => updateValue('totalTrays', value)}
           value={values.totalTrays}
         />
-        <SetupField
+        <TreatmentFormField
           error={errors.startingTrayNumber}
           inputMode="numeric"
           keyboardType="number-pad"
@@ -151,7 +101,7 @@ export function SetupScreen() {
           onChangeText={(value) => updateValue('startingTrayNumber', value)}
           value={values.startingTrayNumber}
         />
-        <SetupField
+        <TreatmentFormField
           error={errors.daysPerTray}
           inputMode="numeric"
           keyboardType="number-pad"
@@ -160,7 +110,7 @@ export function SetupScreen() {
           onChangeText={(value) => updateValue('daysPerTray', value)}
           value={values.daysPerTray}
         />
-        <SetupField
+        <TreatmentFormField
           error={errors.prescribedHoursPerDay}
           inputMode="decimal"
           keyboardType="decimal-pad"
@@ -197,9 +147,6 @@ export function SetupScreen() {
 }
 
 const styles = StyleSheet.create({
-  field: {
-    gap: spacing.sm,
-  },
   form: {
     gap: spacing.lg,
     paddingTop: spacing.md,
@@ -207,14 +154,6 @@ const styles = StyleSheet.create({
   heading: {
     gap: spacing.sm,
     paddingTop: spacing.xl,
-  },
-  input: {
-    borderRadius: radius.md,
-    borderWidth: 1,
-    fontSize: 18,
-    minHeight: 52,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
   },
   submitButton: {
     alignItems: 'center',

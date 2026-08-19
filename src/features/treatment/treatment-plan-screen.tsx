@@ -1,21 +1,12 @@
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Pressable,
-  StyleSheet,
-  TextInput,
-  type TextInputProps,
-  View,
-} from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppLoadingScreen } from '@/components/app-loading-screen';
 import { AppScreen } from '@/components/app-screen';
 import { AppText } from '@/components/app-text';
-import {
-  type FormKeyboardInputProps,
-  useFormKeyboardNavigation,
-} from '@/components/form-keyboard-navigation';
+import { useFormKeyboardNavigation } from '@/components/form-keyboard-navigation';
 import { reconcileLocalNotifications } from '@/features/notifications/local-notifications';
 import {
   type TreatmentPlanFormValues,
@@ -27,58 +18,9 @@ import {
   getActiveTrayNumber,
   getCurrentTreatmentPlan,
 } from '@/features/treatment/treatment-repository';
+import { TreatmentFormField } from '@/features/treatment/treatment-form-field';
 import { radius, spacing } from '@/theme/tokens';
 import { useAppTheme } from '@/theme/use-app-theme';
-
-type TreatmentPlanFieldProps = Pick<
-  TextInputProps,
-  'inputMode' | 'keyboardType'
-> & {
-  disabled: boolean;
-  error?: string;
-  label: string;
-  navigation: FormKeyboardInputProps;
-  onChangeText: (value: string) => void;
-  value: string;
-};
-
-function TreatmentPlanField({
-  disabled,
-  error,
-  label,
-  navigation,
-  ...inputProps
-}: TreatmentPlanFieldProps) {
-  const theme = useAppTheme();
-
-  return (
-    <View style={styles.field}>
-      <AppText>{label}</AppText>
-      <TextInput
-        accessibilityLabel={label}
-        autoCorrect={false}
-        editable={!disabled}
-        selectTextOnFocus
-        style={[
-          styles.input,
-          {
-            backgroundColor: theme.surface,
-            borderColor: error ? theme.error : theme.border,
-            color: theme.text,
-            opacity: disabled ? 0.65 : 1,
-          },
-        ]}
-        {...navigation}
-        {...inputProps}
-      />
-      {error ? (
-        <AppText accessibilityLiveRegion="polite" style={{ color: theme.error }} variant="caption">
-          {error}
-        </AppText>
-      ) : null}
-    </View>
-  );
-}
 
 export function TreatmentPlanScreen() {
   const db = useSQLiteContext();
@@ -173,15 +115,11 @@ export function TreatmentPlanScreen() {
 
     if (!validation.success) {
       setErrors(validation.errors);
-      const firstInvalidField = [
+      keyboardNavigation.focusFirstInvalid([
         validation.errors.totalTrays,
         validation.errors.daysPerTray,
         validation.errors.prescribedHoursPerDay,
-      ].findIndex(Boolean);
-
-      if (firstInvalidField >= 0) {
-        requestAnimationFrame(() => keyboardNavigation.focusField(firstInvalidField));
-      }
+      ]);
       return;
     }
 
@@ -252,7 +190,7 @@ export function TreatmentPlanScreen() {
       </Pressable>
 
       <View style={styles.form}>
-        <TreatmentPlanField
+        <TreatmentFormField
           disabled={isSaving}
           error={errors.totalTrays}
           inputMode="numeric"
@@ -262,7 +200,7 @@ export function TreatmentPlanScreen() {
           onChangeText={(value) => updateValue('totalTrays', value)}
           value={values.totalTrays}
         />
-        <TreatmentPlanField
+        <TreatmentFormField
           disabled={isSaving}
           error={errors.daysPerTray}
           inputMode="numeric"
@@ -272,7 +210,7 @@ export function TreatmentPlanScreen() {
           onChangeText={(value) => updateValue('daysPerTray', value)}
           value={values.daysPerTray}
         />
-        <TreatmentPlanField
+        <TreatmentFormField
           disabled={isSaving}
           error={errors.prescribedHoursPerDay}
           inputMode="decimal"
@@ -310,9 +248,6 @@ export function TreatmentPlanScreen() {
 }
 
 const styles = StyleSheet.create({
-  field: {
-    gap: spacing.sm,
-  },
   form: {
     gap: spacing.lg,
     paddingTop: spacing.md,
@@ -331,14 +266,6 @@ const styles = StyleSheet.create({
   },
   historyButtonLabel: {
     fontWeight: '700',
-  },
-  input: {
-    borderRadius: radius.md,
-    borderWidth: 1,
-    fontSize: 18,
-    minHeight: 52,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
   },
   message: {
     flex: 1,

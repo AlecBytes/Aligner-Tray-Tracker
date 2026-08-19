@@ -25,6 +25,15 @@ export type FormKeyboardInputProps = Pick<
   ref: React.RefObject<TextInput | null>;
 };
 
+export function getFormKeyboardAction(index: number, fieldCount: number) {
+  const isLastField = index === fieldCount - 1;
+
+  return {
+    returnKeyType: isLastField ? ('done' as const) : ('next' as const),
+    submitBehavior: isLastField ? ('blurAndSubmit' as const) : ('submit' as const),
+  };
+}
+
 type FormKeyboardAccessoryProps = {
   accessoryId: string;
   activeIndex: number;
@@ -103,6 +112,17 @@ export function useFormKeyboardNavigation(fieldCount: number, accessoryId: strin
     [inputRefs],
   );
 
+  const focusFirstInvalid = useCallback(
+    (invalidFields: readonly unknown[]) => {
+      const firstInvalidIndex = invalidFields.findIndex(Boolean);
+
+      if (firstInvalidIndex >= 0) {
+        requestAnimationFrame(() => focusField(firstInvalidIndex));
+      }
+    },
+    [focusField],
+  );
+
   const getInputProps = useCallback(
     (index: number): FormKeyboardInputProps => {
       const isLastField = index === fieldCount - 1;
@@ -119,8 +139,7 @@ export function useFormKeyboardNavigation(fieldCount: number, accessoryId: strin
           focusField(index + 1);
         },
         ref: inputRefs[index],
-        returnKeyType: isLastField ? 'done' : 'next',
-        submitBehavior: isLastField ? 'blurAndSubmit' : 'submit',
+        ...getFormKeyboardAction(index, fieldCount),
       };
     },
     [accessoryId, fieldCount, focusField, inputRefs],
@@ -136,6 +155,7 @@ export function useFormKeyboardNavigation(fieldCount: number, accessoryId: strin
       />
     ),
     focusField,
+    focusFirstInvalid,
     getInputProps,
   };
 }
