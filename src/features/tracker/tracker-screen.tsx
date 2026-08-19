@@ -216,11 +216,6 @@ export function TrackerScreen() {
         <AppText muted>{daysRemainingLabel}</AppText>
       </View>
 
-      <View style={styles.metrics}>
-        <TimeMetric label="IN TODAY" seconds={tracker.inTodaySeconds} />
-        <TimeMetric label="OUT TODAY" seconds={tracker.outTodaySeconds} />
-      </View>
-
       {error ? (
         <AppText accessibilityLiveRegion="polite" style={{ color: theme.error }}>
           {error}
@@ -257,6 +252,11 @@ export function TrackerScreen() {
           {isIn ? 'Tap when removed' : 'Tap when inserted'}
         </AppText>
       </Pressable>
+
+      <View style={styles.metrics}>
+        <TimeMetric label="IN TODAY" seconds={tracker.inTodaySeconds} />
+        <TimeMetric label="OUT TODAY" seconds={tracker.outTodaySeconds} />
+      </View>
 
       <Pressable
         accessibilityRole="button"
@@ -341,11 +341,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: radius.lg,
     borderWidth: 2,
+    flex: 1,
     gap: spacing.sm,
     justifyContent: 'center',
-    flexGrow: 1,
-    marginTop: 'auto',
-    maxHeight: 180,
     minHeight: 120,
     padding: spacing.lg,
   },
