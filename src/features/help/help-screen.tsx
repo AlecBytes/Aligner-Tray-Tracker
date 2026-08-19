@@ -29,7 +29,7 @@ export function HelpScreen() {
   }
 
   return (
-    <AppScreen>
+    <AppScreen scrollable>
       <View style={styles.section}>
         <AppText variant="heading">Getting started</AppText>
         <View style={styles.steps}>

@@ -130,7 +130,7 @@ export function EditEventScreen() {
 
   if (punch === null) {
     return (
-      <AppScreen>
+      <AppScreen scrollable>
         <View style={styles.message}>
           <AppText variant="heading">Event unavailable</AppText>
           <AppText muted>{error ?? 'This punch could not be found.'}</AppText>
@@ -146,7 +146,7 @@ export function EditEventScreen() {
   }
 
   return (
-    <AppScreen keyboardAccessory={keyboardNavigation.accessory}>
+    <AppScreen keyboardAccessory={keyboardNavigation.accessory} scrollable>
       <AppText muted>Correct the recorded time. The IN/OUT status cannot be changed.</AppText>
 
       <View style={[styles.statusCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>

@@ -120,7 +120,7 @@ export function TreatmentPlanHistoryScreen() {
     }
 
     return (
-      <AppScreen>
+      <AppScreen scrollable>
         <View style={styles.message}>
           <AppText variant="heading">Plan history unavailable</AppText>
           <AppText muted>{error ?? 'No treatment plan history was found.'}</AppText>
@@ -142,7 +142,7 @@ export function TreatmentPlanHistoryScreen() {
   }
 
   return (
-    <AppScreen>
+    <AppScreen scrollable>
       <AppText muted>Review the saved settings for this treatment.</AppText>
 
       {error ? (

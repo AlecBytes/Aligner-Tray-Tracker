@@ -208,7 +208,7 @@ export function TreatmentPlanScreen() {
     }
 
     return (
-      <AppScreen>
+      <AppScreen scrollable>
         <View style={styles.message}>
           <AppText variant="heading">Treatment plan unavailable</AppText>
           <AppText muted>{loadError ?? 'No treatment plan was found.'}</AppText>
@@ -230,7 +230,7 @@ export function TreatmentPlanScreen() {
   }
 
   return (
-    <AppScreen keyboardAccessory={keyboardNavigation.accessory}>
+    <AppScreen keyboardAccessory={keyboardNavigation.accessory} scrollable>
       <View style={styles.heading}>
         <AppText muted>Update the plan prescribed for your current treatment.</AppText>
       </View>

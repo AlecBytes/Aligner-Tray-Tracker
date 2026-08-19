@@ -126,7 +126,7 @@ export function SetupScreen() {
   }
 
   return (
-    <AppScreen keyboardAccessory={keyboardNavigation.accessory}>
+    <AppScreen keyboardAccessory={keyboardNavigation.accessory} scrollable>
       <View style={styles.heading}>
         <AppText variant="title">Treatment setup</AppText>
         <AppText muted>Enter the plan prescribed for your current treatment.</AppText>

@@ -80,7 +80,7 @@ export function AddMissingTimeScreen() {
   }
 
   return (
-    <AppScreen keyboardAccessory={keyboardNavigation.accessory}>
+    <AppScreen keyboardAccessory={keyboardNavigation.accessory} scrollable>
       <AppText muted>
         Add one missing period. Both state transitions will be saved together.
       </AppText>

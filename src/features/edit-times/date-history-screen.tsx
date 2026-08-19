@@ -143,7 +143,7 @@ export function DateHistoryScreen() {
 
   if (treatmentStartedAt === null) {
     return (
-      <AppScreen>
+      <AppScreen scrollable>
         <View style={styles.message}>
           <AppText variant="heading">Date history unavailable</AppText>
           <AppText muted>{error ?? 'No treatment history was found.'}</AppText>
@@ -171,7 +171,7 @@ export function DateHistoryScreen() {
   const history = buildTreatmentDateHistory(treatmentStartedAt, readAt);
 
   return (
-    <AppScreen>
+    <AppScreen scrollable>
       <AppText muted>Select a day to review and correct its IN/OUT events.</AppText>
 
       <View style={styles.days}>

@@ -35,7 +35,7 @@ export function MenuScreen() {
   const router = useRouter();
 
   return (
-    <AppScreen>
+    <AppScreen scrollable>
       <View style={styles.menuItems}>
         <MenuItem label="Account" onPress={() => router.push('/account')} />
         <MenuItem label="Treatment Plan" onPress={() => router.push('/treatment-plan')} />

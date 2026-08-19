@@ -9,7 +9,7 @@ export function AccountScreen() {
   const theme = useAppTheme();
 
   return (
-    <AppScreen>
+    <AppScreen scrollable>
       <View style={styles.intro}>
         <AppText variant="heading">No account required</AppText>
         <AppText muted>

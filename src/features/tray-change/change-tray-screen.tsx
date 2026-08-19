@@ -1,7 +1,7 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useRef, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Keyboard, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { AppLoadingScreen } from '@/components/app-loading-screen';
 import { AppScreen } from '@/components/app-screen';
@@ -81,7 +81,7 @@ export function ChangeTrayScreen() {
     }
 
     return (
-      <AppScreen>
+      <AppScreen scrollable={false}>
         <View style={styles.centeredMessage}>
           <AppText variant="heading">Change tray unavailable</AppText>
           <AppText muted>{changeError ?? 'No active treatment was found.'}</AppText>
@@ -126,6 +126,7 @@ export function ChangeTrayScreen() {
       return;
     }
 
+    Keyboard.dismiss();
     requestTrayChange(validation.data);
   }
 
@@ -162,7 +163,10 @@ export function ChangeTrayScreen() {
       : `Your trays are OUT. Start tray ${pendingTrayNumber} now? The new tray will remain OUT until you mark it IN.`;
 
   return (
-    <AppScreen keyboardAccessory={keyboardNavigation.accessory}>
+    <AppScreen
+      contentStyle={styles.screenContent}
+      keyboardAccessory={keyboardNavigation.accessory}
+      scrollable={false}>
       <View style={styles.heading}>
         <AppText muted>
           Current tray: {tracker.currentTrayNumber} / {tracker.totalTrays}
@@ -397,5 +401,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 52,
     paddingHorizontal: spacing.lg,
+  },
+  screenContent: {
+    padding: spacing.md,
   },
 });

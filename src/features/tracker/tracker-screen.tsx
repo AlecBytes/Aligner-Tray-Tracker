@@ -116,7 +116,7 @@ export function TrackerScreen() {
     }
 
     return (
-      <AppScreen>
+      <AppScreen scrollable={false}>
         <View style={styles.message}>
           <AppText variant="heading">Tracker unavailable</AppText>
           <AppText muted>{error ?? 'No active treatment was found.'}</AppText>
@@ -186,7 +186,7 @@ export function TrackerScreen() {
   }
 
   return (
-    <AppScreen>
+    <AppScreen contentStyle={styles.screenContent} scrollable={false}>
       <View style={styles.topActions}>
         <Pressable
           accessibilityLabel="Open menu"
@@ -286,11 +286,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   duration: {
-    fontSize: 34,
+    fontSize: 30,
     fontVariant: ['tabular-nums'],
     fontWeight: '700',
     letterSpacing: 0.5,
-    lineHeight: 42,
+    lineHeight: 38,
   },
   message: {
     gap: spacing.md,
@@ -311,16 +311,18 @@ const styles = StyleSheet.create({
   metric: {
     borderRadius: radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
+    flex: 1,
     gap: spacing.xs,
-    padding: spacing.lg,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.md,
   },
   metricLabel: {
     fontWeight: '700',
     letterSpacing: 1,
   },
   metrics: {
+    flexDirection: 'row',
     gap: spacing.md,
-    marginTop: spacing.md,
   },
   retryButton: {
     alignItems: 'center',
@@ -341,8 +343,10 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     gap: spacing.sm,
     justifyContent: 'center',
+    flexGrow: 1,
     marginTop: 'auto',
-    minHeight: 180,
+    maxHeight: 180,
+    minHeight: 120,
     padding: spacing.lg,
   },
   toggleLabel: {
@@ -350,6 +354,10 @@ const styles = StyleSheet.create({
   },
   topActions: {
     alignItems: 'flex-end',
+  },
+  screenContent: {
+    gap: spacing.sm,
+    padding: spacing.md,
   },
   trayNumber: {
     fontSize: 44,
@@ -361,7 +369,6 @@ const styles = StyleSheet.create({
   traySummary: {
     alignItems: 'center',
     gap: spacing.xs,
-    paddingBottom: spacing.sm,
-    paddingTop: spacing.lg,
+    paddingTop: spacing.sm,
   },
 });

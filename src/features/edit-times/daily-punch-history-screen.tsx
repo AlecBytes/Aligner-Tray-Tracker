@@ -87,7 +87,7 @@ export function DailyPunchHistoryScreen() {
   const title = dayStart === null ? 'Punch History' : headingFormatter.format(dayStart);
 
   return (
-    <AppScreen>
+    <AppScreen scrollable>
       <Stack.Screen options={{ title }} />
       <AppText variant="heading">{title}</AppText>
 

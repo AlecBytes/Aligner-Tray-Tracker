@@ -1,29 +1,50 @@
 import type { PropsWithChildren, ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { spacing } from '@/theme/tokens';
 import { useAppTheme } from '@/theme/use-app-theme';
 
 type AppScreenProps = PropsWithChildren<{
+  contentStyle?: StyleProp<ViewStyle>;
   keyboardAccessory?: ReactNode;
+  scrollable: boolean;
 }>;
 
-export function AppScreen({ children, keyboardAccessory }: AppScreenProps) {
+export function AppScreen({
+  children,
+  contentStyle,
+  keyboardAccessory,
+  scrollable,
+}: AppScreenProps) {
   const theme = useAppTheme();
+  const content = <View style={[styles.content, contentStyle]}>{children}</View>;
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.keyboardAvoidingView}>
-        <ScrollView
-          contentInsetAdjustmentBehavior="automatic"
-          contentContainerStyle={styles.scrollContent}
-          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
-          keyboardShouldPersistTaps="handled">
-          <View style={styles.content}>{children}</View>
-        </ScrollView>
+        {scrollable ? (
+          <ScrollView
+            alwaysBounceVertical={false}
+            contentInsetAdjustmentBehavior="never"
+            contentContainerStyle={styles.scrollContent}
+            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+            keyboardShouldPersistTaps="handled">
+            {content}
+          </ScrollView>
+        ) : (
+          content
+        )}
         {keyboardAccessory}
       </KeyboardAvoidingView>
     </SafeAreaView>

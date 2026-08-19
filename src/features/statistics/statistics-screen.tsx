@@ -147,7 +147,7 @@ export function StatisticsScreen() {
     }
 
     return (
-      <AppScreen>
+      <AppScreen scrollable>
         <View style={styles.message}>
           <AppText variant="heading">Statistics unavailable</AppText>
           <AppText muted>{error ?? 'No treatment history was found.'}</AppText>
@@ -169,7 +169,7 @@ export function StatisticsScreen() {
   }
 
   return (
-    <AppScreen>
+    <AppScreen scrollable>
       {error ? (
         <AppText accessibilityLiveRegion="polite" style={{ color: theme.error }}>
           {error}

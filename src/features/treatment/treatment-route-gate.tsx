@@ -56,7 +56,7 @@ export function TreatmentRouteGate({
 
   if (loadError) {
     return (
-      <AppScreen>
+      <AppScreen scrollable>
         <View style={styles.message}>
           <AppText variant="heading">Local data unavailable</AppText>
           <AppText muted>Your saved treatment could not be checked. Please try again.</AppText>

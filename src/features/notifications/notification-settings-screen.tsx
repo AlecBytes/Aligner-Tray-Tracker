@@ -210,7 +210,7 @@ export function NotificationSettingsScreen() {
     }
 
     return (
-      <AppScreen>
+      <AppScreen scrollable>
         <View style={styles.message}>
           <AppText variant="heading">Notifications unavailable</AppText>
           <AppText muted>{loadError ?? 'Notification settings could not be loaded.'}</AppText>
@@ -222,7 +222,7 @@ export function NotificationSettingsScreen() {
   const canOpenDeviceSettings = Platform.OS !== 'web' && permission !== 'granted';
 
   return (
-    <AppScreen keyboardAccessory={keyboardNavigation.accessory}>
+    <AppScreen keyboardAccessory={keyboardNavigation.accessory} scrollable>
       <View style={[styles.permissionCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
         <AppText muted variant="caption">
           {permissionMessage(permission)}

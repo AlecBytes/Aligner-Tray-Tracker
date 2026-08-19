@@ -161,7 +161,7 @@ export function SupportScreen({
 
   if (state.status === 'products-unavailable') {
     return (
-      <AppScreen>
+      <AppScreen scrollable>
         {intro}
         <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <AppText variant="heading">Support options unavailable</AppText>
@@ -188,7 +188,7 @@ export function SupportScreen({
 
   if (state.status === 'purchase-successful') {
     return (
-      <AppScreen>
+      <AppScreen scrollable>
         {intro}
         <View
           accessibilityLiveRegion="polite"
@@ -218,7 +218,7 @@ export function SupportScreen({
   const purchasePending = state.status === 'purchase-in-progress';
 
   return (
-    <AppScreen>
+    <AppScreen scrollable>
       {intro}
 
       {state.status === 'purchase-cancelled' ? (
