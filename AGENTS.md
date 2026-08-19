@@ -44,3 +44,11 @@ Before implementing a feature, read only the relevant portion of
 docs/mvp-plan.md.
 
 Do not implement future roadmap features unless explicitly requested.
+
+## UI and Layout Conventions
+
+- Screen scrolling must be intentional.
+- Compact core-action screens should fit within the usable viewport and should not scroll.
+- Forms and content-heavy screens may scroll when needed, especially for keyboard accessibility.
+- Multi-field forms should keep the focused input visible and provide natural Next/Done navigation where appropriate.
+- Respect safe areas and prefer built-in React Native/Expo layout and keyboard APIs before adding dependencies.

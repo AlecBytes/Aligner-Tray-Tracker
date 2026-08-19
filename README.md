@@ -39,6 +39,18 @@ npx expo start
 | `npm run typecheck` | Run TypeScript without emitting files |
 | `npm run validate` | Run typecheck, lint, and tests |
 
+## iOS device builds
+
+The EAS profiles in [`eas.json`](eas.json) support two iOS workflows:
+
+```sh
+eas build --platform ios --profile development
+eas build --platform ios --profile preview
+```
+
+- The `development` profile creates a development-client build for coding. Install it on the device, run `npx expo start`, and connect the app to Metro while developing.
+- The `preview` profile creates a standalone internal-distribution build for normal testing on a registered physical device. It runs without Metro and does not include development-client tools.
+
 ## Project structure
 
 ```text
