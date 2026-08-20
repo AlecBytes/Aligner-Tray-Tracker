@@ -37,10 +37,10 @@ nvm use
 
 ```sh
 npm install
-npx expo start
+npm start
 ```
 
-`npx expo start` is the canonical development command. The following package scripts are also available:
+`npm start` is the canonical development command. It sets the development app variant in a cross-platform way and starts Metro. The following package scripts are also available:
 
 | Command | Purpose |
 | --- | --- |
@@ -54,20 +54,20 @@ npx expo start
 
 ## iOS device testing
 
-The EAS profiles in [`eas.json`](eas.json) support two physical-iPhone workflows.
+The existing `development` and `preview` profiles in [`eas.json`](eas.json) support two physical-iPhone workflows. The development build installs as **Aligner Tracker (Dev)** with bundle identifier `com.alecsbytes.alignertraytracker.dev`. Preview and production builds install as **Aligner Tracker** with bundle identifier `com.alecsbytes.alignertraytracker`.
 
 ### Test current code with the development build
 
 Use this for normal development and quick feature testing.
 
-1. Make sure the Aligner Tracker development build is installed on the iPhone.
+1. Make sure **Aligner Tracker (Dev)** is installed on the iPhone.
 2. From the repository root, start Metro:
 
 ```sh
-npx expo start
+npm start
 ```
 
-3. Open the development build on the iPhone and connect it to Metro.
+3. Open **Aligner Tracker (Dev)** on the iPhone and connect it to Metro.
 4. Test and iterate normally with Fast Refresh.
 
 A new development build is generally only needed when native dependencies or native app configuration change:
@@ -76,7 +76,7 @@ A new development build is generally only needed when native dependencies or nat
 eas build --platform ios --profile development
 ```
 
-Install the resulting build on the registered iPhone, then continue using `npx expo start` for development.
+Open the resulting EAS build/install link on the registered iPhone and install **Aligner Tracker (Dev)**. Then use `npm start` whenever you want to run that build with Metro.
 
 ### Install a standalone preview build
 
@@ -91,6 +91,8 @@ eas build --platform ios --profile preview
 ```
 
 4. Open the EAS build/install link on the registered iPhone and install the new build.
-5. Launch Aligner Tracker normally.
+5. Launch **Aligner Tracker** normally.
 
-The preview build is self-contained and does **not** require `npx expo start` or a connection to the development computer.development-client tools.
+The preview build is self-contained and does **not** require Metro or a connection to the development computer.
+
+The development and preview builds have different iOS bundle identifiers, so they can remain installed on the same device at the same time. iOS treats them as separate apps, which also means each build has its own local SQLite database. Treatment data entered in one build does not appear in the other.
