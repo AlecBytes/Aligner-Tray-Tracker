@@ -22,6 +22,23 @@ function snapshot(overrides: Partial<TrackerSnapshot> = {}): TrackerSnapshot {
 }
 
 describe('buildReminderRequests', () => {
+  it('requests the normal notification sound for both reminder types', () => {
+    const tracker = snapshot({
+      punches: [{ id: 2, status: 'OUT', timestamp: snapshot().trayStartedAt }],
+    });
+
+    expect(
+      buildReminderRequests(
+        tracker,
+        DEFAULT_NOTIFICATION_SETTINGS,
+        tracker.trayStartedAt,
+      ).map(({ kind, sound }) => ({ kind, sound })),
+    ).toEqual([
+      { kind: 'tray-change', sound: 'default' },
+      { kind: 'out-too-long', sound: 'default' },
+    ]);
+  });
+
   it('schedules a custom OUT reminder from the original OUT timestamp', () => {
     const outAt = new Date(2026, 7, 16, 10).getTime();
     const reminders = buildReminderRequests(

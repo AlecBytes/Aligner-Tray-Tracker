@@ -199,6 +199,14 @@ Use the existing notification service/module and preserve clear identifiers for:
 
 Cancel/recreate as needed rather than stacking duplicates.
 
+## Sound Behavior
+
+Both the OUT reminder and tray-change reminder should use the device's normal
+notification sound. On Android, schedule them on the treatment-reminders
+notification channel with its sound set to the system default. Device silent or
+focus modes and user-configured notification/channel settings may still suppress
+the sound.
+
 ## Failure Behavior
 
 Notification failures must not break core tracker actions.

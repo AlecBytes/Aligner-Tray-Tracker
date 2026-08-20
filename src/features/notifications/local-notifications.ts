@@ -6,6 +6,7 @@ import {
   planReminderReconciliation,
   REMINDER_FINGERPRINT_DATA_KEY,
   REMINDER_KIND_DATA_KEY,
+  REMINDER_SOUND,
   type ScheduledReminder,
 } from '@/features/notifications/notification-policy';
 import { getNotificationSettings } from '@/features/notifications/notification-settings-repository';
@@ -78,7 +79,7 @@ async function prepareAndroidChannel(notifications: NotificationsModule) {
   await notifications.setNotificationChannelAsync(REMINDER_CHANNEL_ID, {
     importance: notifications.AndroidImportance.DEFAULT,
     name: 'Treatment reminders',
-    sound: 'default',
+    sound: REMINDER_SOUND,
   });
 }
 
@@ -158,7 +159,7 @@ async function reconcile(
           [REMINDER_FINGERPRINT_DATA_KEY]: reminder.fingerprint,
           [REMINDER_KIND_DATA_KEY]: reminder.kind,
         },
-        sound: 'default',
+        sound: reminder.sound,
         title: 'Aligner Tracker',
       },
       identifier: REMINDER_IDENTIFIERS[reminder.kind],

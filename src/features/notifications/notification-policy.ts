@@ -5,6 +5,7 @@ const MILLISECONDS_PER_MINUTE = 60 * 1000;
 
 export const REMINDER_KIND_DATA_KEY = 'alignerReminderKind';
 export const REMINDER_FINGERPRINT_DATA_KEY = 'alignerReminderFingerprint';
+export const REMINDER_SOUND = 'default' as const;
 
 export type ReminderKind = 'out-too-long' | 'tray-change';
 
@@ -13,6 +14,7 @@ export type ReminderRequest = {
   fingerprint: string;
   kind: ReminderKind;
   scheduledAt: number;
+  sound: typeof REMINDER_SOUND;
 };
 
 export type ScheduledReminder = {
@@ -77,6 +79,7 @@ export function buildReminderRequests(
       ),
       kind: 'tray-change',
       scheduledAt: trayChangeAt,
+      sound: REMINDER_SOUND,
     });
   }
 
@@ -104,6 +107,7 @@ export function buildReminderRequests(
         ),
         kind: 'out-too-long',
         scheduledAt: outReminderAt,
+        sound: REMINDER_SOUND,
       });
     }
   }
