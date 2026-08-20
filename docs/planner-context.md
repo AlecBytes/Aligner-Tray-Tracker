@@ -15,10 +15,11 @@ When a product decision changes, update the most specific relevant document.
 
 Aligner Tracker is a minimal aligner-tracking app focused on making daily tracking exceptionally fast, useful, and reliable.
 
-Platform priority:
-1. iOS
-2. Android
-3. Web later/secondary
+Platform direction:
+1. iOS primary
+2. Android and web later/secondary
+
+iOS is the primary product platform. Android compatibility is not required for the planned Expo UI / SwiftUI migration.
 
 ### Primary Goals
 1. Performance
@@ -59,6 +60,20 @@ Cloud work is intentionally deferred until the local core app is excellent.
 - Expo
 - TypeScript
 - Expo Router
+- Minimum iOS version: 16.4
+- `@expo/ui/swift-ui` is the planned primary iOS UI layer.
+
+### Planned iOS UI Direction
+- Keep Expo Router for navigation and the React/TypeScript application shell.
+- Build migrated screens primarily from native SwiftUI components exposed by Expo UI.
+- Use iOS 26+ Liquid Glass styles and effects where they improve native fit and utility.
+- Preserve the same layout, behavior, hierarchy, and accessibility on iOS 16.4–25 using compatible native SwiftUI styles.
+- Treat this as a UI-layer migration. Preserve SQLite repositories, domain models, validation, calculations, notification policy, and business logic unless a separate task changes them.
+- Prefer composition from Expo UI primitives over custom Swift or custom Expo modules.
+- Keep app-specific composite components small and few. A custom SwiftUI/Expo module requires a verified Expo UI capability gap.
+- Android compatibility is outside the migration requirements. Existing Android-specific code may remain during incremental work, but it must not constrain the iOS design.
+
+See `docs/features/expo-ui-swiftui-migration.md` for the component map, screen-by-screen plan, rollout order, and verification gates.
 
 ### Persistence
 - SQLite is the on-device source of truth.
@@ -197,6 +212,8 @@ See `docs/features/support.md`.
 
 ## Current Priority
 Prioritize local app functionality before cloud work.
+
+The planned iOS UI migration is incremental. Start with Treatment Setup and common forms/lists, then migrate supporting screens. Leave the custom Main Tracker until the shared Expo UI patterns, state bridging, navigation, accessibility, and iOS 16.4–25 fallbacks are proven.
 
 Core expansion order:
 1. Punch Corrections

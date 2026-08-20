@@ -50,21 +50,26 @@ The app should make the core action—tracking whether aligners are in or out—
 
 # Platforms
 
-Priority:
+Primary platform:
 
-1. iOS
-2. Android
-3. Web
+- iOS 16.4 or later
 
-Initial frontend strategy:
+Frontend strategy:
 
 - React Native
 - Expo
 - TypeScript
 - Expo Router
-- Expo Web for the initial browser experience
+- `@expo/ui/swift-ui` as the primary iOS UI layer
+- SQLite as the local source of truth
 
-One shared frontend codebase should be used where practical.
+The planned Expo UI / SwiftUI migration is iOS-first. Android compatibility is not required for this migration. Web and Android may remain secondary or separate concerns, but they must not constrain the migrated iOS interface.
+
+Use native SwiftUI components exposed through Expo UI wherever possible. On iOS 26 and later, use appropriate Liquid Glass styles and effects. On iOS 16.4 through iOS 25, use compatible native SwiftUI fallback styles while preserving the same layout, behavior, content hierarchy, and accessibility.
+
+Keep Expo Router for navigation. Preserve the existing SQLite, repository, domain, validation, calculation, and notification logic: this is a UI-layer migration, not a data or business-logic rewrite. Prefer Expo UI composition over custom Swift views or custom Expo modules.
+
+See `docs/features/expo-ui-swiftui-migration.md` for the detailed migration plan.
 
 ---
 
@@ -401,8 +406,8 @@ The core tracker must remain fully functional without an account.
 # Local-First Architecture
 
 ```text
-                 Expo / React Native
-              iOS + Android + Web
+              Expo / React Native shell
+        Expo UI / SwiftUI on iOS 16.4+
                         │
                         ▼
                  Application Logic
@@ -514,8 +519,15 @@ Recommended:
 - Expo
 - TypeScript
 - Expo Router
+- `@expo/ui/swift-ui` for the primary iOS UI layer
 - SQLite
 - lightweight application services/repository layer
+
+Expo Router continues to own route structure and navigation. Migrated iOS screens should use a SwiftUI `Host` and compose native Expo UI controls such as `Form`, `Section`, `List`, `Text`, `Button`, `TextField`, `Toggle`, `Picker`, `DatePicker`, `Alert`, and SwiftUI layout stacks.
+
+Use native semantic styling first. Apply Liquid Glass styles/effects only on iOS 26+ and use native, non-glass SwiftUI equivalents on iOS 16.4–25 without changing screen behavior. Keep custom app components limited to small compositions of Expo UI primitives. Add custom SwiftUI or a local Expo module only after confirming that Expo UI cannot provide a required capability.
+
+This migration must not replace SQLite or rewrite repositories, domain models, validation, calculations, notifications, or other business logic. Android parity is not a migration requirement.
 
 Use a modular application shell instead of true micro frontends.
 
