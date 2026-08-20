@@ -8,6 +8,19 @@ The current app is a local-first React Native application built with Expo SDK 57
 
 Authentication, cloud backup/synchronization, and the planned ASP.NET Core/.NET backend are intentionally deferred and are not present in this repository.
 
+## Documentation
+
+- [`docs/mvp-plan.md`](docs/mvp-plan.md) — product goals and overall architecture direction
+- [`docs/planner-context.md`](docs/planner-context.md) — current cross-feature decisions and priorities
+- [`docs/performance.md`](docs/performance.md) — performance budgets and measurement plan
+- [`docs/features/`](docs/features/) — implemented feature behavior and feature-specific requirements
+
+## Current status
+
+The repository contains the on-device treatment setup and tracker, tray changes, versioned treatment-plan editing and history, IN/OUT corrections, local statistics, notification settings/reminders, and help screens. A support-purchase screen is available only as a development preview backed by a mock service.
+
+The Account screen is informational: sign-in, cloud backup/restore, synchronization, and backend services have not been implemented and remain intentionally deferred while the local experience is developed.
+
 ## Prerequisites
 
 - Node.js 22.13.0, as specified by `.nvmrc`
@@ -39,39 +52,45 @@ npx expo start
 | `npm run typecheck` | Run TypeScript without emitting files |
 | `npm run validate` | Run typecheck, lint, and tests |
 
-## iOS device builds
+## iOS device testing
 
-The EAS profiles in [`eas.json`](eas.json) support two iOS workflows:
+The EAS profiles in [`eas.json`](eas.json) support two physical-iPhone workflows.
+
+### Test current code with the development build
+
+Use this for normal development and quick feature testing.
+
+1. Make sure the Aligner Tracker development build is installed on the iPhone.
+2. From the repository root, start Metro:
+
+```sh
+npx expo start
+```
+
+3. Open the development build on the iPhone and connect it to Metro.
+4. Test and iterate normally with Fast Refresh.
+
+A new development build is generally only needed when native dependencies or native app configuration change:
 
 ```sh
 eas build --platform ios --profile development
+```
+
+Install the resulting build on the registered iPhone, then continue using `npx expo start` for development.
+
+### Install a standalone preview build
+
+Use this when a version is ready for normal day-to-day testing without Metro or the development computer.
+
+1. Test the changes with the development build first.
+2. Commit the version you want to test.
+3. Create the preview build:
+
+```sh
 eas build --platform ios --profile preview
 ```
 
-- The `development` profile creates a development-client build for coding. Install it on the device, run `npx expo start`, and connect the app to Metro while developing.
-- The `preview` profile creates a standalone internal-distribution build for normal testing on a registered physical device. It runs without Metro and does not include development-client tools.
+4. Open the EAS build/install link on the registered iPhone and install the new build.
+5. Launch Aligner Tracker normally.
 
-## Project structure
-
-```text
-src/app/        Expo Router routes and layouts
-src/features/   Feature screens, models, repositories, and colocated tests
-src/db/         SQLite schema, migrations, and database provider
-src/components/ Shared UI primitives
-src/theme/      Theme tokens and helpers
-assets/         App icons and images
-docs/           Product, feature, planning, and performance documentation
-```
-
-## Documentation
-
-- [`docs/mvp-plan.md`](docs/mvp-plan.md) — product goals and overall architecture direction
-- [`docs/planner-context.md`](docs/planner-context.md) — current cross-feature decisions and priorities
-- [`docs/performance.md`](docs/performance.md) — performance budgets and measurement plan
-- [`docs/features/`](docs/features/) — implemented feature behavior and feature-specific requirements
-
-## Current status
-
-The repository contains the on-device treatment setup and tracker, tray changes, versioned treatment-plan editing and history, IN/OUT corrections, local statistics, notification settings/reminders, and help screens. A support-purchase screen is available only as a development preview backed by a mock service.
-
-The Account screen is informational: sign-in, cloud backup/restore, synchronization, and backend services have not been implemented and remain intentionally deferred while the local experience is developed.
+The preview build is self-contained and does **not** require `npx expo start` or a connection to the development computer.development-client tools.
