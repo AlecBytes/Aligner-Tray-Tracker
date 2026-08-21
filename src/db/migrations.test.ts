@@ -11,8 +11,8 @@ describe('notification settings migration', () => {
 
     await migrateDatabase(db);
 
-    expect(DATABASE_VERSION).toBe(2);
-    expect(withTransactionAsync).toHaveBeenCalledTimes(1);
+    expect(DATABASE_VERSION).toBe(3);
+    expect(withTransactionAsync).toHaveBeenCalledTimes(2);
     expect(execAsync).toHaveBeenCalledWith(
       expect.stringContaining('ADD COLUMN out_reminder_enabled'),
     );
@@ -26,5 +26,24 @@ describe('notification settings migration', () => {
       expect.stringContaining('ADD COLUMN tray_change_reminder_minute'),
     );
     expect(execAsync).toHaveBeenCalledWith('PRAGMA user_version = 2');
+    expect(execAsync).toHaveBeenCalledWith(
+      expect.stringContaining('ADD COLUMN out_persistent_reminder_interval_minutes'),
+    );
+    expect(execAsync).toHaveBeenCalledWith('PRAGMA user_version = 3');
+  });
+
+  it('adds the persistent interval for version 2 databases', async () => {
+    const execAsync = jest.fn(async () => undefined);
+    const getFirstAsync = jest.fn(async () => ({ user_version: 2 }));
+    const withTransactionAsync = jest.fn(async (task: () => Promise<void>) => task());
+    const db = { execAsync, getFirstAsync, withTransactionAsync } as unknown as SQLiteDatabase;
+
+    await migrateDatabase(db);
+
+    expect(withTransactionAsync).toHaveBeenCalledTimes(1);
+    expect(execAsync).toHaveBeenCalledWith(
+      expect.stringContaining('ADD COLUMN out_persistent_reminder_interval_minutes'),
+    );
+    expect(execAsync).toHaveBeenCalledWith('PRAGMA user_version = 3');
   });
 });

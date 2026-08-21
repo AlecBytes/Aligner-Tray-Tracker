@@ -5,6 +5,7 @@ import type { Settings } from '@/db/schema';
 type SettingsRow = {
   out_reminder_enabled: number;
   out_reminder_minutes: number;
+  out_persistent_reminder_interval_minutes: number;
   tray_change_reminder_enabled: number;
   tray_change_reminder_hour: number;
   tray_change_reminder_minute: number;
@@ -14,6 +15,8 @@ function mapSettings(row: SettingsRow): Settings {
   return {
     outReminderEnabled: row.out_reminder_enabled === 1,
     outReminderMinutes: row.out_reminder_minutes,
+    outPersistentReminderIntervalMinutes:
+      row.out_persistent_reminder_interval_minutes,
     trayChangeReminderEnabled: row.tray_change_reminder_enabled === 1,
     trayChangeReminderHour: row.tray_change_reminder_hour,
     trayChangeReminderMinute: row.tray_change_reminder_minute,
@@ -25,6 +28,7 @@ export async function getNotificationSettings(db: SQLiteDatabase): Promise<Setti
     `SELECT
        out_reminder_enabled,
        out_reminder_minutes,
+       out_persistent_reminder_interval_minutes,
        tray_change_reminder_enabled,
        tray_change_reminder_hour,
        tray_change_reminder_minute
@@ -44,12 +48,14 @@ export async function updateNotificationSettings(db: SQLiteDatabase, settings: S
     `UPDATE settings
      SET out_reminder_enabled = ?,
          out_reminder_minutes = ?,
+         out_persistent_reminder_interval_minutes = ?,
          tray_change_reminder_enabled = ?,
          tray_change_reminder_hour = ?,
          tray_change_reminder_minute = ?
      WHERE id = 1`,
     settings.outReminderEnabled ? 1 : 0,
     settings.outReminderMinutes,
+    settings.outPersistentReminderIntervalMinutes,
     settings.trayChangeReminderEnabled ? 1 : 0,
     settings.trayChangeReminderHour,
     settings.trayChangeReminderMinute,

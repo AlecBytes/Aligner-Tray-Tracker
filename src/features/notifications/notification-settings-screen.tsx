@@ -69,7 +69,7 @@ function permissionMessage(permission: LocalNotificationPermissionState) {
 export function NotificationSettingsScreen() {
   const db = useSQLiteContext();
   const theme = useAppTheme();
-  const keyboardNavigation = useFormKeyboardNavigation(2, 'notification-settings-keyboard');
+  const keyboardNavigation = useFormKeyboardNavigation(3, 'notification-settings-keyboard');
   const saveInProgress = useRef(false);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [values, setValues] = useState<NotificationSettingsFormValues | null>(null);
@@ -104,6 +104,9 @@ export function NotificationSettingsScreen() {
           setSettings(persistedSettings);
           setValues({
             outReminderMinutes: String(persistedSettings.outReminderMinutes),
+            outPersistentReminderIntervalMinutes: String(
+              persistedSettings.outPersistentReminderIntervalMinutes,
+            ),
             trayChangeReminderTime: formatReminderTime(
               persistedSettings.trayChangeReminderHour,
               persistedSettings.trayChangeReminderMinute,
@@ -153,6 +156,7 @@ export function NotificationSettingsScreen() {
       setErrors(validation.errors);
       const firstInvalidField = [
         validation.errors.outReminderMinutes,
+        validation.errors.outPersistentReminderIntervalMinutes,
         validation.errors.trayChangeReminderTime,
       ].findIndex(Boolean);
 
@@ -174,6 +178,9 @@ export function NotificationSettingsScreen() {
       setSettings(nextSettings);
       setValues({
         outReminderMinutes: String(nextSettings.outReminderMinutes),
+        outPersistentReminderIntervalMinutes: String(
+          nextSettings.outPersistentReminderIntervalMinutes,
+        ),
         trayChangeReminderTime: formatReminderTime(
           nextSettings.trayChangeReminderHour,
           nextSettings.trayChangeReminderMinute,
@@ -277,6 +284,42 @@ export function NotificationSettingsScreen() {
             </AppText>
           ) : null}
         </View>
+        <View style={styles.field}>
+          <AppText>Persistent reminder interval</AppText>
+          <View style={styles.inputRow}>
+            <TextInput
+              accessibilityLabel="Persistent OUT reminder interval minutes"
+              editable={!isSaving}
+              inputMode="numeric"
+              keyboardType="number-pad"
+              onChangeText={(value) =>
+                updateValue('outPersistentReminderIntervalMinutes', value)
+              }
+              selectTextOnFocus
+              style={[
+                styles.numberInput,
+                {
+                  backgroundColor: theme.background,
+                  borderColor: errors.outPersistentReminderIntervalMinutes
+                    ? theme.error
+                    : theme.border,
+                  color: theme.text,
+                },
+              ]}
+              value={values.outPersistentReminderIntervalMinutes}
+              {...keyboardNavigation.getInputProps(1)}
+            />
+            <AppText>minutes</AppText>
+          </View>
+          {errors.outPersistentReminderIntervalMinutes ? (
+            <AppText
+              accessibilityLiveRegion="polite"
+              style={{ color: theme.error }}
+              variant="caption">
+              {errors.outPersistentReminderIntervalMinutes}
+            </AppText>
+          ) : null}
+        </View>
       </View>
 
       <View style={[styles.section, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -307,7 +350,7 @@ export function NotificationSettingsScreen() {
               },
             ]}
             value={values.trayChangeReminderTime}
-            {...keyboardNavigation.getInputProps(1)}
+            {...keyboardNavigation.getInputProps(2)}
           />
           {errors.trayChangeReminderTime ? (
             <AppText accessibilityLiveRegion="polite" style={{ color: theme.error }} variant="caption">

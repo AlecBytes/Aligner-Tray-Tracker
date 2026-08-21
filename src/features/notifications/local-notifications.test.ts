@@ -29,6 +29,7 @@ describe('notification failure isolation', () => {
     const settings = {
       outReminderEnabled: true,
       outReminderMinutes: 60,
+      outPersistentReminderIntervalMinutes: 5,
       trayChangeReminderEnabled: false,
       trayChangeReminderHour: 9,
       trayChangeReminderMinute: 0,

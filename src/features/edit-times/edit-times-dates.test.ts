@@ -25,7 +25,7 @@ describe('Edit In/Out Times date helpers', () => {
   });
 
   it('parses an editable local date and time without converting it to UTC', () => {
-    const timestamp = parseLocalDateTime('2026-08-16', '08:02');
+    const timestamp = parseLocalDateTime('2026-08-16', '8:02 AM');
 
     expect(timestamp).not.toBeNull();
     expect(formatLocalDateKey(timestamp!)).toBe('2026-08-16');
@@ -37,8 +37,19 @@ describe('Edit In/Out Times date helpers', () => {
   it('formats time at minute precision and rejects seconds input', () => {
     const timestamp = new Date(2026, 7, 16, 8, 2, 15).getTime();
 
-    expect(formatLocalTime(timestamp)).toBe('08:02');
-    expect(parseLocalDateTime('2026-08-16', '08:02:15')).toBeNull();
+    expect(formatLocalTime(timestamp)).toBe('8:02 AM');
+    expect(parseLocalDateTime('2026-08-16', '8:02:15 AM')).toBeNull();
+    expect(parseLocalDateTime('2026-08-16', '18:02')).toBeNull();
+  });
+
+  it('formats and parses midnight, noon, and afternoon in 12-hour time', () => {
+    expect(formatLocalTime(new Date(2026, 7, 16, 0, 5).getTime())).toBe('12:05 AM');
+    expect(formatLocalTime(new Date(2026, 7, 16, 12, 30).getTime())).toBe('12:30 PM');
+    expect(formatLocalTime(new Date(2026, 7, 16, 18, 2).getTime())).toBe('6:02 PM');
+
+    expect(new Date(parseLocalDateTime('2026-08-16', '12:05 am')!).getHours()).toBe(0);
+    expect(new Date(parseLocalDateTime('2026-08-16', '12:30 PM')!).getHours()).toBe(12);
+    expect(new Date(parseLocalDateTime('2026-08-16', '6:02 pm')!).getHours()).toBe(18);
   });
 
   it('advances calendar days safely for day query boundaries', () => {

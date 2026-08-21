@@ -14,6 +14,7 @@ import {
   accessibilityLabel,
   autocorrectionDisabled,
   disabled,
+  environment,
   foregroundStyle,
   keyboardType,
   scrollDismissesKeyboard,
@@ -71,6 +72,7 @@ export function NotificationSettingsScreen() {
   const db = useSQLiteContext();
   const theme = useAppTheme();
   const outReminderMinutes = useNativeState('');
+  const outPersistentReminderIntervalMinutes = useNativeState('');
   const saveInProgress = useRef(false);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [trayChangeReminderTime, setTrayChangeReminderTime] = useState(() => reminderDate(9, 0));
@@ -101,6 +103,9 @@ export function NotificationSettingsScreen() {
             return;
           }
           outReminderMinutes.set(String(persistedSettings.outReminderMinutes));
+          outPersistentReminderIntervalMinutes.set(
+            String(persistedSettings.outPersistentReminderIntervalMinutes),
+          );
           setTrayChangeReminderTime(
             reminderDate(
               persistedSettings.trayChangeReminderHour,
@@ -125,7 +130,7 @@ export function NotificationSettingsScreen() {
       return () => {
         active = false;
       };
-    }, [loadSettings, outReminderMinutes]),
+    }, [loadSettings, outPersistentReminderIntervalMinutes, outReminderMinutes]),
   );
 
   function clearFeedback() {
@@ -145,6 +150,8 @@ export function NotificationSettingsScreen() {
 
     const validation = validateNotificationSettings({
       outReminderMinutes: outReminderMinutes.get(),
+      outPersistentReminderIntervalMinutes:
+        outPersistentReminderIntervalMinutes.get(),
       trayChangeReminderTime: formatReminderTime(
         trayChangeReminderTime.getHours(),
         trayChangeReminderTime.getMinutes(),
@@ -166,6 +173,9 @@ export function NotificationSettingsScreen() {
       await updateNotificationSettings(db, nextSettings);
       setSettings(nextSettings);
       outReminderMinutes.set(String(nextSettings.outReminderMinutes));
+      outPersistentReminderIntervalMinutes.set(
+        String(nextSettings.outPersistentReminderIntervalMinutes),
+      );
       setTrayChangeReminderTime(
         reminderDate(
           nextSettings.trayChangeReminderHour,
@@ -264,6 +274,33 @@ export function NotificationSettingsScreen() {
             />
             <Text>minutes</Text>
           </HStack>
+          <HStack spacing={12}>
+            <Text>Repeat every</Text>
+            <Spacer />
+            <TextField
+              onTextChange={() => {
+                setErrors((current) => ({
+                  ...current,
+                  outPersistentReminderIntervalMinutes: undefined,
+                }));
+                clearFeedback();
+              }}
+              placeholder="5"
+              text={outPersistentReminderIntervalMinutes}
+              modifiers={[
+                accessibilityLabel('Persistent OUT reminder interval minutes'),
+                autocorrectionDisabled(),
+                keyboardType('numeric'),
+                textInputAutocapitalization('never'),
+                submitLabel('done'),
+                disabled(isSaving),
+              ]}
+            />
+            <Text>minutes</Text>
+          </HStack>
+          <ValidationMessage
+            message={errors.outPersistentReminderIntervalMinutes}
+          />
         </Section>
 
         <Section title="Tray Change Reminder">
@@ -275,7 +312,7 @@ export function NotificationSettingsScreen() {
           />
           <DatePicker
             displayedComponents={['hourAndMinute']}
-            modifiers={[disabled(isSaving)]}
+            modifiers={[environment('locale', 'en_US'), disabled(isSaving)]}
             onDateChange={(date) => {
               setTrayChangeReminderTime(date);
               setErrors((current) => ({ ...current, trayChangeReminderTime: undefined }));

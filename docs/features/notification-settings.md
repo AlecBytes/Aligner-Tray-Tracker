@@ -24,13 +24,16 @@ Controls:
 
 - Enabled / disabled
 - `Remind me after` duration in minutes
+- `Persistent reminder interval` in minutes
 
 Default:
 
 - Enabled
 - 45 minutes
+- Repeat every 5 minutes after the first reminder
 
 The duration should be editable as a positive whole number of minutes.
+The persistent interval should use the same 5-to-240-minute validation range.
 
 Recommended validation range:
 
@@ -47,6 +50,9 @@ OUT Reminder
 
 Remind me after
 [ 45 ] minutes
+
+Persistent reminder interval
+[ 5 ] minutes
 
 Tray Change Reminder
 [x] Remind me when it is time to change trays
@@ -98,6 +104,7 @@ Persist at least:
 
 - OUT reminder enabled
 - OUT reminder minutes
+- OUT persistent reminder interval minutes
 - tray-change reminder enabled
 - tray-change reminder local time
 
@@ -120,6 +127,15 @@ When trays transition from `IN` to `OUT`:
 Message:
 
 `Your trays have been out for {N} minutes.`
+
+After the first reminder, schedule another reminder at the configured persistent
+interval while the trays remain OUT. Pending persistent reminders are replenished
+when the app starts or resumes so the behavior remains local-only and does not
+require polling or background services.
+
+Repeated message:
+
+`Your trays are still out. Put them back in.`
 
 When trays transition from `OUT` to `IN`:
 
@@ -190,7 +206,9 @@ A lightweight reconciliation on app startup/resume is acceptable if useful for r
 
 ## Duplicate Prevention
 
-There should never be multiple pending notifications for the same logical reminder.
+There should never be duplicate pending notifications for the same scheduled
+reminder. The OUT reminder may have a series of unique pending notifications at
+the configured persistent interval.
 
 Use the existing notification service/module and preserve clear identifiers for:
 

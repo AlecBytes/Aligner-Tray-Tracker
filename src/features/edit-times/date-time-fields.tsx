@@ -65,7 +65,7 @@ export function DateTimeFields({
             autoCorrect={false}
             editable={!disabled}
             onChangeText={onChangeTime}
-            placeholder="HH:MM"
+            placeholder="h:mm AM/PM"
             placeholderTextColor={theme.textMuted}
             selectTextOnFocus
             style={inputStyle}

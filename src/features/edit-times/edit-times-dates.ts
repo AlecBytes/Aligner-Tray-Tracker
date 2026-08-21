@@ -64,24 +64,29 @@ export function parseLocalDateKey(value: string) {
 
 export function formatLocalTime(timestamp: number) {
   const date = new Date(timestamp);
-  return `${padDatePart(date.getHours())}:${padDatePart(date.getMinutes())}`;
+  const hour = date.getHours();
+  const period = hour >= 12 ? 'PM' : 'AM';
+  const displayHour = hour % 12 || 12;
+  return `${displayHour}:${padDatePart(date.getMinutes())} ${period}`;
 }
 
 export function parseLocalDateTime(dateValue: string, timeValue: string) {
   const dayStart = parseLocalDateKey(dateValue.trim());
-  const timeMatch = /^(\d{1,2}):(\d{2})$/.exec(timeValue.trim());
+  const timeMatch = /^(\d{1,2}):(\d{2})\s*([AaPp][Mm])$/.exec(timeValue.trim());
 
   if (dayStart === null || !timeMatch) {
     return null;
   }
 
-  const hours = Number(timeMatch[1]);
+  const displayHour = Number(timeMatch[1]);
   const minutes = Number(timeMatch[2]);
 
-  if (hours > 23 || minutes > 59) {
+  if (displayHour < 1 || displayHour > 12 || minutes > 59) {
     return null;
   }
 
+  const period = timeMatch[3].toUpperCase();
+  const hours = (displayHour % 12) + (period === 'PM' ? 12 : 0);
   const parsed = new Date(dayStart);
   parsed.setHours(hours, minutes, 0, 0);
 

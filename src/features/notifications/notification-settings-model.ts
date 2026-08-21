@@ -3,6 +3,7 @@ import type { Settings } from '@/db/schema';
 export const DEFAULT_NOTIFICATION_SETTINGS: Settings = {
   outReminderEnabled: true,
   outReminderMinutes: 45,
+  outPersistentReminderIntervalMinutes: 5,
   trayChangeReminderEnabled: true,
   trayChangeReminderHour: 9,
   trayChangeReminderMinute: 0,
@@ -10,9 +11,12 @@ export const DEFAULT_NOTIFICATION_SETTINGS: Settings = {
 
 export const MIN_OUT_REMINDER_MINUTES = 5;
 export const MAX_OUT_REMINDER_MINUTES = 240;
+export const MIN_OUT_PERSISTENT_REMINDER_INTERVAL_MINUTES = 5;
+export const MAX_OUT_PERSISTENT_REMINDER_INTERVAL_MINUTES = 240;
 
 export type NotificationSettingsFormValues = {
   outReminderMinutes: string;
+  outPersistentReminderIntervalMinutes: string;
   trayChangeReminderTime: string;
 };
 
@@ -25,7 +29,10 @@ export type NotificationSettingsValidationResult =
   | {
       data: Pick<
         Settings,
-        'outReminderMinutes' | 'trayChangeReminderHour' | 'trayChangeReminderMinute'
+        | 'outReminderMinutes'
+        | 'outPersistentReminderIntervalMinutes'
+        | 'trayChangeReminderHour'
+        | 'trayChangeReminderMinute'
       >;
       success: true;
     };
@@ -63,6 +70,13 @@ export function validateNotificationSettings(
   const outReminderMinutes = /^\d+$/.test(normalizedMinutes)
     ? Number(normalizedMinutes)
     : Number.NaN;
+  const normalizedPersistentIntervalMinutes =
+    values.outPersistentReminderIntervalMinutes.trim();
+  const outPersistentReminderIntervalMinutes = /^\d+$/.test(
+    normalizedPersistentIntervalMinutes,
+  )
+    ? Number(normalizedPersistentIntervalMinutes)
+    : Number.NaN;
   const reminderTime = parseReminderTime(values.trayChangeReminderTime);
 
   if (
@@ -71,6 +85,17 @@ export function validateNotificationSettings(
     outReminderMinutes > MAX_OUT_REMINDER_MINUTES
   ) {
     errors.outReminderMinutes = `Enter a whole number from ${MIN_OUT_REMINDER_MINUTES} to ${MAX_OUT_REMINDER_MINUTES}.`;
+  }
+
+  if (
+    !Number.isSafeInteger(outPersistentReminderIntervalMinutes) ||
+    outPersistentReminderIntervalMinutes <
+      MIN_OUT_PERSISTENT_REMINDER_INTERVAL_MINUTES ||
+    outPersistentReminderIntervalMinutes >
+      MAX_OUT_PERSISTENT_REMINDER_INTERVAL_MINUTES
+  ) {
+    errors.outPersistentReminderIntervalMinutes =
+      `Enter a whole number from ${MIN_OUT_PERSISTENT_REMINDER_INTERVAL_MINUTES} to ${MAX_OUT_PERSISTENT_REMINDER_INTERVAL_MINUTES}.`;
   }
 
   if (reminderTime === null) {
@@ -84,6 +109,7 @@ export function validateNotificationSettings(
   return {
     data: {
       outReminderMinutes,
+      outPersistentReminderIntervalMinutes,
       trayChangeReminderHour: reminderTime.hour,
       trayChangeReminderMinute: reminderTime.minute,
     },

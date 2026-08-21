@@ -10,6 +10,8 @@ function createSettingsDatabase() {
   const row = {
     out_reminder_enabled: DEFAULT_NOTIFICATION_SETTINGS.outReminderEnabled ? 1 : 0,
     out_reminder_minutes: DEFAULT_NOTIFICATION_SETTINGS.outReminderMinutes,
+    out_persistent_reminder_interval_minutes:
+      DEFAULT_NOTIFICATION_SETTINGS.outPersistentReminderIntervalMinutes,
     tray_change_reminder_enabled: DEFAULT_NOTIFICATION_SETTINGS.trayChangeReminderEnabled ? 1 : 0,
     tray_change_reminder_hour: DEFAULT_NOTIFICATION_SETTINGS.trayChangeReminderHour,
     tray_change_reminder_minute: DEFAULT_NOTIFICATION_SETTINGS.trayChangeReminderMinute,
@@ -19,6 +21,7 @@ function createSettingsDatabase() {
     [
       row.out_reminder_enabled,
       row.out_reminder_minutes,
+      row.out_persistent_reminder_interval_minutes,
       row.tray_change_reminder_enabled,
       row.tray_change_reminder_hour,
       row.tray_change_reminder_minute,
@@ -34,7 +37,7 @@ function createSettingsDatabase() {
 }
 
 describe('notification settings persistence', () => {
-  it('loads enabled 45-minute and 9:00 AM defaults', async () => {
+  it('loads enabled 45-minute, 5-minute persistent, and 9:00 AM defaults', async () => {
     const database = createSettingsDatabase();
 
     await expect(getNotificationSettings(database.db)).resolves.toEqual(
@@ -47,6 +50,7 @@ describe('notification settings persistence', () => {
     const settings = {
       outReminderEnabled: false,
       outReminderMinutes: 75,
+      outPersistentReminderIntervalMinutes: 10,
       trayChangeReminderEnabled: true,
       trayChangeReminderHour: 18,
       trayChangeReminderMinute: 30,
@@ -58,6 +62,7 @@ describe('notification settings persistence', () => {
       expect.stringContaining('UPDATE settings'),
       0,
       75,
+      10,
       1,
       18,
       30,

@@ -28,6 +28,7 @@ import { useAppTheme } from '@/theme/use-app-theme';
 
 const effectiveDateFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: 'medium',
+  hour12: true,
   timeStyle: 'short',
 });
 

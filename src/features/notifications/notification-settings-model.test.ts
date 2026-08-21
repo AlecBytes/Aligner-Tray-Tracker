@@ -6,10 +6,11 @@ import {
 } from '@/features/notifications/notification-settings-model';
 
 describe('notification settings model', () => {
-  it('uses enabled 45-minute and 9:00 AM defaults', () => {
+  it('uses enabled 45-minute, 5-minute persistent, and 9:00 AM defaults', () => {
     expect(DEFAULT_NOTIFICATION_SETTINGS).toEqual({
       outReminderEnabled: true,
       outReminderMinutes: 45,
+      outPersistentReminderIntervalMinutes: 5,
       trayChangeReminderEnabled: true,
       trayChangeReminderHour: 9,
       trayChangeReminderMinute: 0,
@@ -26,11 +27,14 @@ describe('notification settings model', () => {
     expect(
       validateNotificationSettings({
         outReminderMinutes: '4',
+        outPersistentReminderIntervalMinutes: '241',
         trayChangeReminderTime: '25:00',
       }),
     ).toEqual({
       errors: {
         outReminderMinutes: 'Enter a whole number from 5 to 240.',
+        outPersistentReminderIntervalMinutes:
+          'Enter a whole number from 5 to 240.',
         trayChangeReminderTime: 'Enter a time such as 9:00 AM.',
       },
       success: false,

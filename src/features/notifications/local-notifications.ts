@@ -19,6 +19,12 @@ const REMINDER_IDENTIFIERS = {
   'tray-change': 'aligner-tracker-tray-change',
 } as const;
 
+function reminderIdentifier(kind: keyof typeof REMINDER_IDENTIFIERS, fingerprint: string) {
+  return kind === 'tray-change'
+    ? REMINDER_IDENTIFIERS[kind]
+    : `${REMINDER_IDENTIFIERS[kind]}-${fingerprint}`;
+}
+
 export type LocalNotificationPermissionState =
   | 'denied'
   | 'granted'
@@ -151,25 +157,27 @@ async function reconcile(
     ),
   );
 
-  for (const reminder of reconciliation.schedule) {
-    await notifications.scheduleNotificationAsync({
-      content: {
-        body: reminder.body,
-        data: {
-          [REMINDER_FINGERPRINT_DATA_KEY]: reminder.fingerprint,
-          [REMINDER_KIND_DATA_KEY]: reminder.kind,
+  await Promise.all(
+    reconciliation.schedule.map((reminder) =>
+      notifications.scheduleNotificationAsync({
+        content: {
+          body: reminder.body,
+          data: {
+            [REMINDER_FINGERPRINT_DATA_KEY]: reminder.fingerprint,
+            [REMINDER_KIND_DATA_KEY]: reminder.kind,
+          },
+          sound: reminder.sound,
+          title: 'Aligner Tracker',
         },
-        sound: reminder.sound,
-        title: 'Aligner Tracker',
-      },
-      identifier: REMINDER_IDENTIFIERS[reminder.kind],
-      trigger: {
-        channelId: Platform.OS === 'android' ? REMINDER_CHANNEL_ID : undefined,
-        date: reminder.scheduledAt,
-        type: notifications.SchedulableTriggerInputTypes.DATE,
-      },
-    });
-  }
+        identifier: reminderIdentifier(reminder.kind, reminder.fingerprint),
+        trigger: {
+          channelId: Platform.OS === 'android' ? REMINDER_CHANNEL_ID : undefined,
+          date: reminder.scheduledAt,
+          type: notifications.SchedulableTriggerInputTypes.DATE,
+        },
+      }),
+    ),
+  );
 }
 
 export function initializeLocalNotifications(db: SQLiteDatabase) {

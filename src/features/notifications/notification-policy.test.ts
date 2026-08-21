@@ -1,5 +1,6 @@
 import {
   buildReminderRequests,
+  MAX_PENDING_REMINDERS,
   planReminderReconciliation,
 } from '@/features/notifications/notification-policy';
 import { DEFAULT_NOTIFICATION_SETTINGS } from '@/features/notifications/notification-settings-model';
@@ -27,15 +28,42 @@ describe('buildReminderRequests', () => {
       punches: [{ id: 2, status: 'OUT', timestamp: snapshot().trayStartedAt }],
     });
 
-    expect(
-      buildReminderRequests(
-        tracker,
-        DEFAULT_NOTIFICATION_SETTINGS,
-        tracker.trayStartedAt,
-      ).map(({ kind, sound }) => ({ kind, sound })),
-    ).toEqual([
-      { kind: 'tray-change', sound: 'default' },
-      { kind: 'out-too-long', sound: 'default' },
+    const reminders = buildReminderRequests(
+      tracker,
+      DEFAULT_NOTIFICATION_SETTINGS,
+      tracker.trayStartedAt,
+    );
+
+    expect(reminders).toHaveLength(MAX_PENDING_REMINDERS);
+    expect(reminders.every((reminder) => reminder.sound === 'default')).toBe(true);
+    expect(reminders.some((reminder) => reminder.kind === 'tray-change')).toBe(true);
+    expect(reminders.some((reminder) => reminder.kind === 'out-too-long')).toBe(true);
+  });
+
+  it('schedules persistent OUT reminders at the configured interval', () => {
+    const outAt = new Date(2026, 7, 16, 10).getTime();
+    const reminders = buildReminderRequests(
+      snapshot({ punches: [{ id: 2, status: 'OUT', timestamp: outAt }] }),
+      {
+        ...DEFAULT_NOTIFICATION_SETTINGS,
+        outPersistentReminderIntervalMinutes: 10,
+      },
+      outAt + MINUTE,
+    ).filter((reminder) => reminder.kind === 'out-too-long');
+
+    expect(reminders.slice(0, 3)).toEqual([
+      expect.objectContaining({
+        body: 'Your trays have been out for 45 minutes.',
+        scheduledAt: outAt + 45 * MINUTE,
+      }),
+      expect.objectContaining({
+        body: 'Your trays are still out. Put them back in.',
+        scheduledAt: outAt + 55 * MINUTE,
+      }),
+      expect.objectContaining({
+        body: 'Your trays are still out. Put them back in.',
+        scheduledAt: outAt + 65 * MINUTE,
+      }),
     ]);
   });
 
@@ -56,7 +84,7 @@ describe('buildReminderRequests', () => {
     );
   });
 
-  it('does not request an OUT reminder when disabled, IN, or the new target has passed', () => {
+  it('does not request an OUT reminder when disabled or IN', () => {
     const outAt = new Date(2026, 7, 16, 10).getTime();
     const inSnapshot = snapshot({
       punches: [
@@ -64,10 +92,6 @@ describe('buildReminderRequests', () => {
         { id: 2, status: 'IN', timestamp: outAt + 10 * MINUTE },
       ],
     });
-    const overdueSnapshot = snapshot({
-      punches: [{ id: 1, status: 'OUT', timestamp: outAt }],
-    });
-
     expect(
       buildReminderRequests(inSnapshot, DEFAULT_NOTIFICATION_SETTINGS, outAt + 11 * MINUTE).some(
         (reminder) => reminder.kind === 'out-too-long',
@@ -75,20 +99,29 @@ describe('buildReminderRequests', () => {
     ).toBe(false);
     expect(
       buildReminderRequests(
-        overdueSnapshot,
-        { ...DEFAULT_NOTIFICATION_SETTINGS, outReminderMinutes: 30 },
-        outAt + 46 * MINUTE,
-      ).some(
-        (reminder) => reminder.kind === 'out-too-long',
-      ),
-    ).toBe(false);
-    expect(
-      buildReminderRequests(
-        overdueSnapshot,
+        snapshot({ punches: [{ id: 1, status: 'OUT', timestamp: outAt }] }),
         { ...DEFAULT_NOTIFICATION_SETTINGS, outReminderEnabled: false },
         outAt + MINUTE,
       ).some((reminder) => reminder.kind === 'out-too-long'),
     ).toBe(false);
+  });
+
+  it('resumes the persistent cadence without sending an immediate catch-up reminder', () => {
+    const outAt = new Date(2026, 7, 16, 10).getTime();
+    const now = outAt + 46 * MINUTE;
+    const reminders = buildReminderRequests(
+      snapshot({ punches: [{ id: 1, status: 'OUT', timestamp: outAt }] }),
+      DEFAULT_NOTIFICATION_SETTINGS,
+      now,
+    ).filter((reminder) => reminder.kind === 'out-too-long');
+
+    expect(reminders[0]).toEqual(
+      expect.objectContaining({
+        body: 'Your trays are still out. Put them back in.',
+        scheduledAt: outAt + 50 * MINUTE,
+      }),
+    );
+    expect(reminders.every((reminder) => reminder.scheduledAt > now)).toBe(true);
   });
 
   it('schedules the tray-change reminder at the configured time on the due date', () => {
@@ -193,10 +226,11 @@ describe('planReminderReconciliation', () => {
     ]);
 
     expect(result.cancelIdentifiers).toEqual(['old-out-id', 'old-tray-id']);
-    expect(result.schedule.map((reminder) => reminder.kind)).toEqual([
-      'tray-change',
-      'out-too-long',
-    ]);
+    expect(result.schedule).toHaveLength(MAX_PENDING_REMINDERS);
+    expect(result.schedule[0].kind).toBe('tray-change');
+    expect(result.schedule.slice(1).every((reminder) => reminder.kind === 'out-too-long')).toBe(
+      true,
+    );
   });
 
   it('cancels a pending OUT reminder when the desired state is IN', () => {
@@ -273,10 +307,11 @@ describe('planReminderReconciliation', () => {
     ]);
 
     expect(result.cancelIdentifiers).toEqual(['previous-out-id', 'previous-tray-id']);
-    expect(result.schedule.map((reminder) => reminder.kind)).toEqual([
-      'tray-change',
-      'out-too-long',
-    ]);
+    expect(result.schedule).toHaveLength(MAX_PENDING_REMINDERS);
+    expect(result.schedule[0].kind).toBe('tray-change');
+    expect(result.schedule.slice(1).every((reminder) => reminder.kind === 'out-too-long')).toBe(
+      true,
+    );
   });
 
   it('replaces the tray reminder after plan or reminder-time changes', () => {

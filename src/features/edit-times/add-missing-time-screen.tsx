@@ -59,7 +59,7 @@ export function AddMissingTimeScreen() {
     const endTimestamp = parseLocalDateTime(endDate, endTime);
 
     if (startTimestamp === null || endTimestamp === null) {
-      setError('Enter valid dates and times using YYYY-MM-DD and HH:MM.');
+      setError('Enter valid dates and times using YYYY-MM-DD and h:mm AM/PM.');
       requestAnimationFrame(() => keyboardNavigation.focusField(startTimestamp === null ? 0 : 2));
       return;
     }

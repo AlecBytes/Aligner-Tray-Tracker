@@ -1,5 +1,5 @@
 import { DatePicker, Form, Host, Section, Text } from '@expo/ui/swift-ui';
-import { disabled, font, foregroundStyle } from '@expo/ui/swift-ui/modifiers';
+import { disabled, environment, font, foregroundStyle } from '@expo/ui/swift-ui/modifiers';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useRef, useState } from 'react';
@@ -154,7 +154,7 @@ export function EditEventScreen() {
           />
           <DatePicker
             displayedComponents={['hourAndMinute']}
-            modifiers={[disabled(isSaving)]}
+            modifiers={[environment('locale', 'en_US'), disabled(isSaving)]}
             onDateChange={(date) => {
               setSelectedDate(startOfMinute(date.getTime()));
               setError(null);

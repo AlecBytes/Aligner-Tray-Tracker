@@ -2,6 +2,7 @@ import type { Settings } from '@/db/schema';
 import type { TrackerSnapshot } from '@/features/tracker/tracker-model';
 
 const MILLISECONDS_PER_MINUTE = 60 * 1000;
+export const MAX_PENDING_REMINDERS = 64;
 
 export const REMINDER_KIND_DATA_KEY = 'alignerReminderKind';
 export const REMINDER_FINGERPRINT_DATA_KEY = 'alignerReminderFingerprint';
@@ -94,19 +95,32 @@ export function buildReminderRequests(
   );
 
   if (settings.outReminderEnabled && latestPunch?.status === 'OUT') {
-    const outReminderAt =
+    const initialReminderAt =
       latestPunch.timestamp + settings.outReminderMinutes * MILLISECONDS_PER_MINUTE;
+    const persistentInterval =
+      settings.outPersistentReminderIntervalMinutes * MILLISECONDS_PER_MINUTE;
+    const firstReminderAt =
+      initialReminderAt > now
+        ? initialReminderAt
+        : initialReminderAt +
+          (Math.floor((now - initialReminderAt) / persistentInterval) + 1) *
+            persistentInterval;
+    const availableSlots = MAX_PENDING_REMINDERS - reminders.length;
 
-    if (outReminderAt > now) {
+    for (let index = 0; index < availableSlots; index += 1) {
+      const scheduledAt = firstReminderAt + index * persistentInterval;
+      const isInitialReminder = scheduledAt === initialReminderAt;
       reminders.push({
-        body: `Your trays have been out for ${settings.outReminderMinutes} minutes.`,
+        body: isInitialReminder
+          ? `Your trays have been out for ${settings.outReminderMinutes} minutes.`
+          : 'Your trays are still out. Put them back in.',
         fingerprint: reminderFingerprint(
           'out-too-long',
-          outReminderAt,
+          scheduledAt,
           snapshot.trayPeriodId,
         ),
         kind: 'out-too-long',
-        scheduledAt: outReminderAt,
+        scheduledAt,
         sound: REMINDER_SOUND,
       });
     }
@@ -123,10 +137,10 @@ export function planReminderReconciliation(
   desiredReminders: readonly ReminderRequest[],
   scheduledReminders: readonly ScheduledReminder[],
 ): ReminderReconciliation {
-  const desiredByKind = new Map(
-    desiredReminders.map((reminder) => [reminder.kind, reminder]),
+  const desiredByFingerprint = new Map(
+    desiredReminders.map((reminder) => [reminder.fingerprint, reminder]),
   );
-  const keptKinds = new Set<ReminderKind>();
+  const keptFingerprints = new Set<string>();
   const cancelIdentifiers: string[] = [];
 
   for (const scheduled of scheduledReminders) {
@@ -134,14 +148,13 @@ export function planReminderReconciliation(
       continue;
     }
 
-    const desired = desiredByKind.get(scheduled.kind);
+    const fingerprint =
+      typeof scheduled.fingerprint === 'string' ? scheduled.fingerprint : null;
+    const desired =
+      fingerprint === null ? undefined : desiredByFingerprint.get(fingerprint);
 
-    if (
-      desired !== undefined &&
-      scheduled.fingerprint === desired.fingerprint &&
-      !keptKinds.has(scheduled.kind)
-    ) {
-      keptKinds.add(scheduled.kind);
+    if (desired !== undefined && !keptFingerprints.has(desired.fingerprint)) {
+      keptFingerprints.add(desired.fingerprint);
     } else {
       cancelIdentifiers.push(scheduled.identifier);
     }
@@ -149,6 +162,8 @@ export function planReminderReconciliation(
 
   return {
     cancelIdentifiers,
-    schedule: desiredReminders.filter((reminder) => !keptKinds.has(reminder.kind)),
+    schedule: desiredReminders.filter(
+      (reminder) => !keptFingerprints.has(reminder.fingerprint),
+    ),
   };
 }

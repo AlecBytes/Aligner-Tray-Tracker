@@ -1,5 +1,5 @@
 import { DatePicker, Form, Host, Picker, Section, Text } from '@expo/ui/swift-ui';
-import { disabled, pickerStyle, tag } from '@expo/ui/swift-ui/modifiers';
+import { disabled, environment, pickerStyle, tag } from '@expo/ui/swift-ui/modifiers';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useRef, useState } from 'react';
@@ -118,7 +118,7 @@ export function AddMissingTimeScreen() {
           />
           <DatePicker
             displayedComponents={['hourAndMinute']}
-            modifiers={[disabled(isSaving)]}
+            modifiers={[environment('locale', 'en_US'), disabled(isSaving)]}
             onDateChange={(date) => {
               setStartDate(startOfMinute(date));
               setError(null);
@@ -141,7 +141,7 @@ export function AddMissingTimeScreen() {
           />
           <DatePicker
             displayedComponents={['hourAndMinute']}
-            modifiers={[disabled(isSaving)]}
+            modifiers={[environment('locale', 'en_US'), disabled(isSaving)]}
             onDateChange={(date) => {
               setEndDate(startOfMinute(date));
               setError(null);

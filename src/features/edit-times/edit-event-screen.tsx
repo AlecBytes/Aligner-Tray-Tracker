@@ -104,7 +104,7 @@ export function EditEventScreen() {
     const timestamp = parseLocalDateTime(dateValue, timeValue);
 
     if (timestamp === null) {
-      setError('Enter a valid date and time using YYYY-MM-DD and HH:MM.');
+      setError('Enter a valid date and time using YYYY-MM-DD and h:mm AM/PM.');
       requestAnimationFrame(() => keyboardNavigation.focusField(0));
       return;
     }
