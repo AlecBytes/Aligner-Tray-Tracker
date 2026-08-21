@@ -8,7 +8,7 @@
     "scheme": "alignertraytracker",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
+      "icon": "./assets/images/ios-icon.png",
       "bundleIdentifier": "com.alecsbytes.alignertraytracker",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
