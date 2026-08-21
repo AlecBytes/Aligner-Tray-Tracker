@@ -2,9 +2,68 @@
 
 ## Status
 
-Planned. This document describes an incremental iOS UI-layer migration of the currently implemented app.
+Implementation complete as of 2026-08-20. Every implemented feature screen, shared loading state, and treatment route-gate state now resolves to an `@expo/ui/swift-ui` implementation on iOS. Expo Router remains the navigation shell, and the existing React Native files remain non-iOS fallbacks.
 
-The repository currently uses React Native views and controls. `@expo/ui` is not yet installed. Adding it, configuring the iOS deployment target, and changing app code belong to later implementation tasks.
+Manual testing on physical/simulated iPhones across the supported OS and accessibility ranges is still required before release. The code, static validation, native project generation, and iOS production bundle gates are complete.
+
+## Completion Record
+
+### Migrated iOS Presentation
+
+- Treatment Setup
+- Treatment Plan
+- Notifications
+- Menu
+- Account
+- Help
+- Treatment Plan History
+- Statistics
+- Edit In/Out Times: Date History, Daily Punch History, Edit Event, and Add Missing Time
+- Support Aligner Tracker
+- Change Tray
+- Main Tracker
+- Shared loading state and treatment route-gate loading/error state
+
+The implementations use platform-resolved `.ios.tsx` files. This keeps the established Expo Router routes and preserves the current React Native screens as Android/web fallbacks without mixing React Native views into the SwiftUI screen trees.
+
+### Shared Expo UI Composites
+
+`src/components/expo-ui-components.tsx` contains the small repeated app vocabulary used by migrated iOS screens:
+
+- `ActionButton`
+- `NavigationRow`
+- `ValidationMessage`
+- `MetricRow`
+- `CenteredState`
+- the centralized iOS 26 Liquid Glass availability choice
+
+`src/components/app-loading-screen.ios.tsx` is the shared native `ProgressView` loading presentation. Screen-specific native summaries and the large Tracker status control remain local to the features that own them rather than becoming generic wrappers.
+
+### Final iOS UI Purity Audit
+
+The final platform-resolved audit covered every Expo Router route and every app-owned `.ios.tsx` override, then followed their runtime imports into shared components, services, repositories, and theme code. It reached 63 app-owned modules from 35 iOS route/override roots, including `src/components/expo-ui-components.tsx`.
+
+No React Native visual primitive or `StyleSheet` presentation violation was found in the reachable graph. The production iOS source map independently confirms that every feature route selects its `.ios.tsx` implementation and that the generic React Native screen/helper fallbacks are absent from the bundle.
+
+`npm run check:ios-ui-purity` now enforces this boundary. It performs iOS-aware module resolution, traverses app-owned runtime imports, and permits only the current non-visual React Native allowlist: `Linking`, `AppState`, `Platform`, and `useColorScheme`. Default, namespace, wildcard, CommonJS, dynamic, React Native subpath, `SafeAreaView`, or other React Native runtime access fails validation. Type-only imports do not affect the rendered dependency graph.
+
+### Compatibility and Intentional Exceptions
+
+- Expo SDK 57's generated iOS project uses deployment target 16.4 by default. A clean `expo prebuild --platform ios --no-install` check produced `IPHONEOS_DEPLOYMENT_TARGET = 16.4`; no build-properties dependency or native project override is needed.
+- iOS 26+ buttons use `glass` or `glassProminent` where appropriate. iOS 16.4–25 receives `bordered` or `borderedProminent` from the same shared style decision; behavior and routing do not branch by OS version.
+- No custom Swift view or local Expo module was added.
+- Expo UI `Host` is the required React Native-to-SwiftUI bridge. Its outer `flex: 1` sizing style only sizes that boundary; all app-owned visible descendants are Expo UI SwiftUI views.
+- React Native remains only at non-visual application/service boundaries on iOS: `Linking` for email/device settings, `AppState` for notification lifecycle work, `Platform` for OS capability decisions, and `useColorScheme` for theme selection. Expo Router/native navigation and Expo's status-bar component remain infrastructure exceptions. No migrated iOS screen renders a React Native visual primitive.
+- Generic React Native UI helpers and screens remain because they are still the explicit non-iOS fallbacks. They are not selected by the iOS bundle and are therefore not dead code.
+- Long-history list profiling, VoiceOver, Dynamic Type extremes, reduced transparency, dark mode, keyboard ergonomics, and smallest-iPhone layout checks remain manual release gates.
+
+### Automated Verification
+
+- `npm run validate`: passed (`typecheck`, lint, iOS UI purity graph check, 22 test suites, and 121 tests)
+- `npm run check:ios-ui-purity`: passed across 63 app-owned modules reached from 35 iOS route/override roots
+- Expo lint emits an environment warning because the active shell is using Node 20.10.0; the project declares Node 22.13.0 or later
+- Clean Expo iOS native project generation with no dependency install: passed; deployment target 16.4 verified
+- `expo export --platform ios --source-maps`: passed and produced a Hermes iOS production bundle; the source map resolves every feature screen and the route gate to its `.ios.tsx` implementation and contains none of the fallback `AppScreen`, `AppText`, form-keyboard, treatment-field, or text date/time UI modules
 
 ## Goals and Constraints
 
@@ -41,11 +100,15 @@ Centralize the small OS-dependent style choice so individual screens do not cont
 
 ## Architecture Boundary
 
-Expo Router continues to provide stacks, route parameters, links, back behavior, and route gates. Each migrated screen crosses into SwiftUI through an Expo UI `Host`. Layout inside a `Host` should use SwiftUI primitives such as `VStack`, `HStack`, `Spacer`, `Form`, `List`, and `ScrollView`; React Native flexbox styling applies only outside that SwiftUI boundary.
+Expo Router continues to provide stacks, route parameters, links, back behavior, and route gates. Each migrated screen crosses into SwiftUI through an Expo UI `Host`. Layout inside a `Host` uses SwiftUI primitives such as `VStack`, `HStack`, `Spacer`, `Form`, `List`, and `ScrollView`; the Host's outer sizing style is the only app-owned React Native layout boundary on iOS.
 
 Screen components may continue to load and mutate data through the existing TypeScript hooks and SQLite repositories. Expo UI controls receive display values and invoke existing actions. Do not move business rules into Swift or duplicate them in the UI layer.
 
-Prefer a self-contained SwiftUI tree per screen. Avoid repeatedly nesting React Native and SwiftUI views. Use React Native interop only for a verified capability or performance gap.
+Prefer a self-contained SwiftUI tree per screen. Do not add app-owned React Native visual interop to the iOS dependency graph. Follow the custom-native work policy if a verified Expo UI capability gap cannot be resolved through native Expo UI composition.
+
+## Native Input Control Decision
+
+Prefer `Picker`, `DatePicker`, and `Toggle` over `TextField` when the domain already defines a bounded, reasonably enumerable set, a date/time value, or a boolean value. A numeric type or theoretical machine limit does not by itself make a value reasonably enumerable. Do not invent a product limit or numeric step only to make a picker possible. Keep a `TextField` when current validation accepts an effectively unbounded positive number or arbitrary numeric precision, so the UI does not narrow the domain model.
 
 ## Shared Component Migration Map
 
@@ -55,7 +118,7 @@ Prefer a self-contained SwiftUI tree per screen. Avoid repeatedly nesting React 
 | `AppLoadingScreen` | `Host`, `VStack`, `ProgressView`, and `Text` | Keep one small shared loading-state composite. |
 | `AppText` | Expo UI `Text` with native font and `foregroundStyle` modifiers | Do not recreate every old text variant. Use native semantic styles directly; retain at most small helpers for repeated timer/metric typography. |
 | React Native `Pressable` | Expo UI `Button`; Expo Router `Link` with `asChild` for navigation; `buttonStyle`, `tint`, `disabled`, and control-size modifiers | Replace generic pressable styling with native button semantics. Custom button children may use `HStack`, `VStack`, `Label`, `Image`, and `Spacer`. |
-| React Native `TextInput` | Expo UI `TextField`; `DatePicker` for actual dates/times | Use native keyboard types, submit labels, focus refs, and validation presentation. Replace string-formatted date/time entry with `DatePicker` when the domain flow allows it. |
+| React Native `TextInput` | Expo UI `Picker`, `DatePicker`, `Toggle`, or `TextField`, according to the value's domain | Prefer constrained native controls for bounded or semantic values: `Picker` for a reasonably enumerable set, `DatePicker` for dates/times, and `Toggle` for booleans. Keep `TextField` when validation permits an unbounded range or arbitrary numeric precision; use native keyboard types, submit labels, focus refs, and validation presentation there. |
 | React Native `Switch` | Expo UI `Toggle` | Use the native label and switch semantics rather than a custom row plus switch. |
 | Hand-styled form groups | `Form` and `Section` | Use section headers, footers, validation text, and native grouped appearance. |
 | Hand-styled cards | `Section`, `List` rows, or a small `VStack`/`HStack` with native background, padding, and shape modifiers | Prefer native grouping. Keep a card composite only when it conveys app-specific summary information. |
@@ -65,37 +128,35 @@ Prefer a self-contained SwiftUI tree per screen. Avoid repeatedly nesting React 
 
 ## Minimal App-Specific Composites
 
-These are useful app vocabulary built from Expo UI primitives, not custom native views:
+The completed migration keeps only repeated app vocabulary as shared composites:
 
-- `ExpoUIScreenHost`: a thin `Host` boundary with shared background/width behavior where required.
-- `LoadingState`: centered `ProgressView` plus message.
-- `NavigationRow`: a plain native `Button`/Expo Router `Link` with label, optional secondary value or SF Symbol, and chevron.
-- `ValidationMessage`: consistent inline error text and accessibility behavior.
-- `NumericFormField`: label, `TextField`, numeric/decimal keyboard configuration, disabled state, and validation message.
+- `ActionButton`: version-aware prominent/secondary native actions with pending state.
+- `NavigationRow`: a plain native row button with label, optional secondary value or SF Symbol, and chevron.
+- `ValidationMessage`: consistent inline error text and accessibility label.
 - `MetricRow`: leading label and trailing tabular value.
-- `PlanVersionSummary`: effective date, Current badge, and three plan values.
-- `StatisticsSummary`: a section containing repeated `MetricRow` values.
-- `DateTimeFieldGroup`: one or two native `DatePicker` controls with domain range/validation wiring.
-- `TrackerStatusControl`: the large app-specific IN/OUT action composed from `Button`, `VStack`, and native modifiers.
+- `CenteredState`: repeated full-screen unavailable/retry presentation inside a `Host`.
+- `AppLoadingScreen` on iOS: centered `ProgressView` plus message.
 
-Do not keep generic wrappers equivalent to every Expo UI primitive. Add a composite only when it represents repeated app behavior or vocabulary.
+Plan-version summaries, statistics summaries, date/time picker groups, and the Tracker status control are feature-local compositions because they are not reused broadly. `Host`, `Form`, `Section`, `TextField`, and the other Expo UI primitives are used directly rather than hidden behind equivalent wrappers.
 
 ## Implemented Screen Map
 
 ### Treatment Setup
 
-Current UI: scrollable `AppScreen`, heading text, four numeric/decimal `TreatmentFormField` inputs, inline validation/errors, and a prominent Start Tracking button.
+Current UI: `Host` + `Form`, three numeric/decimal `TextField` inputs, a native Starting Tray `Picker`, inline validation/errors, and a prominent Start Tracking button. Starting Tray falls back to a native numeric `TextField` only when Total Trays exceeds 200, because enumerating an effectively unbounded valid plan would violate the reasonably-enumerable rule and the app's performance goal. This fallback does not narrow validation or the domain model.
 
 Migration:
 
 - `Host` + `Form` + `Section`
-- Four `NumericFormField` composites backed by Expo UI `TextField`
-- `keyboardType`, `submitLabel`, `onSubmit`, and imperative `TextField` refs for field progression where supported
+- Native menu-style `Picker` for Starting Tray, constrained dynamically to `1...Total Trays`, while the range remains reasonably enumerable; a numeric `TextField` preserves unusually large valid plans without creating hundreds of thousands of native options
+- `TextField` for Total Trays and Days Per Tray because their validation accepts any positive safe integer and provides no reasonable upper bound
+- Decimal `TextField` for Prescribed Hours Per Day because validation accepts arbitrary precision in `(0, 24]`; a picker step would narrow existing valid input
+- `keyboardType`, `submitLabel`, `onSubmit`, and imperative `TextField` refs for the remaining text fields where supported
 - Native `Button` with prominent styling; `glassProminent` on iOS 26+ and `borderedProminent` on iOS 16.4–25
 - `ProgressView` or a disabled saving label during submission
 - Inline `ValidationMessage` for field and persistence errors
 
-This is the first migration screen because it proves form state, validation, numeric keyboards, focus movement, scrolling, SQLite submission, route replacement, dark mode, and old-iOS styling with limited UI complexity.
+This is the first migration screen because it proves form state, validation, constrained native selection, numeric keyboards where the domain remains open-ended, scrolling, SQLite submission, route replacement, dark mode, and old-iOS styling with limited UI complexity.
 
 ### Treatment Plan
 
@@ -105,7 +166,7 @@ Migration:
 
 - `Host` + `Form` with separate plan, history, and action `Section` groups
 - `NavigationRow` wrapped by Expo Router `Link` for Plan History
-- Three `NumericFormField` controls
+- Three native numeric/decimal `TextField` controls with shared validation conventions
 - Native save and retry `Button` controls
 - `ProgressView`, inline validation, and existing save/dismiss behavior
 
@@ -181,7 +242,7 @@ Migration:
 - Expo Router links retain the current date route parameter
 - `ProgressView` and native retry state
 
-Verify performance with a long treatment history because SDK 57 Expo UI `List` does not lazily create React rows. Keep collapsed weeks cheap; if the list becomes measurably slow, retain a React Native virtualized list for this screen rather than immediately creating native code.
+Verify performance with a long treatment history because SDK 57 Expo UI `List` does not lazily create React rows. Keep collapsed weeks cheap and optimize the native composition or data window if profiling finds a problem; a React Native visual fallback is not an approved iOS exception.
 
 ### Edit In/Out Times — Daily Punch History
 
@@ -284,19 +345,13 @@ Migration:
 
 ## Capability Verification Gates
 
-### Numeric Keyboard Previous / Next / Done
+### Native Form Input Convention
 
-This remains unresolved and must be verified in an implementation spike on iOS 16.4 and iOS 26.
-
-Expo UI `TextField` documents numeric keyboard configuration, submit labels, submit handlers, focus-change callbacks, and imperative `focus()`/`blur()` refs. The Expo SDK 57 documentation does not document a SwiftUI keyboard accessory toolbar equivalent to the current React Native `InputAccessoryView` with Previous, Next, and Done controls.
-
-Required process:
-
-1. Implement Treatment Setup with Expo UI `TextField`.
-2. Verify whether numeric and decimal keyboards can expose the exact Previous/Next/Done behavior directly through Expo UI, including moving focus, dismissing the keyboard, keeping the focused field visible, and focusing the first invalid field.
-3. If Expo UI supports it, use that capability and keep the implementation in TypeScript/Expo UI.
-4. If it does not, first evaluate an Expo UI composition that preserves the same user outcome without a custom module.
-5. Propose a narrowly scoped local SwiftUI/Expo module only if Expo UI cannot provide the required toolbar behavior directly. Do not create a general form framework.
+- Prefer `Picker`, `DatePicker`, `Toggle`, and other native controls whenever a value is constrained by the domain.
+- Use `TextField` for values that are genuinely open-ended or cannot be represented by a reasonable native selection control.
+- For keyboards that expose Return, use Expo UI `submitLabel` and `onSubmit` and focus the next field where appropriate.
+- Numeric and decimal keyboards do not require a custom Previous/Next/Done accessory.
+- Do not add a custom native keyboard module to provide accessory controls for this behavior.
 
 ### Additional Verification
 
@@ -315,25 +370,24 @@ No custom SwiftUI component or local Expo module is required by the current plan
 
 Potential native work is limited to verified gaps:
 
-- the numeric-keyboard Previous/Next/Done accessory, if Expo UI `TextField` cannot support it directly;
 - a narrowly scoped accessibility modifier, only if native announcements or field-error association cannot be achieved through Expo UI;
 - a narrowly scoped Tracker view only if Expo UI composition demonstrably fails the layout, accessibility, or performance requirements after the common patterns are proven.
 
-For list performance, prefer keeping an isolated React Native virtualized screen over writing a custom native list. For styling differences, use native version-appropriate modifiers rather than custom Swift.
+For list performance, first optimize the Expo UI composition, collapsed content, and data window. For styling differences, use native version-appropriate modifiers rather than custom Swift. Any new native implementation requires a verified Expo UI gap and an explicit update to this policy; React Native visual fallback screens are not an iOS option.
 
 ## Incremental Migration Order
 
-1. **Treatment Setup** — prove `Host`, `Form`, numeric `TextField`, validation, keyboard behavior, SQLite submission, route replacement, dark mode, Dynamic Type, and iOS-version styling.
-2. **Treatment Plan** — reuse the form fields and add navigation rows, existing-value loading, save/dismiss behavior, and plan history entry.
-3. **Notifications** — prove `Toggle`, numeric input, native time `DatePicker`, permission messaging, and settings linking.
-4. **Menu, Account, and Help** — establish native lists, links, informational sections, SF Symbols, and email actions.
-5. **Treatment Plan History and Statistics** — establish summary sections, metric rows, badges/status, loading states, and bounded read-only lists.
-6. **Edit In/Out Times** — migrate disclosure groups, routed rows, segmented choice, native date/time pickers, and correction forms; profile long histories.
-7. **Support** — migrate product rows and asynchronous progress/status presentation without changing the purchase abstraction.
-8. **Change Tray** — prove the compact non-scrolling layout, manual numeric entry, adjacent controls, and native confirmation flow.
-9. **Main Tracker** — migrate last, reusing all proven layout, button, state, accessibility, error, and OS-style patterns.
+1. [x] **Treatment Setup** — `Host`, `Form`, bounded `Picker`, numeric `TextField`, validation, SQLite submission, route replacement, and version-aware styling.
+2. [x] **Treatment Plan** — form fields, navigation row, existing-value loading, save/dismiss behavior, and plan history entry.
+3. [x] **Notifications** — `Toggle`, numeric input, native time `DatePicker`, permission messaging, and settings linking.
+4. [x] **Menu, Account, and Help** — native lists/forms, navigation rows, informational sections, SF Symbols, and email actions.
+5. [x] **Treatment Plan History and Statistics** — summary sections, metric rows, current/goal status, loading states, and read-only lists.
+6. [x] **Edit In/Out Times** — disclosure groups, routed rows, segmented choice, native date/time pickers, and correction forms. Collapsed weeks omit day-row children; long-history device profiling remains manual.
+7. [x] **Support** — product rows and asynchronous progress/status presentation with the purchase abstraction unchanged.
+8. [x] **Change Tray** — compact non-scrolling layout, manual numeric entry, adjacent controls, and native confirmation dialog.
+9. [x] **Main Tracker** — non-scrolling native stack layout, large expandable IN/OUT control, live metrics, local state transitions, errors, routing, and OS-version styles.
 
-Complete and smoke-test each step before removing the corresponding React Native UI. Do not perform a single all-screens rewrite.
+The code migration is complete in this order. Manual iPhone smoke testing remains required before removing or reconsidering the non-iOS fallbacks.
 
 ## Acceptance Criteria
 
@@ -343,7 +397,7 @@ Complete and smoke-test each step before removing the corresponding React Native
 - SQLite data and all existing domain behavior remain unchanged.
 - Core tracker actions remain local-first, immediate, and network-independent.
 - Compact core-action screens do not scroll; forms and history screens scroll intentionally.
-- VoiceOver, Dynamic Type, dark mode, keyboard behavior, and loading/error states are verified across the supported OS range.
+- VoiceOver, Dynamic Type extremes, dark mode, keyboard behavior, and loading/error states still require manual verification across the supported OS range.
 - Custom components remain limited to the small app-specific composites listed above.
 - No custom native module is added without a documented Expo UI capability gap.
 
@@ -353,6 +407,7 @@ Complete and smoke-test each step before removing the corresponding React Native
 - [Building SwiftUI apps with Expo UI](https://docs.expo.dev/guides/expo-ui-swift-ui/)
 - [Expo UI Form](https://docs.expo.dev/versions/v57.0.0/sdk/ui/swift-ui/form/)
 - [Expo UI List](https://docs.expo.dev/versions/v57.0.0/sdk/ui/swift-ui/list/)
+- [Expo UI Picker](https://docs.expo.dev/versions/v57.0.0/sdk/ui/swift-ui/picker/)
 - [Expo UI TextField](https://docs.expo.dev/versions/v57.0.0/sdk/ui/swift-ui/textfield/)
 - [Expo UI DatePicker](https://docs.expo.dev/versions/v57.0.0/sdk/ui/swift-ui/datepicker/)
 - [Expo UI modifiers](https://docs.expo.dev/versions/v57.0.0/sdk/ui/swift-ui/modifiers/)

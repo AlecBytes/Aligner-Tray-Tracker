@@ -37,10 +37,11 @@
     "android": "npm run start -- --android",
     "ios": "npm run start -- --ios",
     "web": "npm run start -- --web",
+    "check:ios-ui-purity": "node ./scripts/check-ios-ui-purity.mjs",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
     "test": "jest",
-    "validate": "npm run typecheck && npm run lint && npm run test"
+    "validate": "npm run typecheck && npm run lint && npm run check:ios-ui-purity && npm run test"
   },
   "jest": {
     "preset": "jest-expo",

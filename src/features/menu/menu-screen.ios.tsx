@@ -1,0 +1,124 @@
+import { Alert, Button, Form, Host, Section, Text } from '@expo/ui/swift-ui';
+import { disabled, foregroundStyle } from '@expo/ui/swift-ui/modifiers';
+import { useRouter } from 'expo-router';
+import { useSQLiteContext } from 'expo-sqlite';
+import { useRef, useState } from 'react';
+
+import { NavigationRow } from '@/components/expo-ui-components';
+import { reconcileLocalNotifications } from '@/features/notifications/local-notifications';
+import { resetAppData } from '@/features/reset/reset-app-repository';
+import { useAppTheme } from '@/theme/use-app-theme';
+
+export function MenuScreen() {
+  const db = useSQLiteContext();
+  const router = useRouter();
+  const theme = useAppTheme();
+  const resetInProgress = useRef(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetConfirmationPresented, setResetConfirmationPresented] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+
+  async function resetApp() {
+    if (resetInProgress.current) {
+      return;
+    }
+
+    resetInProgress.current = true;
+    setIsResetting(true);
+    setResetError(null);
+    setResetConfirmationPresented(false);
+
+    try {
+      await resetAppData(db);
+      await reconcileLocalNotifications(db);
+      router.replace('/setup');
+    } catch {
+      resetInProgress.current = false;
+      setIsResetting(false);
+      setResetError('Your app data could not be reset. Please try again.');
+    }
+  }
+
+  return (
+    <Host seedColor={theme.primary} style={{ flex: 1 }}>
+      <Form>
+        <Section>
+          <NavigationRow
+            label="Account"
+            onPress={() => router.push('/account')}
+            systemImage="person.circle"
+          />
+          <NavigationRow
+            label="Treatment Plan"
+            onPress={() => router.push('/treatment-plan')}
+            systemImage="list.bullet.clipboard"
+          />
+          <NavigationRow
+            label="Notifications"
+            onPress={() => router.push('/notifications')}
+            systemImage="bell"
+          />
+          <NavigationRow
+            label="Edit In/Out Times"
+            onPress={() => router.push('/edit-times')}
+            systemImage="clock.arrow.circlepath"
+          />
+          <NavigationRow
+            label="Statistics"
+            onPress={() => router.push('/statistics')}
+            systemImage="chart.bar"
+          />
+        </Section>
+
+        {__DEV__ ? (
+          <Section title="Development">
+            <NavigationRow
+              label="Support Aligner Tracker (Preview)"
+              onPress={() => router.push('/support')}
+              systemImage="heart"
+            />
+          </Section>
+        ) : null}
+
+        <Section>
+          <NavigationRow
+            label="Help"
+            onPress={() => router.push('/help')}
+            systemImage="questionmark.circle"
+          />
+        </Section>
+
+        <Section
+          footer={
+            resetError ? (
+              <Text modifiers={[foregroundStyle(theme.error)]}>{resetError}</Text>
+            ) : undefined
+          }>
+          <Alert
+            isPresented={resetConfirmationPresented}
+            onIsPresentedChange={setResetConfirmationPresented}
+            title="Reset App?">
+            <Alert.Trigger>
+              <Button
+                label={isResetting ? 'Resetting App…' : 'Reset App'}
+                modifiers={[disabled(isResetting)]}
+                onPress={() => setResetConfirmationPresented(true)}
+                role="destructive"
+                systemImage="trash"
+              />
+            </Alert.Trigger>
+            <Alert.Actions>
+              <Button label="Reset" onPress={() => void resetApp()} role="destructive" />
+              <Button label="Cancel" role="cancel" />
+            </Alert.Actions>
+            <Alert.Message>
+              <Text>
+                This action will delete all the data you created in the app. It can not be undone.
+              </Text>
+            </Alert.Message>
+          </Alert>
+        </Section>
+      </Form>
+    </Host>
+  );
+}
