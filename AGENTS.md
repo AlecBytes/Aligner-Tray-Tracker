@@ -4,6 +4,7 @@
 
 Read the exact versioned docs at https://docs.expo.dev/versions/v57.0.0/ before writing any code.
 
+https://docs.expo.dev/versions/latest/sdk/ui/swift-ui/
 
 ## Project
 
