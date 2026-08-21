@@ -4,7 +4,7 @@
 
 Read the exact versioned docs at https://docs.expo.dev/versions/v57.0.0/ before writing any code.
 
-https://docs.expo.dev/versions/latest/sdk/ui/swift-ui/
+https://docs.expo.dev/versions/v57.0.0/sdk/ui/swift-ui/
 
 ## Project
 
@@ -52,4 +52,19 @@ Do not implement future roadmap features unless explicitly requested.
 - Compact core-action screens should fit within the usable viewport and should not scroll.
 - Forms and content-heavy screens may scroll when needed, especially for keyboard accessibility.
 - Multi-field forms should keep the focused input visible and provide natural Next/Done navigation where appropriate.
-- Respect safe areas and prefer built-in React Native/Expo layout and keyboard APIs before adding dependencies.
+- Respect safe areas and prefer the platform-native Expo layout and keyboard APIs before adding dependencies.
+
+### Form Controls
+
+- Prefer native constrained controls such as `Picker`, `DatePicker`, and `Toggle` over free-form text input when the value has a sensible bounded domain.
+- Text fields with Return-capable keyboards should use standard Next/Done submit behavior where appropriate.
+- Numeric and decimal keyboards do not require a custom Previous/Next/Done accessory.
+- Do not add custom native keyboard infrastructure unless a concrete product requirement cannot be met with Expo UI SwiftUI controls.
+
+## iOS UI Purity
+
+- All app-owned visible iOS UI, including shared components reached by Expo Router routes or `.ios.tsx` modules, must use `@expo/ui/swift-ui`.
+- Do not use React Native visual or presentation primitives in the iOS app graph. This includes `View`, `Text`, `Pressable`, `TextInput`, `Switch`, `ScrollView`, `FlatList`, `SectionList`, `ActivityIndicator`, `Touchable*`, `SafeAreaView`, and `StyleSheet`.
+- The Expo UI `Host` and its outer sizing style are the approved SwiftUI bridge. Expo Router/native navigation and status-bar infrastructure are also allowed.
+- React Native runtime imports on iOS are limited to approved non-visual platform APIs such as `Linking`, `AppState`, `Platform`, and `useColorScheme`. Add another API to the validation allowlist only when it is verified to be non-visual.
+- Keep `npm run check:ios-ui-purity` in the project validation suite. The guard must resolve shared runtime dependencies, not only inspect `.ios.tsx` files directly.
