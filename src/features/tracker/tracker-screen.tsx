@@ -12,10 +12,21 @@ import {
   formatDuration,
   getLatestWearPunch,
 } from '@/features/tracker/tracker-calculations';
+import {
+  applyTrackerRedo,
+  applyTrackerUndo,
+  getTrackerSessionHistory,
+  rememberTrackerRedo,
+  rememberTrackerToggle,
+  rememberTrackerUndo,
+  validateTrackerSessionHistory,
+} from '@/features/tracker/tracker-history-session';
 import type { TrackerSnapshot } from '@/features/tracker/tracker-model';
 import {
   getTrackerSnapshot,
+  redoWearStatus,
   toggleWearStatus,
+  undoWearStatus,
 } from '@/features/tracker/tracker-repository';
 import { radius, spacing } from '@/theme/tokens';
 import { useAppTheme } from '@/theme/use-app-theme';
@@ -42,11 +53,12 @@ export function TrackerScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
   const theme = useAppTheme();
-  const toggleInProgress = useRef(false);
+  const mutationInProgress = useRef(false);
   const [snapshot, setSnapshot] = useState<TrackerSnapshot | null>(null);
+  const [history, setHistory] = useState(getTrackerSessionHistory);
   const [now, setNow] = useState(() => Date.now());
   const [isLoading, setIsLoading] = useState(true);
-  const [isToggling, setIsToggling] = useState(false);
+  const [isMutating, setIsMutating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const readPersistedTracker = useCallback(async () => {
@@ -61,6 +73,7 @@ export function TrackerScreen() {
     try {
       const { persistedSnapshot, readAt } = await readPersistedTracker();
       setSnapshot(persistedSnapshot);
+      setHistory(validateTrackerSessionHistory(persistedSnapshot));
       setNow(readAt);
       setError(
         persistedSnapshot === null ? 'No active treatment was found. Complete treatment setup first.' : null,
@@ -84,6 +97,7 @@ export function TrackerScreen() {
           }
 
           setSnapshot(persistedSnapshot);
+          setHistory(validateTrackerSessionHistory(persistedSnapshot));
           setNow(readAt);
           setError(
             persistedSnapshot === null
@@ -146,14 +160,14 @@ export function TrackerScreen() {
   } left`;
 
   async function toggleTracker() {
-    if (toggleInProgress.current || snapshot === null) {
+    if (mutationInProgress.current || snapshot === null || latestPunch === null) {
       return;
     }
 
     const timestamp = Date.now();
     const persistedStatus = createTrackerReadModel(snapshot, timestamp).currentStatus;
-    toggleInProgress.current = true;
-    setIsToggling(true);
+    mutationInProgress.current = true;
+    setIsMutating(true);
     setError(null);
 
     try {
@@ -169,6 +183,13 @@ export function TrackerScreen() {
           ? currentSnapshot
           : { ...currentSnapshot, punches: [...currentSnapshot.punches, punch] },
       );
+      setHistory(
+        rememberTrackerToggle({
+          predecessor: latestPunch,
+          punch,
+          trayPeriodId: snapshot.trayPeriodId,
+        }),
+      );
       setNow(timestamp);
       void reconcileLocalNotifications(db);
     } catch {
@@ -177,13 +198,88 @@ export function TrackerScreen() {
       try {
         const { persistedSnapshot, readAt } = await readPersistedTracker();
         setSnapshot(persistedSnapshot);
+        setHistory(validateTrackerSessionHistory(persistedSnapshot));
         setNow(readAt);
       } catch {
         // Keep the last successfully loaded state visible.
       }
     } finally {
-      toggleInProgress.current = false;
-      setIsToggling(false);
+      mutationInProgress.current = false;
+      setIsMutating(false);
+    }
+  }
+
+  async function undoTracker() {
+    const action = history.undoAction;
+
+    if (mutationInProgress.current || action === null) {
+      return;
+    }
+
+    mutationInProgress.current = true;
+    setIsMutating(true);
+    setError(null);
+
+    try {
+      await undoWearStatus(db, action);
+      setSnapshot((currentSnapshot) =>
+        currentSnapshot === null ? currentSnapshot : applyTrackerUndo(currentSnapshot, action),
+      );
+      setHistory(rememberTrackerUndo(action));
+      setNow(Date.now());
+      void reconcileLocalNotifications(db);
+    } catch {
+      setError('The tracker change could not be undone. Showing the last saved state.');
+
+      try {
+        const { persistedSnapshot, readAt } = await readPersistedTracker();
+        setSnapshot(persistedSnapshot);
+        setHistory(validateTrackerSessionHistory(persistedSnapshot));
+        setNow(readAt);
+      } catch {
+        // Keep the last successfully loaded state visible.
+      }
+    } finally {
+      mutationInProgress.current = false;
+      setIsMutating(false);
+    }
+  }
+
+  async function redoTracker() {
+    const action = history.redoAction;
+
+    if (mutationInProgress.current || action === null) {
+      return;
+    }
+
+    mutationInProgress.current = true;
+    setIsMutating(true);
+    setError(null);
+
+    try {
+      const restoredPunch = await redoWearStatus(db, action);
+      setSnapshot((currentSnapshot) =>
+        currentSnapshot === null
+          ? currentSnapshot
+          : applyTrackerRedo(currentSnapshot, restoredPunch),
+      );
+      setHistory(rememberTrackerRedo(restoredPunch));
+      setNow(Date.now());
+      void reconcileLocalNotifications(db);
+    } catch {
+      setError('The tracker change could not be redone. Showing the last saved state.');
+
+      try {
+        const { persistedSnapshot, readAt } = await readPersistedTracker();
+        setSnapshot(persistedSnapshot);
+        setHistory(validateTrackerSessionHistory(persistedSnapshot));
+        setNow(readAt);
+      } catch {
+        // Keep the last successfully loaded state visible.
+      }
+    } finally {
+      mutationInProgress.current = false;
+      setIsMutating(false);
     }
   }
 
@@ -193,14 +289,14 @@ export function TrackerScreen() {
         <Pressable
           accessibilityLabel="Open menu"
           accessibilityRole="button"
-          disabled={isToggling}
+          disabled={isMutating}
           onPress={() => router.push('/menu')}
           style={({ pressed }) => [
             styles.menuButton,
             {
               backgroundColor: pressed ? theme.border : theme.surface,
               borderColor: theme.border,
-              opacity: isToggling ? 0.6 : 1,
+              opacity: isMutating ? 0.6 : 1,
             },
           ]}>
           <AppText style={styles.menuButtonLabel}>Menu</AppText>
@@ -229,7 +325,7 @@ export function TrackerScreen() {
           isIn ? 'removed' : 'inserted'
         }.`}
         accessibilityRole="button"
-        disabled={isToggling}
+        disabled={isMutating}
         onPress={() => void toggleTracker()}
         style={({ pressed }) => [
           styles.toggleButton,
@@ -242,41 +338,75 @@ export function TrackerScreen() {
                 ? theme.border
                 : theme.surface,
             borderColor: theme.primary,
-            opacity: isToggling ? 0.65 : 1,
+            opacity: isMutating ? 0.65 : 1,
           },
         ]}>
         <AppText
           style={[styles.toggleLabel, { color: isIn ? theme.onPrimary : theme.primary }]}
           variant="heading">
-          {isToggling ? 'SAVING…' : `TRAYS ARE ${tracker.currentStatus}`}
+          {isMutating ? 'SAVING…' : `TRAYS ARE ${tracker.currentStatus}`}
         </AppText>
         <AppText style={{ color: isIn ? theme.onPrimary : theme.textMuted }}>
           {isIn ? 'Tap when removed' : 'Tap when inserted'}
         </AppText>
       </Pressable>
 
-      <Pressable
-        accessibilityLabel={`Edit last ${latestPunch?.status ?? 'IN or OUT'} time`}
-        accessibilityRole="button"
-        disabled={isToggling || latestPunch === null}
-        onPress={() => {
-          if (latestPunch !== null) {
-            router.push({
-              pathname: '/edit-times/event',
-              params: { id: String(latestPunch.id) },
-            });
-          }
-        }}
-        style={({ pressed }) => [
-          styles.editLastButton,
-          {
-            backgroundColor: pressed ? theme.border : theme.surface,
-            borderColor: theme.border,
-            opacity: isToggling || latestPunch === null ? 0.6 : 1,
-          },
-        ]}>
-        <AppText style={styles.editLastButtonLabel}>Edit last</AppText>
-      </Pressable>
+      <View style={styles.historyActions}>
+        <Pressable
+          accessibilityLabel="Undo last tracker change"
+          accessibilityRole="button"
+          disabled={isMutating || history.undoAction === null}
+          onPress={() => void undoTracker()}
+          style={({ pressed }) => [
+            styles.historyActionButton,
+            {
+              backgroundColor: pressed ? theme.border : theme.surface,
+              borderColor: theme.border,
+              opacity: isMutating || history.undoAction === null ? 0.6 : 1,
+            },
+          ]}>
+          <AppText style={styles.historyActionButtonLabel}>↶ Undo</AppText>
+        </Pressable>
+
+        <Pressable
+          accessibilityLabel={`Edit last ${latestPunch?.status ?? 'IN or OUT'} time`}
+          accessibilityRole="button"
+          disabled={isMutating || latestPunch === null}
+          onPress={() => {
+            if (latestPunch !== null) {
+              router.push({
+                pathname: '/edit-times/event',
+                params: { id: String(latestPunch.id) },
+              });
+            }
+          }}
+          style={({ pressed }) => [
+            styles.historyActionButton,
+            {
+              backgroundColor: pressed ? theme.border : theme.surface,
+              borderColor: theme.border,
+              opacity: isMutating || latestPunch === null ? 0.6 : 1,
+            },
+          ]}>
+          <AppText style={styles.historyActionButtonLabel}>Edit last</AppText>
+        </Pressable>
+
+        <Pressable
+          accessibilityLabel="Redo last undone tracker change"
+          accessibilityRole="button"
+          disabled={isMutating || history.redoAction === null}
+          onPress={() => void redoTracker()}
+          style={({ pressed }) => [
+            styles.historyActionButton,
+            {
+              backgroundColor: pressed ? theme.border : theme.surface,
+              borderColor: theme.border,
+              opacity: isMutating || history.redoAction === null ? 0.6 : 1,
+            },
+          ]}>
+          <AppText style={styles.historyActionButtonLabel}>Redo ↷</AppText>
+        </Pressable>
+      </View>
 
       <View style={styles.metrics}>
         <TimeMetric label="IN TODAY" seconds={tracker.inTodaySeconds} />
@@ -285,14 +415,14 @@ export function TrackerScreen() {
 
       <Pressable
         accessibilityRole="button"
-        disabled={isToggling}
+        disabled={isMutating}
         onPress={() => router.push('/change-tray')}
         style={({ pressed }) => [
           styles.changeTrayButton,
           {
             backgroundColor: pressed ? theme.border : theme.surface,
             borderColor: theme.border,
-            opacity: isToggling ? 0.6 : 1,
+            opacity: isMutating ? 0.6 : 1,
           },
         ]}>
         <AppText style={{ fontWeight: '700' }}>Change tray</AppText>
@@ -317,17 +447,22 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     lineHeight: 38,
   },
-  editLastButton: {
+  historyActionButton: {
     alignItems: 'center',
-    alignSelf: 'center',
     borderRadius: radius.md,
     borderWidth: 1,
+    flex: 1,
     justifyContent: 'center',
     minHeight: 40,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.xs,
   },
-  editLastButtonLabel: {
+  historyActionButtonLabel: {
+    fontSize: 14,
     fontWeight: '700',
+  },
+  historyActions: {
+    flexDirection: 'row',
+    gap: spacing.xs,
   },
   message: {
     gap: spacing.md,

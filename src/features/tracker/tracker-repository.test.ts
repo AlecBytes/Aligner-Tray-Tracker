@@ -2,13 +2,22 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import {
   getTrackerSnapshot,
+  redoWearStatus,
   toggleWearStatus,
   TrackerStateChangedError,
+  undoWearStatus,
 } from '@/features/tracker/tracker-repository';
+import type { TrackerToggleAction } from '@/features/tracker/tracker-model';
 
 function databaseWithRunAsync(runAsync: jest.Mock) {
   return { runAsync } as unknown as SQLiteDatabase;
 }
+
+const toggleAction: TrackerToggleAction = {
+  predecessor: { id: 90, status: 'IN', timestamp: 900 },
+  punch: { id: 91, status: 'OUT', timestamp: 1000 },
+  trayPeriodId: 33,
+};
 
 describe('getTrackerSnapshot', () => {
   it('loads the active tray, prior state, and current-day punches', async () => {
@@ -113,5 +122,88 @@ describe('toggleWearStatus', () => {
 
     expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
     expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
+  });
+});
+
+describe('undoWearStatus', () => {
+  it('deletes the exact latest toggle while preserving its predecessor', async () => {
+    const runAsync = jest.fn().mockResolvedValue({ changes: 1, lastInsertRowId: 0 });
+
+    await expect(undoWearStatus(databaseWithRunAsync(runAsync), toggleAction)).resolves.toBe(
+      undefined,
+    );
+
+    expect(runAsync).toHaveBeenCalledWith(
+      expect.stringContaining('DELETE FROM wear_punches'),
+      91,
+      33,
+      'OUT',
+      1000,
+      33,
+      33,
+      90,
+      33,
+      'IN',
+      900,
+      33,
+      91,
+    );
+    expect(runAsync.mock.calls[0][0]).toContain('ended_at IS NULL');
+    expect(runAsync.mock.calls[0][0]).toContain('WHERE tray_period_id = ? AND id <> ?');
+  });
+
+  it.each([
+    'the target is no longer latest',
+    'the tray period is inactive',
+    'the predecessor anchor is missing',
+  ])('rejects when %s', async () => {
+    const runAsync = jest.fn().mockResolvedValue({ changes: 0, lastInsertRowId: 0 });
+
+    await expect(
+      undoWearStatus(databaseWithRunAsync(runAsync), toggleAction),
+    ).rejects.toBeInstanceOf(TrackerStateChangedError);
+  });
+});
+
+describe('redoWearStatus', () => {
+  it('restores the undone status and timestamp with a fresh row ID', async () => {
+    const runAsync = jest.fn().mockResolvedValue({ changes: 1, lastInsertRowId: 92 });
+
+    await expect(redoWearStatus(databaseWithRunAsync(runAsync), toggleAction)).resolves.toEqual({
+      id: 92,
+      status: 'OUT',
+      timestamp: 1000,
+    });
+
+    expect(runAsync).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO wear_punches'),
+      33,
+      'OUT',
+      1000,
+      33,
+      90,
+      33,
+      'IN',
+      900,
+      33,
+      'IN',
+      'OUT',
+      900,
+      1000,
+    );
+    expect(runAsync.mock.calls[0][0]).toContain('ended_at IS NULL');
+    expect(runAsync.mock.calls[0][0]).toContain('ORDER BY timestamp DESC, id DESC');
+  });
+
+  it.each([
+    'the predecessor is no longer latest',
+    'the tray period is inactive',
+    'the restored timestamp conflicts with the timeline',
+  ])('rejects when %s', async () => {
+    const runAsync = jest.fn().mockResolvedValue({ changes: 0, lastInsertRowId: 0 });
+
+    await expect(
+      redoWearStatus(databaseWithRunAsync(runAsync), toggleAction),
+    ).rejects.toBeInstanceOf(TrackerStateChangedError);
   });
 });

@@ -6,6 +6,12 @@ export type WearPunchEvent = {
   timestamp: number;
 };
 
+export type TrackerToggleAction = {
+  predecessor: WearPunchEvent;
+  punch: WearPunchEvent;
+  trayPeriodId: number;
+};
+
 export type TrackerSnapshot = {
   currentTrayNumber: number;
   daysPerTray: number;

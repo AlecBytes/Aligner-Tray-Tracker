@@ -2,7 +2,11 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import type { WearStatus } from '@/db/schema';
 import { getLocalDayStart } from '@/features/tracker/tracker-calculations';
-import type { TrackerSnapshot, WearPunchEvent } from '@/features/tracker/tracker-model';
+import type {
+  TrackerSnapshot,
+  TrackerToggleAction,
+  WearPunchEvent,
+} from '@/features/tracker/tracker-model';
 
 type CurrentTrackerRow = {
   current_tray_number: number;
@@ -21,7 +25,7 @@ type WearPunchRow = {
 
 export class TrackerStateChangedError extends Error {
   constructor() {
-    super('The saved wear state changed before the toggle could be applied.');
+    super('The saved wear state changed before the tracker change could be applied.');
     this.name = 'TrackerStateChangedError';
   }
 }
@@ -141,5 +145,114 @@ export async function toggleWearStatus(
     id: result.lastInsertRowId,
     status: nextStatus,
     timestamp,
+  };
+}
+
+export async function undoWearStatus(
+  db: SQLiteDatabase,
+  action: TrackerToggleAction,
+): Promise<void> {
+  const result = await db.runAsync(
+    `DELETE FROM wear_punches
+     WHERE id = ?
+       AND tray_period_id = ?
+       AND status = ?
+       AND timestamp = ?
+       AND EXISTS (
+         SELECT 1 FROM tray_periods
+         WHERE id = ? AND ended_at IS NULL
+       )
+       AND id = (
+         SELECT id
+         FROM wear_punches
+         WHERE tray_period_id = ?
+         ORDER BY timestamp DESC, id DESC
+         LIMIT 1
+       )
+       AND EXISTS (
+         SELECT 1
+         FROM wear_punches
+         WHERE id = ?
+           AND tray_period_id = ?
+           AND status = ?
+           AND timestamp = ?
+           AND id = (
+             SELECT id
+             FROM wear_punches
+             WHERE tray_period_id = ? AND id <> ?
+             ORDER BY timestamp DESC, id DESC
+             LIMIT 1
+           )
+       )`,
+    action.punch.id,
+    action.trayPeriodId,
+    action.punch.status,
+    action.punch.timestamp,
+    action.trayPeriodId,
+    action.trayPeriodId,
+    action.predecessor.id,
+    action.trayPeriodId,
+    action.predecessor.status,
+    action.predecessor.timestamp,
+    action.trayPeriodId,
+    action.punch.id,
+  );
+
+  if (result.changes !== 1) {
+    throw new TrackerStateChangedError();
+  }
+}
+
+export async function redoWearStatus(
+  db: SQLiteDatabase,
+  action: TrackerToggleAction,
+): Promise<WearPunchEvent> {
+  const result = await db.runAsync(
+    `INSERT INTO wear_punches (tray_period_id, status, timestamp)
+     SELECT ?, ?, ?
+     WHERE EXISTS (
+       SELECT 1 FROM tray_periods
+       WHERE id = ? AND ended_at IS NULL
+     )
+       AND EXISTS (
+         SELECT 1
+         FROM wear_punches
+         WHERE id = ?
+           AND tray_period_id = ?
+           AND status = ?
+           AND timestamp = ?
+           AND id = (
+             SELECT id
+             FROM wear_punches
+             WHERE tray_period_id = ?
+             ORDER BY timestamp DESC, id DESC
+             LIMIT 1
+           )
+       )
+       AND ? <> ?
+       AND ? < ?`,
+    action.trayPeriodId,
+    action.punch.status,
+    action.punch.timestamp,
+    action.trayPeriodId,
+    action.predecessor.id,
+    action.trayPeriodId,
+    action.predecessor.status,
+    action.predecessor.timestamp,
+    action.trayPeriodId,
+    action.predecessor.status,
+    action.punch.status,
+    action.predecessor.timestamp,
+    action.punch.timestamp,
+  );
+
+  if (result.changes !== 1) {
+    throw new TrackerStateChangedError();
+  }
+
+  return {
+    id: result.lastInsertRowId,
+    status: action.punch.status,
+    timestamp: action.punch.timestamp,
   };
 }

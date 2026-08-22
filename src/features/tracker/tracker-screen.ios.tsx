@@ -34,10 +34,21 @@ import {
   formatDuration,
   getLatestWearPunch,
 } from '@/features/tracker/tracker-calculations';
+import {
+  applyTrackerRedo,
+  applyTrackerUndo,
+  getTrackerSessionHistory,
+  rememberTrackerRedo,
+  rememberTrackerToggle,
+  rememberTrackerUndo,
+  validateTrackerSessionHistory,
+} from '@/features/tracker/tracker-history-session';
 import type { TrackerSnapshot } from '@/features/tracker/tracker-model';
 import {
   getTrackerSnapshot,
+  redoWearStatus,
   toggleWearStatus,
+  undoWearStatus,
 } from '@/features/tracker/tracker-repository';
 import { useAppTheme } from '@/theme/use-app-theme';
 
@@ -77,11 +88,12 @@ export function TrackerScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
   const theme = useAppTheme();
-  const toggleInProgress = useRef(false);
+  const mutationInProgress = useRef(false);
   const [snapshot, setSnapshot] = useState<TrackerSnapshot | null>(null);
+  const [history, setHistory] = useState(getTrackerSessionHistory);
   const [now, setNow] = useState(() => Date.now());
   const [isLoading, setIsLoading] = useState(true);
-  const [isToggling, setIsToggling] = useState(false);
+  const [isMutating, setIsMutating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const readPersistedTracker = useCallback(async () => {
@@ -95,6 +107,7 @@ export function TrackerScreen() {
     try {
       const { persistedSnapshot, readAt } = await readPersistedTracker();
       setSnapshot(persistedSnapshot);
+      setHistory(validateTrackerSessionHistory(persistedSnapshot));
       setNow(readAt);
       setError(
         persistedSnapshot === null
@@ -118,6 +131,7 @@ export function TrackerScreen() {
             return;
           }
           setSnapshot(persistedSnapshot);
+          setHistory(validateTrackerSessionHistory(persistedSnapshot));
           setNow(readAt);
           setError(
             persistedSnapshot === null
@@ -169,13 +183,13 @@ export function TrackerScreen() {
   } left`;
 
   async function toggleTracker() {
-    if (toggleInProgress.current) {
+    if (mutationInProgress.current || latestPunch === null) {
       return;
     }
     const timestamp = Date.now();
     const persistedStatus = createTrackerReadModel(currentSnapshot, timestamp).currentStatus;
-    toggleInProgress.current = true;
-    setIsToggling(true);
+    mutationInProgress.current = true;
+    setIsMutating(true);
     setError(null);
     try {
       const punch = await toggleWearStatus(
@@ -189,6 +203,13 @@ export function TrackerScreen() {
           ? currentSnapshot
           : { ...currentSnapshot, punches: [...currentSnapshot.punches, punch] },
       );
+      setHistory(
+        rememberTrackerToggle({
+          predecessor: latestPunch,
+          punch,
+          trayPeriodId: currentSnapshot.trayPeriodId,
+        }),
+      );
       setNow(timestamp);
       void reconcileLocalNotifications(db);
     } catch {
@@ -196,13 +217,86 @@ export function TrackerScreen() {
       try {
         const { persistedSnapshot, readAt } = await readPersistedTracker();
         setSnapshot(persistedSnapshot);
+        setHistory(validateTrackerSessionHistory(persistedSnapshot));
         setNow(readAt);
       } catch {
         // Keep the last successfully loaded state visible.
       }
     } finally {
-      toggleInProgress.current = false;
-      setIsToggling(false);
+      mutationInProgress.current = false;
+      setIsMutating(false);
+    }
+  }
+
+  async function undoTracker() {
+    const action = history.undoAction;
+
+    if (mutationInProgress.current || action === null) {
+      return;
+    }
+
+    mutationInProgress.current = true;
+    setIsMutating(true);
+    setError(null);
+
+    try {
+      await undoWearStatus(db, action);
+      setSnapshot((currentSnapshot) =>
+        currentSnapshot === null ? currentSnapshot : applyTrackerUndo(currentSnapshot, action),
+      );
+      setHistory(rememberTrackerUndo(action));
+      setNow(Date.now());
+      void reconcileLocalNotifications(db);
+    } catch {
+      setError('The tracker change could not be undone. Showing the last saved state.');
+      try {
+        const { persistedSnapshot, readAt } = await readPersistedTracker();
+        setSnapshot(persistedSnapshot);
+        setHistory(validateTrackerSessionHistory(persistedSnapshot));
+        setNow(readAt);
+      } catch {
+        // Keep the last successfully loaded state visible.
+      }
+    } finally {
+      mutationInProgress.current = false;
+      setIsMutating(false);
+    }
+  }
+
+  async function redoTracker() {
+    const action = history.redoAction;
+
+    if (mutationInProgress.current || action === null) {
+      return;
+    }
+
+    mutationInProgress.current = true;
+    setIsMutating(true);
+    setError(null);
+
+    try {
+      const restoredPunch = await redoWearStatus(db, action);
+      setSnapshot((currentSnapshot) =>
+        currentSnapshot === null
+          ? currentSnapshot
+          : applyTrackerRedo(currentSnapshot, restoredPunch),
+      );
+      setHistory(rememberTrackerRedo(restoredPunch));
+      setNow(Date.now());
+      void reconcileLocalNotifications(db);
+    } catch {
+      setError('The tracker change could not be redone. Showing the last saved state.');
+      try {
+        const { persistedSnapshot, readAt } = await readPersistedTracker();
+        setSnapshot(persistedSnapshot);
+        setHistory(validateTrackerSessionHistory(persistedSnapshot));
+        setNow(readAt);
+      } catch {
+        // Keep the last successfully loaded state visible.
+      }
+    } finally {
+      mutationInProgress.current = false;
+      setIsMutating(false);
     }
   }
 
@@ -224,7 +318,7 @@ export function TrackerScreen() {
             modifiers={[
               buttonStyle(liquidGlass ? 'glass' : 'bordered'),
               controlSize('large'),
-              disabled(isToggling),
+              disabled(isMutating),
               accessibilityLabel('Open menu'),
             ]}
             onPress={() => router.push('/menu')}
@@ -258,14 +352,26 @@ export function TrackerScreen() {
 
         {error ? <ValidationMessage message={error} /> : null}
 
-        <HStack>
+        <HStack spacing={8}>
+          <Button
+            label="Undo"
+            systemImage="arrow.uturn.backward"
+            modifiers={[
+              buttonStyle(liquidGlass ? 'glass' : 'bordered'),
+              controlSize('small'),
+              disabled(isMutating || history.undoAction === null),
+              accessibilityLabel('Undo last tracker change'),
+              accessibilityHint('Removes the most recent IN or OUT change made on this screen.'),
+            ]}
+            onPress={() => void undoTracker()}
+          />
           <Spacer />
           <Button
             label="Edit last"
             modifiers={[
               buttonStyle(liquidGlass ? 'glass' : 'bordered'),
               controlSize('small'),
-              disabled(isToggling || latestPunch === null),
+              disabled(isMutating || latestPunch === null),
               accessibilityLabel(`Edit last ${latestPunch?.status ?? 'IN or OUT'} time`),
               accessibilityHint('Opens the most recent saved tracker event for correction.'),
             ]}
@@ -279,6 +385,18 @@ export function TrackerScreen() {
             }}
           />
           <Spacer />
+          <Button
+            label="Redo"
+            systemImage="arrow.uturn.forward"
+            modifiers={[
+              buttonStyle(liquidGlass ? 'glass' : 'bordered'),
+              controlSize('small'),
+              disabled(isMutating || history.redoAction === null),
+              accessibilityLabel('Redo last undone tracker change'),
+              accessibilityHint('Restores the most recently undone IN or OUT change.'),
+            ]}
+            onPress={() => void redoTracker()}
+          />
         </HStack>
 
         <Button
@@ -293,7 +411,7 @@ export function TrackerScreen() {
                   : 'bordered',
             ),
             buttonBorderShape('roundedRectangle', 18),
-            disabled(isToggling),
+            disabled(isMutating),
             frame({ maxWidth: Infinity, maxHeight: Infinity, minHeight: 124 }),
             accessibilityLabel(
               `Trays are ${isIn ? 'in' : 'out'}. Tap when ${isIn ? 'removed' : 'inserted'}.`,
@@ -311,7 +429,7 @@ export function TrackerScreen() {
                 minimumScaleFactor(0.75),
                 lineLimit(1),
               ]}>
-              {isToggling ? 'SAVING…' : `TRAYS ARE ${tracker.currentStatus}`}
+              {isMutating ? 'SAVING…' : `TRAYS ARE ${tracker.currentStatus}`}
             </Text>
             <Text>{isIn ? 'Tap when removed' : 'Tap when inserted'}</Text>
             <Spacer />
@@ -324,7 +442,7 @@ export function TrackerScreen() {
         </HStack>
 
         <ActionButton
-          disabled={isToggling}
+          disabled={isMutating}
           label="Change tray"
           onPress={() => router.push('/change-tray')}
           prominent={false}
