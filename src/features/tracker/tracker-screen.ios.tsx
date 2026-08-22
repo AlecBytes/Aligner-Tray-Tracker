@@ -52,35 +52,59 @@ import {
 } from '@/features/tracker/tracker-repository';
 import { useAppTheme } from '@/theme/use-app-theme';
 
-function TimeMetric({ label, seconds }: { label: string; seconds: number }) {
+function TimeMetric({
+  disabled: isDisabled,
+  label,
+  onPress,
+  seconds,
+}: {
+  disabled: boolean;
+  label: string;
+  onPress: () => void;
+  seconds: number;
+}) {
   const theme = useAppTheme();
+  const duration = formatDuration(seconds);
+
   return (
-    <VStack
-      alignment="leading"
-      spacing={4}
+    <Button
       modifiers={[
-        frame({ maxWidth: Infinity, minHeight: 72, alignment: 'leading' }),
-        padding({ all: 12 }),
-        background(theme.surface, shapes.roundedRectangle({ cornerRadius: 16 })),
-      ]}>
-      <Text
+        buttonStyle('plain'),
+        disabled(isDisabled),
+        frame({ maxWidth: Infinity }),
+        accessibilityLabel(`${label}, ${duration}`),
+        accessibilityHint(
+          `Opens today’s intervals with ${label.startsWith('IN') ? 'IN' : 'OUT'} selected.`,
+        ),
+      ]}
+      onPress={onPress}>
+      <VStack
+        alignment="leading"
+        spacing={4}
         modifiers={[
-          font({ textStyle: 'caption', weight: 'semibold' }),
-          foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+          frame({ maxWidth: Infinity, minHeight: 72, alignment: 'leading' }),
+          padding({ all: 12 }),
+          background(theme.surface, shapes.roundedRectangle({ cornerRadius: 16 })),
         ]}>
-        {label}
-      </Text>
-      <Text
-        modifiers={[
-          font({ textStyle: 'title2', weight: 'bold' }),
-          monospacedDigit(),
-          contentTransition('numericText'),
-          minimumScaleFactor(0.7),
-          lineLimit(1),
-        ]}>
-        {formatDuration(seconds)}
-      </Text>
-    </VStack>
+        <Text
+          modifiers={[
+            font({ textStyle: 'caption', weight: 'semibold' }),
+            foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+          ]}>
+          {label}
+        </Text>
+        <Text
+          modifiers={[
+            font({ textStyle: 'title2', weight: 'bold' }),
+            monospacedDigit(),
+            contentTransition('numericText'),
+            minimumScaleFactor(0.7),
+            lineLimit(1),
+          ]}>
+          {duration}
+        </Text>
+      </VStack>
+    </Button>
   );
 }
 
@@ -452,8 +476,22 @@ export function TrackerScreen() {
         </Button>
 
         <HStack spacing={10}>
-          <TimeMetric label="IN TODAY" seconds={tracker.inTodaySeconds} />
-          <TimeMetric label="OUT TODAY" seconds={tracker.outTodaySeconds} />
+          <TimeMetric
+            disabled={isMutating}
+            label="IN TODAY"
+            onPress={() =>
+              router.push({ pathname: '/intervals', params: { highlight: 'IN' } })
+            }
+            seconds={tracker.inTodaySeconds}
+          />
+          <TimeMetric
+            disabled={isMutating}
+            label="OUT TODAY"
+            onPress={() =>
+              router.push({ pathname: '/intervals', params: { highlight: 'OUT' } })
+            }
+            seconds={tracker.outTodaySeconds}
+          />
         </HStack>
 
         <ActionButton

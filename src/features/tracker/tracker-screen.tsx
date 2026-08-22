@@ -32,20 +32,36 @@ import { radius, spacing } from '@/theme/tokens';
 import { useAppTheme } from '@/theme/use-app-theme';
 
 type TimeMetricProps = {
+  disabled: boolean;
   label: string;
+  onPress: () => void;
   seconds: number;
 };
 
-function TimeMetric({ label, seconds }: TimeMetricProps) {
+function TimeMetric({ disabled, label, onPress, seconds }: TimeMetricProps) {
   const theme = useAppTheme();
+  const duration = formatDuration(seconds);
 
   return (
-    <View style={[styles.metric, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+    <Pressable
+      accessibilityHint={`Opens today’s intervals with ${label.startsWith('IN') ? 'IN' : 'OUT'} selected.`}
+      accessibilityLabel={`${label}, ${duration}`}
+      accessibilityRole="button"
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.metric,
+        {
+          backgroundColor: pressed ? theme.border : theme.surface,
+          borderColor: theme.border,
+          opacity: disabled ? 0.6 : 1,
+        },
+      ]}>
       <AppText muted style={styles.metricLabel} variant="caption">
         {label}
       </AppText>
-      <AppText style={styles.duration}>{formatDuration(seconds)}</AppText>
-    </View>
+      <AppText style={styles.duration}>{duration}</AppText>
+    </Pressable>
   );
 }
 
@@ -417,8 +433,22 @@ export function TrackerScreen() {
       </View>
 
       <View style={styles.metrics}>
-        <TimeMetric label="IN TODAY" seconds={tracker.inTodaySeconds} />
-        <TimeMetric label="OUT TODAY" seconds={tracker.outTodaySeconds} />
+        <TimeMetric
+          disabled={isMutating}
+          label="IN TODAY"
+          onPress={() =>
+            router.push({ pathname: '/intervals', params: { highlight: 'IN' } })
+          }
+          seconds={tracker.inTodaySeconds}
+        />
+        <TimeMetric
+          disabled={isMutating}
+          label="OUT TODAY"
+          onPress={() =>
+            router.push({ pathname: '/intervals', params: { highlight: 'OUT' } })
+          }
+          seconds={tracker.outTodaySeconds}
+        />
       </View>
 
       <Pressable

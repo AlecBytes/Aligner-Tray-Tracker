@@ -6,6 +6,14 @@ export type WearPunchEvent = {
   timestamp: number;
 };
 
+export type DailyWearInterval = {
+  durationSeconds: number;
+  endedAt: number;
+  isOngoing: boolean;
+  startedAt: number;
+  status: WearStatus;
+};
+
 export type TrackerToggleAction = {
   predecessor: WearPunchEvent;
   punch: WearPunchEvent;

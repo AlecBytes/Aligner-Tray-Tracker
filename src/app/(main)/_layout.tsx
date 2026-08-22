@@ -16,6 +16,7 @@ export default function MainLayout() {
           headerTintColor: theme.text,
         }}>
         <Stack.Screen name="tracker" options={{ headerShown: false }} />
+        <Stack.Screen name="intervals" options={{ title: 'Today’s Intervals' }} />
         <Stack.Screen name="change-tray" options={{ title: 'Change Tray' }} />
         <Stack.Screen name="menu" options={{ title: 'Menu' }} />
         <Stack.Screen name="account" options={{ title: 'Account' }} />

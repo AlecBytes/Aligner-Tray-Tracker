@@ -1,5 +1,6 @@
 import type { WearStatus } from '@/db/schema';
 import type {
+  DailyWearInterval,
   TrackerReadModel,
   TrackerSnapshot,
   WearPunchEvent,
@@ -55,16 +56,9 @@ export type DailyWearTotals = {
   outSeconds: number;
 };
 
-function addElapsedTime(
-  totals: Record<WearStatus, number>,
-  status: WearStatus | null,
-  start: number,
-  end: number,
-) {
-  if (status !== null && end > start) {
-    totals[status] += end - start;
-  }
-}
+type RawDailyWearInterval = Omit<DailyWearInterval, 'durationSeconds'> & {
+  durationMilliseconds: number;
+};
 
 function orderPunches(punches: readonly WearPunchEvent[]) {
   return [...punches].sort(
@@ -86,20 +80,32 @@ export function getLatestWearPunch(punches: readonly WearPunchEvent[]) {
   }, null);
 }
 
-export function calculateDailyWearTotals(
+function deriveRawDailyWearIntervals(
   punches: readonly WearPunchEvent[],
   dayStart: number,
   now: number,
-): DailyWearTotals {
+): RawDailyWearInterval[] {
   if (now <= dayStart) {
-    return { inSeconds: 0, outSeconds: 0 };
+    return [];
   }
 
-  const totalsInMilliseconds: Record<WearStatus, number> = { IN: 0, OUT: 0 };
+  const intervals: RawDailyWearInterval[] = [];
   let currentStatus: WearStatus | null = null;
   let currentIntervalStartedAt = dayStart;
 
-  for (const punch of orderPunches(punches)) {
+  const orderedPunches = orderPunches(punches);
+
+  for (let punchIndex = 0; punchIndex < orderedPunches.length; punchIndex += 1) {
+    let punch = orderedPunches[punchIndex];
+
+    while (
+      punchIndex + 1 < orderedPunches.length &&
+      orderedPunches[punchIndex + 1].timestamp === punch.timestamp
+    ) {
+      punchIndex += 1;
+      punch = orderedPunches[punchIndex];
+    }
+
     if (punch.timestamp > now) {
       break;
     }
@@ -109,17 +115,83 @@ export function calculateDailyWearTotals(
       continue;
     }
 
-    addElapsedTime(
-      totalsInMilliseconds,
-      currentStatus,
-      currentIntervalStartedAt,
-      punch.timestamp,
-    );
+    if (currentStatus === null) {
+      currentStatus = punch.status;
+      currentIntervalStartedAt = punch.timestamp;
+      continue;
+    }
+
+    if (punch.status === currentStatus) {
+      continue;
+    }
+
+    if (punch.timestamp > currentIntervalStartedAt) {
+      intervals.push({
+        durationMilliseconds: punch.timestamp - currentIntervalStartedAt,
+        endedAt: punch.timestamp,
+        isOngoing: false,
+        startedAt: currentIntervalStartedAt,
+        status: currentStatus,
+      });
+    }
+
     currentStatus = punch.status;
     currentIntervalStartedAt = punch.timestamp;
   }
 
-  addElapsedTime(totalsInMilliseconds, currentStatus, currentIntervalStartedAt, now);
+  if (currentStatus !== null && now > currentIntervalStartedAt) {
+    intervals.push({
+      durationMilliseconds: now - currentIntervalStartedAt,
+      endedAt: now,
+      isOngoing: true,
+      startedAt: currentIntervalStartedAt,
+      status: currentStatus,
+    });
+  }
+
+  return intervals;
+}
+
+export function calculateDailyWearIntervals(
+  punches: readonly WearPunchEvent[],
+  dayStart: number,
+  now: number,
+): DailyWearInterval[] {
+  const cumulativeMilliseconds: Record<WearStatus, number> = { IN: 0, OUT: 0 };
+  const cumulativeSeconds: Record<WearStatus, number> = { IN: 0, OUT: 0 };
+
+  return deriveRawDailyWearIntervals(punches, dayStart, now).map((interval) => {
+    cumulativeMilliseconds[interval.status] += interval.durationMilliseconds;
+    const nextCumulativeSeconds = Math.floor(
+      cumulativeMilliseconds[interval.status] / MILLISECONDS_PER_SECOND,
+    );
+    const durationSeconds = nextCumulativeSeconds - cumulativeSeconds[interval.status];
+    cumulativeSeconds[interval.status] = nextCumulativeSeconds;
+
+    return {
+      durationSeconds,
+      endedAt: interval.endedAt,
+      isOngoing: interval.isOngoing,
+      startedAt: interval.startedAt,
+      status: interval.status,
+    };
+  });
+}
+
+export function calculateDailyWearTotals(
+  punches: readonly WearPunchEvent[],
+  dayStart: number,
+  now: number,
+): DailyWearTotals {
+  const totalsInMilliseconds = deriveRawDailyWearIntervals(punches, dayStart, now).reduce<
+    Record<WearStatus, number>
+  >(
+    (totals, interval) => {
+      totals[interval.status] += interval.durationMilliseconds;
+      return totals;
+    },
+    { IN: 0, OUT: 0 },
+  );
 
   return {
     inSeconds: Math.floor(totalsInMilliseconds.IN / MILLISECONDS_PER_SECOND),
