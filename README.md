@@ -6,20 +6,22 @@ Aligner Tracker is a performance-first, utility-first app for tracking orthodont
 
 The current app is a local-first React Native application built with Expo SDK 57, TypeScript, Expo Router, and SQLite. SQLite is the on-device source of truth; elapsed wear time and statistics are derived from persisted timestamps rather than a continuously stored timer. Local reminders use Expo Notifications.
 
-Authentication, cloud backup/synchronization, and the planned ASP.NET Core/.NET backend are intentionally deferred and are not present in this repository.
+Authentication, cloud backup/restore, and synchronization are intentionally deferred and are not present in this repository. The confirmed cloud direction is Supabase with Sign in with Apple: Backup & Restore is the first planned cloud capability, while multi-device sync remains a separate future feature.
 
 ## Documentation
 
 - [`docs/mvp-plan.md`](docs/mvp-plan.md) — product goals and overall architecture direction
 - [`docs/planner-context.md`](docs/planner-context.md) — current cross-feature decisions and priorities
 - [`docs/performance.md`](docs/performance.md) — performance budgets and measurement plan
-- [`docs/features/`](docs/features/) — implemented feature behavior and feature-specific requirements
+- [`docs/features/`](docs/features/) — feature-specific behavior, requirements, and future decisions
+- [`docs/features/cloud-backup-restore.md`](docs/features/cloud-backup-restore.md) — deferred Backup & Restore product direction
+- [`docs/features/cloud-sync-future.md`](docs/features/cloud-sync-future.md) — constraints and unresolved decisions for future sync
 
 ## Current status
 
 The repository contains the on-device treatment setup and tracker, tray changes, versioned treatment-plan editing and history, IN/OUT corrections, local statistics, notification settings/reminders, and help screens. A support-purchase screen is available only as a development preview backed by a mock service.
 
-The Account screen is informational: sign-in, cloud backup/restore, synchronization, and backend services have not been implemented and remain intentionally deferred while the local experience is developed.
+The Account screen is informational: Sign in with Apple, Supabase integration, cloud backup/restore, synchronization, and other cloud services have not been implemented and remain intentionally deferred while the local experience is developed.
 
 ## Prerequisites
 

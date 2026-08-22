@@ -26,7 +26,7 @@ The app should make the core action—tracking whether aligners are in or out—
 
 3. **Privacy**
    - Store data locally by default.
-   - Keep cloud synchronization optional.
+   - Keep accounts and cloud services optional.
    - Minimize the personal information collected.
    - Secure data in transit and at rest where practical.
    - Separate account identity from treatment data where possible.
@@ -284,13 +284,12 @@ Features that are not yet implemented should not appear as disabled menu items.
 
 ## Account
 
-- Sign in
-- Create account
-- Sign out
-- Basic profile information
-- Cloud backup status
+- Informational while cloud work is deferred
+- Future Sign in with Apple and sign out
+- Future cloud-account deletion
+- Future Cloud Backup & Restore status
 
-An account is optional.
+An account is optional. Multi-device sync is a separate future feature and is not part of Cloud Backup & Restore V1.
 
 ## Treatment Plan
 
@@ -392,14 +391,13 @@ Login
 Treatment Setup
 ```
 
-Account creation enables cloud-oriented features such as:
+When the deferred Cloud Backup & Restore feature is implemented, signing in with Apple will automatically enable:
 
 - backup
 - restore
-- multi-device synchronization
 - account management
 
-The core tracker must remain fully functional without an account.
+The core tracker must remain fully functional without an account. Multi-device synchronization is a later, separately specified feature rather than an automatic consequence of enabling backup.
 
 ---
 
@@ -416,18 +414,13 @@ The core tracker must remain fully functional without an account.
                      SQLite
                 SOURCE OF TRUTH
                         │
-                    Sync Queue
+          deferred asynchronous backup work
                         │
               signed in + network
                         │
                         ▼
-                 ASP.NET Core API
-                     .NET 10
-                        │
-                     EF Core
-                        │
-                        ▼
-                    Azure SQL
+                    Supabase
+          private snapshots + metadata
 ```
 
 ## Local Database
@@ -453,61 +446,41 @@ Cloud services are secondary to the tracker.
 
 Primary cloud responsibilities:
 
-- authentication
-- optional backup
-- synchronization
-- restore
-- multi-device support
-- future export services
+- Sign in with Apple through Supabase
+- automatic versioned snapshot backup after sign-in
+- restore onto an empty installation
+- backup retention and cloud-account deletion
+- future synchronization only after its product semantics are resolved
 
-Normal tracker interactions should not depend on the cloud API.
+Cloud work is deferred until the local core is excellent. Normal tracker interactions must not depend on Supabase or any network request.
+
+See `docs/features/cloud-backup-restore.md` for the authoritative backup behavior and `docs/features/cloud-sync-future.md` for future sync constraints.
 
 ---
 
 # Authentication
 
-Recommended approach:
+Confirmed direction for the deferred cloud feature:
 
-- OAuth 2.0
-- OpenID Connect
-- PKCE for mobile authorization flows
-- JWT bearer tokens for API authentication
+- Supabase authentication
+- Sign in with Apple as the account mechanism
+- no account requirement for core tracking
+- successful sign-in automatically enables cloud backup
 
-Potential identity provider:
-
-- Microsoft Entra External ID
-
-Authentication credentials should be handled by the identity provider rather than stored in the application database.
+Signing out preserves retained backups. Deleting the cloud account deletes its snapshots and backup metadata.
 
 ---
 
 # Backend
 
-Recommended backend:
+Confirmed cloud platform for the deferred feature:
 
-- ASP.NET Core Web API
-- .NET 10
-- Entity Framework Core
-- SQL Server / Azure SQL
+- Supabase authentication
+- private logical-snapshot storage
+- backup metadata protected by ownership policies
+- trusted server-side work only where privileged retention or deletion requires it
 
-Architecture:
-
-- modular monolith
-- feature-oriented organization
-- REST API
-- no microservices for MVP
-
-Example feature areas:
-
-```text
-Account
-Treatments
-TreatmentPlans
-TrayPeriods
-WearTracking
-Sync
-Notifications
-```
+SQLite remains the operational source of truth. Do not introduce a custom backend, microservices, or a second cloud platform for Backup & Restore or future sync.
 
 ---
 
@@ -625,19 +598,20 @@ OutReminderMinutes
 NotificationsEnabled
 ```
 
-Sync-related metadata can be added separately.
+Do not add sync-related metadata until the future sync product decisions are resolved.
 
 ---
 
-# Synchronization Strategy
+# Future Synchronization Constraints
 
-Cloud synchronization should be:
+Multi-device sync is separate from Cloud Backup & Restore V1 and is not ready for implementation. Its established technical direction is:
 
-- asynchronous from the user's perspective
-- opportunistic
-- batched when practical
-- unnecessary for normal tracking
-- resilient to loss of connectivity
+- SQLite remains each device's operational source of truth
+- local writes complete before network work
+- durable outbound operations
+- batched, idempotent server operations
+- incremental cursors for incoming changes
+- no network dependency for normal tracking
 
 Example:
 
@@ -648,26 +622,14 @@ SQLite write
       ↓
 UI updates immediately
       ↓
-Sync queued
+Durable operation queued
       ↓
 Cloud synchronization occurs later
 ```
 
-The user should never wait for an API response before seeing a timer-state change.
+The user should never wait for an API response before seeing a timer-state change. Conflict resolution, deletion semantics, device limits, sign-out behavior, and restored-backup reconciliation must be decided before sync implementation begins.
 
-Possible synchronization opportunities:
-
-- app startup
-- app resume
-- shortly after meaningful changes
-- when account state changes
-- when network connectivity is available
-
-Avoid:
-
-- polling
-- API calls on every timer tick
-- mandatory API calls for IN/OUT actions
+See `docs/features/cloud-sync-future.md` for the complete entry criteria and unresolved decisions.
 
 ---
 
@@ -705,7 +667,7 @@ Unsigned users keep treatment data on their device.
 
 ## Optional Cloud
 
-Cloud storage is activated only when the user chooses account-based services.
+Cloud services remain optional. When Cloud Backup & Restore is implemented, choosing to sign in with Apple automatically enables backup. Future multi-device sync remains a separate capability and must not be inferred from backup sign-in.
 
 ## Data Minimization
 
@@ -765,6 +727,8 @@ Do not include:
 - donation screen
 - CSV export
 - email statistics
+- Cloud Backup & Restore
+- multi-device sync
 
 ---
 
@@ -798,6 +762,8 @@ Possible later capability:
 
 Potential future features:
 
+- Cloud Backup & Restore, after the local core is excellent
+- multi-device sync, only after Backup & Restore is stable and sync semantics are resolved
 - treatment-plan history UI
 - photos/check-ins
 - orthodontist integration
@@ -820,7 +786,6 @@ The MVP succeeds if a user can:
 7. Receive the two essential reminders.
 8. Use the entire core tracker without creating an account.
 9. Use the tracker without an internet connection.
-10. Optionally enable cloud backup without changing the core app experience.
 
 The quality bar is not the number of features.
 

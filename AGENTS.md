@@ -33,11 +33,12 @@ Frontend:
 - Expo Router
 - SQLite
 
-Backend:
-- ASP.NET Core
-- .NET 10
-- EF Core
-- SQL Server / Azure SQL
+Planned cloud services (not yet implemented):
+- Supabase
+- Sign in with Apple
+- Cloud Backup & Restore before any multi-device sync work
+
+See `docs/features/cloud-backup-restore.md` and `docs/features/cloud-sync-future.md` before planning cloud work. Do not implement sync until its unresolved product decisions are documented.
 
 ## Working style
 

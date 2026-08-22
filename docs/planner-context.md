@@ -99,14 +99,15 @@ See `docs/features/expo-ui-swiftui-migration.md` for the component map, screen-b
 - Current concepts: OUT-too-long reminder, tray-change reminder, editable notification settings.
 
 ### Backend / Cloud
-Deferred. Likely later direction if required:
-- ASP.NET Core / .NET
-- EF Core
-- SQL Server / Azure SQL
-- OAuth 2.0 / OpenID Connect
-- optional cloud backup/sync
+Deferred post-core. Confirmed direction when Cloud Backup & Restore is scheduled:
+- Supabase for Sign in with Apple, private snapshot storage, and backup metadata
+- automatic backup after sign-in, with SQLite remaining the on-device source of truth
+- versioned logical snapshots and empty-installation restore
+- no network dependency or cloud work on normal tracker action paths
 
-Do not introduce these until a scheduled feature actually needs them.
+Multi-device sync is a separate future feature, not part of Backup & Restore V1. Do not add cloud infrastructure until the corresponding feature is scheduled.
+
+See `docs/features/cloud-backup-restore.md` and `docs/features/cloud-sync-future.md`.
 
 ## Core Tracker Behavior
 The main tracker centers on:
@@ -125,7 +126,9 @@ The user manually decides when to change trays. Prescribed days are for progress
 
 ### Accounts
 - No account required for core use.
-- Authentication/cloud sync are later concerns.
+- Sign in with Apple through Supabase is the confirmed optional account direction for Cloud Backup & Restore.
+- Signing in automatically enables backup; signing out preserves retained backups, while cloud-account deletion deletes them and their metadata.
+- Multi-device sync remains a separate future concern with unresolved product semantics.
 
 ### Treatment Plan Editing
 - Editing appends a new version.
@@ -224,7 +227,7 @@ Other local utility features:
 - Notification Settings
 - Support Aligner Tracker
 
-Cloud/account work remains later unless priorities explicitly change.
+Cloud/account work remains later unless priorities explicitly change. When scheduled, Cloud Backup & Restore comes before multi-device sync. Sync must wait until Backup & Restore is stable and the unresolved decisions in `docs/features/cloud-sync-future.md` are settled.
 
 ## Planning Workflow
 For each meaningful feature:
