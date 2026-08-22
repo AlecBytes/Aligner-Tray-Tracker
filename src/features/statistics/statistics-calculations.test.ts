@@ -89,8 +89,8 @@ describe('Statistics V1 calculations', () => {
     const statistics = createStatisticsReadModel(treatment, at(3, 18));
 
     expect(statistics.treatmentOverall).toEqual({
-      averageInSeconds: 16 * HOUR_IN_SECONDS,
-      averageOutSeconds: 4 * HOUR_IN_SECONDS,
+      averageInSeconds: 64_000,
+      averageOutSeconds: 15_200,
       goalMetDays: 2,
       trackedDays: 3,
     });
@@ -183,6 +183,95 @@ describe('Statistics V1 calculations', () => {
     expect(statistics.treatmentOverall.goalMetDays).toBe(1);
   });
 
+  it('normalizes a completed first day while leaving recorded recent-day durations raw', () => {
+    const treatment = snapshot(
+      [
+        punch(1, 'IN', at(1, 12)),
+        punch(2, 'OUT', at(1, 21)),
+        punch(3, 'IN', at(2)),
+      ],
+      [period(1, at(1, 12), null)],
+      [plan(22, at(1, 12))],
+    );
+    const statistics = createStatisticsReadModel(treatment, at(2, 12));
+
+    expect(statistics.treatmentOverall).toEqual({
+      averageInSeconds: 15 * HOUR_IN_SECONDS,
+      averageOutSeconds: 3 * HOUR_IN_SECONDS,
+      goalMetDays: 0,
+      trackedDays: 2,
+    });
+    expect(statistics.currentTray).toMatchObject({
+      averageInSeconds: 15 * HOUR_IN_SECONDS,
+      averageOutSeconds: 3 * HOUR_IN_SECONDS,
+    });
+    expect(statistics.recentDays).toEqual([
+      {
+        dateStart: at(2),
+        goalMet: false,
+        inSeconds: 12 * HOUR_IN_SECONDS,
+        outSeconds: 0,
+      },
+      {
+        dateStart: at(1),
+        goalMet: false,
+        inSeconds: 9 * HOUR_IN_SECONDS,
+        outSeconds: 3 * HOUR_IN_SECONDS,
+      },
+    ]);
+  });
+
+  it('uses raw elapsed averages and a fixed prorated goal during the first day', () => {
+    const treatment = snapshot(
+      [punch(1, 'IN', at(1, 12))],
+      [period(1, at(1, 12), null)],
+      [plan(22, at(1, 12))],
+    );
+    const statistics = createStatisticsReadModel(treatment, at(1, 18));
+
+    expect(statistics.treatmentOverall).toEqual({
+      averageInSeconds: 6 * HOUR_IN_SECONDS,
+      averageOutSeconds: 0,
+      goalMetDays: 0,
+      trackedDays: 1,
+    });
+    expect(statistics.recentDays[0]).toMatchObject({
+      goalMet: false,
+      inSeconds: 6 * HOUR_IN_SECONDS,
+      outSeconds: 0,
+    });
+  });
+
+  it('meets the prorated first-day goal at the exact boundary', () => {
+    const trayPeriods = [period(1, at(1, 12), null)];
+    const plans = [plan(22, at(1, 12))];
+    const belowGoal = snapshot(
+      [
+        punch(1, 'IN', at(1, 12)),
+        punch(2, 'OUT', at(1, 22, 59)),
+        punch(3, 'IN', at(2)),
+      ],
+      trayPeriods,
+      plans,
+    );
+    const atGoal = snapshot(
+      [
+        punch(1, 'IN', at(1, 12)),
+        punch(2, 'OUT', at(1, 23)),
+        punch(3, 'IN', at(2)),
+      ],
+      trayPeriods,
+      plans,
+    );
+
+    expect(createStatisticsReadModel(belowGoal, at(2, 1)).recentDays[1].goalMet).toBe(
+      false,
+    );
+    expect(createStatisticsReadModel(atGoal, at(2, 1)).recentDays[1].goalMet).toBe(
+      true,
+    );
+  });
+
   it('includes partial first and current days without counting untracked clock time', () => {
     const treatment = snapshot(
       [punch(1, 'IN', at(1, 10))],
@@ -192,7 +281,7 @@ describe('Statistics V1 calculations', () => {
     const statistics = createStatisticsReadModel(treatment, at(2, 12));
 
     expect(statistics.treatmentOverall).toEqual({
-      averageInSeconds: 13 * HOUR_IN_SECONDS,
+      averageInSeconds: 18 * HOUR_IN_SECONDS,
       averageOutSeconds: 0,
       goalMetDays: 1,
       trackedDays: 2,
@@ -201,6 +290,77 @@ describe('Statistics V1 calculations', () => {
       12 * HOUR_IN_SECONDS,
       14 * HOUR_IN_SECONDS,
     ]);
+  });
+
+  it('does not normalize a later tray that starts on the first treatment date', () => {
+    const treatment = snapshot(
+      [
+        punch(1, 'IN', at(1, 12), 1),
+        punch(2, 'OUT', at(1, 14), 1),
+        punch(3, 'OUT', at(1, 14), 2),
+        punch(4, 'IN', at(1, 15), 2),
+      ],
+      [period(1, at(1, 12), at(1, 14)), period(2, at(1, 14), null)],
+      [plan(22, at(1, 12))],
+    );
+    const statistics = createStatisticsReadModel(treatment, at(2, 12));
+
+    expect(statistics.currentTray).toMatchObject({
+      averageInSeconds: 10.5 * HOUR_IN_SECONDS,
+      averageOutSeconds: 0.5 * HOUR_IN_SECONDS,
+      daysWorn: 2,
+      trackedDays: 2,
+    });
+  });
+
+  it('leaves a midnight treatment start unchanged', () => {
+    const treatment = snapshot(
+      [
+        punch(1, 'IN', at(1)),
+        punch(2, 'OUT', at(1, 9)),
+        punch(3, 'IN', at(2)),
+      ],
+      [period(1, at(1), null)],
+      [plan(22)],
+    );
+    const statistics = createStatisticsReadModel(treatment, at(2, 12));
+
+    expect(statistics.treatmentOverall).toMatchObject({
+      averageInSeconds: 10.5 * HOUR_IN_SECONDS,
+      averageOutSeconds: 7.5 * HOUR_IN_SECONDS,
+    });
+  });
+
+  it('normalizes with the actual local-day duration across daylight-saving time', () => {
+    const previousTimeZone = process.env.TZ;
+    process.env.TZ = 'America/New_York';
+
+    try {
+      const dstAt = (day: number, hour = 0) =>
+        new Date(2026, 2, day, hour).getTime();
+      const treatment = snapshot(
+        [
+          punch(1, 'IN', dstAt(8, 12)),
+          punch(2, 'OUT', dstAt(8, 18)),
+          punch(3, 'IN', dstAt(9)),
+        ],
+        [period(1, dstAt(8, 12), null)],
+        [plan(22, dstAt(8, 12))],
+      );
+      const statistics = createStatisticsReadModel(treatment, dstAt(9, 12));
+
+      expect(dstAt(9) - dstAt(8)).toBe(23 * HOUR_IN_SECONDS * 1000);
+      expect(statistics.treatmentOverall).toMatchObject({
+        averageInSeconds: 11.75 * HOUR_IN_SECONDS,
+        averageOutSeconds: 5.75 * HOUR_IN_SECONDS,
+      });
+    } finally {
+      if (previousTimeZone === undefined) {
+        delete process.env.TZ;
+      } else {
+        process.env.TZ = previousTimeZone;
+      }
+    }
   });
 
   it('splits a midnight-crossing wear period between local treatment days', () => {

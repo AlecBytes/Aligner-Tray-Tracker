@@ -14,6 +14,7 @@ const SECONDS_PER_MINUTE = 60;
 const MINUTES_PER_HOUR = 60;
 
 type TreatmentDayWindow = {
+  dateEnd: number;
   dateStart: number;
   goalEffectiveAt: number;
   windowEnd: number;
@@ -21,8 +22,11 @@ type TreatmentDayWindow = {
 };
 
 type CalculatedTreatmentDay = RecentTreatmentDay & {
+  dateEnd: number;
   inMilliseconds: number;
   outMilliseconds: number;
+  windowEnd: number;
+  windowStart: number;
 };
 
 function getLocalDayStart(timestamp: number) {
@@ -68,6 +72,7 @@ function createTreatmentDayWindows(
   ) {
     const nextDateStart = addLocalDays(dateStart, 1);
     windows.push({
+      dateEnd: nextDateStart,
       dateStart,
       goalEffectiveAt: Math.max(dateStart, treatmentStartedAt),
       windowEnd: Math.min(nextDateStart, rangeEndedAt),
@@ -114,9 +119,11 @@ function calculateDays(
   windows: readonly TreatmentDayWindow[],
   orderedPunches: readonly StatisticsWearPunch[],
   orderedPlans: readonly StatisticsPlanVersion[],
+  treatmentStartedAt: number,
 ): CalculatedTreatmentDay[] {
   let punchIndex = 0;
   let status: WearStatus | null = null;
+  const firstDateStart = getLocalDayStart(treatmentStartedAt);
 
   return windows.map((window) => {
     const totals: Record<WearStatus, number> = { IN: 0, OUT: 0 };
@@ -143,26 +150,75 @@ function calculateDays(
 
     addElapsedTime(totals, status, intervalStartedAt, window.windowEnd);
     const plan = getPlanForTreatmentDay(orderedPlans, window.goalEffectiveAt);
+    const goalWindowRatio =
+      window.dateStart === firstDateStart
+        ? (window.dateEnd - treatmentStartedAt) /
+          (window.dateEnd - window.dateStart)
+        : 1;
 
     return {
+      dateEnd: window.dateEnd,
       dateStart: window.dateStart,
       goalMet:
-        totals.IN >= plan.dailyWearGoalMinutes * MILLISECONDS_PER_MINUTE,
+        totals.IN >=
+        plan.dailyWearGoalMinutes * MILLISECONDS_PER_MINUTE * goalWindowRatio,
       inMilliseconds: totals.IN,
       inSeconds: Math.floor(totals.IN / MILLISECONDS_PER_SECOND),
       outMilliseconds: totals.OUT,
       outSeconds: Math.floor(totals.OUT / MILLISECONDS_PER_SECOND),
+      windowEnd: window.windowEnd,
+      windowStart: window.windowStart,
     };
   });
 }
 
-function summarizeDays(days: readonly CalculatedTreatmentDay[]): StatisticsSummary {
+function getSummaryDurations(
+  day: CalculatedTreatmentDay,
+  treatmentStartedAt: number,
+  normalizeCompletedFirstDay: boolean,
+) {
+  const isCompletedFirstTreatmentDay =
+    normalizeCompletedFirstDay &&
+    day.dateStart === getLocalDayStart(treatmentStartedAt) &&
+    day.windowStart === treatmentStartedAt &&
+    day.windowEnd === day.dateEnd;
+
+  if (!isCompletedFirstTreatmentDay) {
+    return {
+      inMilliseconds: day.inMilliseconds,
+      outMilliseconds: day.outMilliseconds,
+    };
+  }
+
+  const localDayDuration = day.dateEnd - day.dateStart;
+  const remainingDayDuration = day.dateEnd - treatmentStartedAt;
+  const normalizationFactor = localDayDuration / remainingDayDuration;
+
+  return {
+    inMilliseconds: day.inMilliseconds * normalizationFactor,
+    outMilliseconds: day.outMilliseconds * normalizationFactor,
+  };
+}
+
+function summarizeDays(
+  days: readonly CalculatedTreatmentDay[],
+  treatmentStartedAt: number,
+  normalizeCompletedFirstDay: boolean,
+): StatisticsSummary {
   const totals = days.reduce(
-    (result, day) => ({
-      goalMetDays: result.goalMetDays + (day.goalMet ? 1 : 0),
-      inMilliseconds: result.inMilliseconds + day.inMilliseconds,
-      outMilliseconds: result.outMilliseconds + day.outMilliseconds,
-    }),
+    (result, day) => {
+      const durations = getSummaryDurations(
+        day,
+        treatmentStartedAt,
+        normalizeCompletedFirstDay,
+      );
+
+      return {
+        goalMetDays: result.goalMetDays + (day.goalMet ? 1 : 0),
+        inMilliseconds: result.inMilliseconds + durations.inMilliseconds,
+        outMilliseconds: result.outMilliseconds + durations.outMilliseconds,
+      };
+    },
     { goalMetDays: 0, inMilliseconds: 0, outMilliseconds: 0 },
   );
   const trackedDays = days.length;
@@ -198,27 +254,34 @@ export function createStatisticsReadModel(
   const activeTray = [...snapshot.trayPeriods]
     .filter((period) => period.endedAt === null && period.startedAt <= now)
     .sort((left, right) => right.startedAt - left.startedAt || right.id - left.id)[0];
-  const treatmentStartedAt = Math.min(
-    ...snapshot.trayPeriods.map((period) => period.startedAt),
-  );
+  const firstTray = [...snapshot.trayPeriods].sort(
+    (left, right) => left.startedAt - right.startedAt || left.id - right.id,
+  )[0];
 
-  if (!activeTray || !Number.isFinite(treatmentStartedAt)) {
+  if (!activeTray || !firstTray || !Number.isFinite(firstTray.startedAt)) {
     throw new Error('Statistics require an active treatment history.');
   }
 
+  const treatmentStartedAt = firstTray.startedAt;
   const orderedPunches = orderPunches(snapshot.punches);
   const orderedPlans = orderPlans(snapshot.planVersions);
   const overallDays = calculateDays(
     createTreatmentDayWindows(treatmentStartedAt, treatmentStartedAt, now),
     orderedPunches,
     orderedPlans,
+    treatmentStartedAt,
   );
   const currentTrayDays = calculateDays(
     createTreatmentDayWindows(treatmentStartedAt, activeTray.startedAt, now),
     orderedPunches,
     orderedPlans,
+    treatmentStartedAt,
   );
-  const currentTraySummary = summarizeDays(currentTrayDays);
+  const currentTraySummary = summarizeDays(
+    currentTrayDays,
+    treatmentStartedAt,
+    activeTray.id === firstTray.id,
+  );
 
   return {
     currentTray: {
@@ -228,7 +291,16 @@ export function createStatisticsReadModel(
     recentDays: overallDays
       .slice(-7)
       .reverse()
-      .map(({ inMilliseconds: _inMilliseconds, outMilliseconds: _outMilliseconds, ...day }) => day),
-    treatmentOverall: summarizeDays(overallDays),
+      .map(
+        ({
+          dateEnd: _dateEnd,
+          inMilliseconds: _inMilliseconds,
+          outMilliseconds: _outMilliseconds,
+          windowEnd: _windowEnd,
+          windowStart: _windowStart,
+          ...day
+        }) => day,
+      ),
+    treatmentOverall: summarizeDays(overallDays, treatmentStartedAt, true),
   };
 }

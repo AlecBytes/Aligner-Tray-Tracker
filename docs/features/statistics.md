@@ -60,9 +60,9 @@ A treatment day is a local calendar date that intersects the treatment timeline.
 - Local calendar-day iteration must remain correct across daylight-saving time changes; do not assume every local day is exactly 24 elapsed hours.
 - V1 groups timestamps using the device's local time zone at read time because the current data model does not persist a historical time zone.
 
-The partial first day and partial current day are tracked days and are included in averages and goal counts. Their IN and OUT durations are clipped to the actual tracked interval.
+The partial first day and partial current day are tracked days and are included in averages and goal counts. Their recorded IN and OUT durations are clipped to the actual tracked interval.
 
-The prescribed daily goal is not prorated for a partial day. A partial day is goal-met only if its recorded IN time reaches the full prescribed daily goal.
+The first treatment day's prescribed daily goal is prorated by the portion of that local day remaining when treatment began. Its recorded IN time is compared with that fixed prorated goal, including while the first day is still in progress. The current partial day's goal is not prorated when it is a later treatment day.
 
 For Current Tray, each local date intersecting the active `TrayPeriod` is a tracked day. This includes a partial tray-start day and the current partial day. `Days worn` is this tracked-day count.
 
@@ -79,7 +79,9 @@ For each reported window:
 - Current Tray calculations are additionally clipped to the active `TrayPeriod.startedAt`
 - Treatment Overall and Recent Days include all tray periods in the treatment timeline
 
-IN and OUT averages are calculated as total recorded duration in the requested range divided by its tracked-day count. Averages include partial tracked days.
+IN and OUT averages are calculated as total duration in the requested range divided by its tracked-day count. Once the first treatment day is complete, its recorded IN and OUT durations are normalized to a full-local-day equivalent before contributing to summary averages. The normalization uses the ratio of the full local day's elapsed duration to the treatment-start-to-next-midnight duration, so daylight-saving transitions are handled without assuming a 24-hour day.
+
+While the first treatment day is still in progress, its raw elapsed durations contribute to averages without normalization. Later partial days, including the current day and a later tray's start day, also contribute their raw elapsed durations. Recent Days always displays raw recorded durations rather than normalized summary values.
 
 Display durations at minute precision in a clear form such as `21h 34m`, `42m`, or `0m`. Goal comparisons use the unrounded derived duration.
 
@@ -93,7 +95,7 @@ For the first partial treatment day, the tracked portion begins at treatment sta
 
 Current Tray and Treatment Overall use the same goal for a given local treatment day, even when the current tray started partway through that day.
 
-A day is goal-met when its derived IN duration for the relevant statistics range is greater than or equal to that day's selected `dailyWearGoalMinutes` converted to elapsed time. Statistics do not infer adherence, treatment effectiveness, or any other medical conclusion.
+A day is goal-met when its derived IN duration for the relevant statistics range is greater than or equal to that day's goal converted to elapsed time. The first treatment day uses the prorated goal described above; later days use the selected plan's full `dailyWearGoalMinutes`. Statistics do not infer adherence, treatment effectiveness, or any other medical conclusion.
 
 ## Architecture and Persistence
 
