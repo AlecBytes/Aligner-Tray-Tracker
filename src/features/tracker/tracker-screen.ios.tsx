@@ -32,6 +32,7 @@ import { reconcileLocalNotifications } from '@/features/notifications/local-noti
 import {
   createTrackerReadModel,
   formatDuration,
+  getLatestWearPunch,
 } from '@/features/tracker/tracker-calculations';
 import type { TrackerSnapshot } from '@/features/tracker/tracker-model';
 import {
@@ -161,6 +162,7 @@ export function TrackerScreen() {
 
   const currentSnapshot = snapshot;
   const tracker = createTrackerReadModel(currentSnapshot, now);
+  const latestPunch = getLatestWearPunch(currentSnapshot.punches);
   const isIn = tracker.currentStatus === 'IN';
   const daysRemainingLabel = `${tracker.daysRemaining} ${
     tracker.daysRemaining === 1 ? 'day' : 'days'
@@ -255,6 +257,29 @@ export function TrackerScreen() {
         </VStack>
 
         {error ? <ValidationMessage message={error} /> : null}
+
+        <HStack>
+          <Spacer />
+          <Button
+            label="Edit last"
+            modifiers={[
+              buttonStyle(liquidGlass ? 'glass' : 'bordered'),
+              controlSize('small'),
+              disabled(isToggling || latestPunch === null),
+              accessibilityLabel(`Edit last ${latestPunch?.status ?? 'IN or OUT'} time`),
+              accessibilityHint('Opens the most recent saved tracker event for correction.'),
+            ]}
+            onPress={() => {
+              if (latestPunch !== null) {
+                router.push({
+                  pathname: '/edit-times/event',
+                  params: { id: String(latestPunch.id) },
+                });
+              }
+            }}
+          />
+          <Spacer />
+        </HStack>
 
         <Button
           modifiers={[

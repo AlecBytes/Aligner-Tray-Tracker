@@ -10,6 +10,7 @@ import { reconcileLocalNotifications } from '@/features/notifications/local-noti
 import {
   createTrackerReadModel,
   formatDuration,
+  getLatestWearPunch,
 } from '@/features/tracker/tracker-calculations';
 import type { TrackerSnapshot } from '@/features/tracker/tracker-model';
 import {
@@ -138,6 +139,7 @@ export function TrackerScreen() {
   }
 
   const tracker = createTrackerReadModel(snapshot, now);
+  const latestPunch = getLatestWearPunch(snapshot.punches);
   const isIn = tracker.currentStatus === 'IN';
   const daysRemainingLabel = `${tracker.daysRemaining} ${
     tracker.daysRemaining === 1 ? 'day' : 'days'
@@ -253,6 +255,29 @@ export function TrackerScreen() {
         </AppText>
       </Pressable>
 
+      <Pressable
+        accessibilityLabel={`Edit last ${latestPunch?.status ?? 'IN or OUT'} time`}
+        accessibilityRole="button"
+        disabled={isToggling || latestPunch === null}
+        onPress={() => {
+          if (latestPunch !== null) {
+            router.push({
+              pathname: '/edit-times/event',
+              params: { id: String(latestPunch.id) },
+            });
+          }
+        }}
+        style={({ pressed }) => [
+          styles.editLastButton,
+          {
+            backgroundColor: pressed ? theme.border : theme.surface,
+            borderColor: theme.border,
+            opacity: isToggling || latestPunch === null ? 0.6 : 1,
+          },
+        ]}>
+        <AppText style={styles.editLastButtonLabel}>Edit last</AppText>
+      </Pressable>
+
       <View style={styles.metrics}>
         <TimeMetric label="IN TODAY" seconds={tracker.inTodaySeconds} />
         <TimeMetric label="OUT TODAY" seconds={tracker.outTodaySeconds} />
@@ -291,6 +316,18 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.5,
     lineHeight: 38,
+  },
+  editLastButton: {
+    alignItems: 'center',
+    alignSelf: 'center',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    justifyContent: 'center',
+    minHeight: 40,
+    paddingHorizontal: spacing.md,
+  },
+  editLastButtonLabel: {
+    fontWeight: '700',
   },
   message: {
     gap: spacing.md,

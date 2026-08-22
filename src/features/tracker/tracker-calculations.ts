@@ -72,6 +72,20 @@ function orderPunches(punches: readonly WearPunchEvent[]) {
   );
 }
 
+export function getLatestWearPunch(punches: readonly WearPunchEvent[]) {
+  return punches.reduce<WearPunchEvent | null>((latest, punch) => {
+    if (
+      latest === null ||
+      punch.timestamp > latest.timestamp ||
+      (punch.timestamp === latest.timestamp && punch.id > latest.id)
+    ) {
+      return punch;
+    }
+
+    return latest;
+  }, null);
+}
+
 export function calculateDailyWearTotals(
   punches: readonly WearPunchEvent[],
   dayStart: number,

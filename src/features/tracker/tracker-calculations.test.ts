@@ -4,6 +4,7 @@ import {
   calculateTrayDay,
   createTrackerReadModel,
   formatDuration,
+  getLatestWearPunch,
   getLocalDayStart,
 } from '@/features/tracker/tracker-calculations';
 import type { WearPunchEvent } from '@/features/tracker/tracker-model';
@@ -104,5 +105,27 @@ describe('calculateDailyWearTotals', () => {
       totalTrays: 48,
       trayDay: 5,
     });
+  });
+});
+
+describe('getLatestWearPunch', () => {
+  it('selects the chronologically latest punch from unordered input', () => {
+    const punches: WearPunchEvent[] = [
+      { id: 2, status: 'OUT', timestamp: 300 },
+      { id: 3, status: 'IN', timestamp: 200 },
+      { id: 1, status: 'IN', timestamp: 100 },
+    ];
+
+    expect(getLatestWearPunch(punches)).toEqual(punches[0]);
+  });
+
+  it('uses the higher ID when punches have the same timestamp', () => {
+    const punches: WearPunchEvent[] = [
+      { id: 8, status: 'OUT', timestamp: 300 },
+      { id: 10, status: 'IN', timestamp: 300 },
+      { id: 9, status: 'OUT', timestamp: 300 },
+    ];
+
+    expect(getLatestWearPunch(punches)).toEqual(punches[1]);
   });
 });
