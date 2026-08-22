@@ -89,6 +89,15 @@ describe('tracker session undo and redo history', () => {
     ).toEqual({ redoAction: null, undoAction: null });
   });
 
+  it('clears undo history when its latest punch is deleted from correction history', () => {
+    rememberTrackerToggle(action);
+
+    expect(validateTrackerSessionHistory(snapshotWithPunches([predecessor]))).toEqual({
+      redoAction: null,
+      undoAction: null,
+    });
+  });
+
   it('keeps redo only while its predecessor is still the latest persisted event', () => {
     rememberTrackerToggle(action);
     rememberTrackerUndo(action);

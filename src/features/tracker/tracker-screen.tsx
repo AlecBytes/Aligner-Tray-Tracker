@@ -155,6 +155,7 @@ export function TrackerScreen() {
   const tracker = createTrackerReadModel(snapshot, now);
   const latestPunch = getLatestWearPunch(snapshot.punches);
   const isIn = tracker.currentStatus === 'IN';
+  const currentOutDuration = formatDuration(tracker.currentOutSeconds);
   const daysRemainingLabel = `${tracker.daysRemaining} ${
     tracker.daysRemaining === 1 ? 'day' : 'days'
   } left`;
@@ -321,9 +322,11 @@ export function TrackerScreen() {
       ) : null}
 
       <Pressable
-        accessibilityLabel={`Trays are ${isIn ? 'in' : 'out'}. Tap when ${
-          isIn ? 'removed' : 'inserted'
-        }.`}
+        accessibilityLabel={
+          isIn
+            ? 'Trays are in. Tap when removed.'
+            : `Trays are out for ${currentOutDuration}. Tap when inserted.`
+        }
         accessibilityRole="button"
         disabled={isMutating}
         onPress={() => void toggleTracker()}
@@ -346,6 +349,11 @@ export function TrackerScreen() {
           variant="heading">
           {isMutating ? 'SAVING…' : `TRAYS ARE ${tracker.currentStatus}`}
         </AppText>
+        {!isIn ? (
+          <AppText style={[styles.outDuration, { color: theme.primary }]}>
+            {currentOutDuration}
+          </AppText>
+        ) : null}
         <AppText style={{ color: isIn ? theme.onPrimary : theme.textMuted }}>
           {isIn ? 'Tap when removed' : 'Tap when inserted'}
         </AppText>
@@ -491,6 +499,13 @@ const styles = StyleSheet.create({
   metricLabel: {
     fontWeight: '700',
     letterSpacing: 1,
+  },
+  outDuration: {
+    fontSize: 30,
+    fontVariant: ['tabular-nums'],
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    lineHeight: 38,
   },
   metrics: {
     flexDirection: 'row',

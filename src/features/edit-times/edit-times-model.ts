@@ -24,3 +24,9 @@ export type PlannedWearPunch = {
   timestamp: number;
 };
 
+export type WearPunchDeletionPlan = {
+  followingPunch: EditableWearPunch | null;
+  previousPunch: EditableWearPunch;
+  punchesToDelete: EditableWearPunch[];
+  selectedPunch: EditableWearPunch;
+};

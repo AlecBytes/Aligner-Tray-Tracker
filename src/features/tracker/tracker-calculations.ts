@@ -127,30 +127,36 @@ export function calculateDailyWearTotals(
   };
 }
 
-function getCurrentStatus(punches: readonly WearPunchEvent[], now: number) {
-  let currentStatus: WearStatus | null = null;
+function getCurrentWearPunch(punches: readonly WearPunchEvent[], now: number) {
+  let currentPunch: WearPunchEvent | null = null;
 
   for (const punch of orderPunches(punches)) {
     if (punch.timestamp > now) {
       break;
     }
 
-    currentStatus = punch.status;
+    currentPunch = punch;
   }
 
-  if (currentStatus === null) {
+  if (currentPunch === null) {
     throw new Error('Tracker has no current wear state.');
   }
 
-  return currentStatus;
+  return currentPunch;
 }
 
 export function createTrackerReadModel(snapshot: TrackerSnapshot, now: number): TrackerReadModel {
   const trayDay = calculateTrayDay(snapshot.trayStartedAt, now);
   const totals = calculateDailyWearTotals(snapshot.punches, getLocalDayStart(now), now);
+  const currentPunch = getCurrentWearPunch(snapshot.punches, now);
+  const currentOutSeconds =
+    currentPunch.status === 'OUT'
+      ? Math.floor((now - currentPunch.timestamp) / MILLISECONDS_PER_SECOND)
+      : 0;
 
   return {
-    currentStatus: getCurrentStatus(snapshot.punches, now),
+    currentStatus: currentPunch.status,
+    currentOutSeconds,
     currentTrayNumber: snapshot.currentTrayNumber,
     daysRemaining: calculateDaysRemaining(snapshot.daysPerTray, trayDay),
     inTodaySeconds: totals.inSeconds,

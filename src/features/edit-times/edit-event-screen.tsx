@@ -1,7 +1,7 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useRef, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppLoadingScreen } from '@/components/app-loading-screen';
 import { AppScreen } from '@/components/app-screen';
@@ -9,14 +9,19 @@ import { AppText } from '@/components/app-text';
 import { useFormKeyboardNavigation } from '@/components/form-keyboard-navigation';
 import { DateTimeFields } from '@/features/edit-times/date-time-fields';
 import { CorrectionValidationError } from '@/features/edit-times/edit-times-corrections';
+import { getWearPunchDeletionConfirmation } from '@/features/edit-times/edit-times-deletion';
 import {
   formatLocalDateKey,
   formatLocalTime,
   parseLocalDateTime,
 } from '@/features/edit-times/edit-times-dates';
-import type { EditableWearPunch } from '@/features/edit-times/edit-times-model';
+import type {
+  EditableWearPunch,
+  WearPunchDeletionPlan,
+} from '@/features/edit-times/edit-times-model';
 import {
   CorrectionConflictError,
+  deleteWearPunch,
   getWearPunchForEdit,
   updateWearPunchTimestamp,
 } from '@/features/edit-times/edit-times-repository';
@@ -42,12 +47,13 @@ export function EditEventScreen() {
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const idValue = firstParameter(params.id);
   const punchId = idValue && /^\d+$/.test(idValue) ? Number(idValue) : null;
-  const saveInProgress = useRef(false);
+  const mutationInProgress = useRef(false);
   const [punch, setPunch] = useState<EditableWearPunch | null>(null);
+  const [deletionPlan, setDeletionPlan] = useState<WearPunchDeletionPlan | null>(null);
   const [dateValue, setDateValue] = useState('');
   const [timeValue, setTimeValue] = useState('');
   const [isLoading, setIsLoading] = useState(punchId !== null);
-  const [isSaving, setIsSaving] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'delete' | 'save' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const loadPunch = useCallback(async () => {
@@ -70,11 +76,13 @@ export function EditEventScreen() {
 
           if (savedPunch === null) {
             setPunch(null);
+            setDeletionPlan(null);
             setError('This punch no longer exists.');
             return;
           }
 
           setPunch(savedPunch.punch);
+          setDeletionPlan(savedPunch.deletionPlan);
           setDateValue(formatLocalDateKey(savedPunch.punch.timestamp));
           setTimeValue(formatLocalTime(savedPunch.punch.timestamp));
           setError(null);
@@ -97,7 +105,7 @@ export function EditEventScreen() {
   );
 
   async function saveCorrection() {
-    if (saveInProgress.current || punch === null) {
+    if (mutationInProgress.current || punch === null) {
       return;
     }
 
@@ -109,8 +117,8 @@ export function EditEventScreen() {
       return;
     }
 
-    saveInProgress.current = true;
-    setIsSaving(true);
+    mutationInProgress.current = true;
+    setPendingAction('save');
     setError(null);
 
     try {
@@ -119,9 +127,41 @@ export function EditEventScreen() {
       router.back();
     } catch (saveError) {
       setError(knownCorrectionMessage(saveError));
-      saveInProgress.current = false;
-      setIsSaving(false);
+      mutationInProgress.current = false;
+      setPendingAction(null);
     }
+  }
+
+  async function deleteEvent() {
+    if (mutationInProgress.current || deletionPlan === null) {
+      return;
+    }
+
+    mutationInProgress.current = true;
+    setPendingAction('delete');
+    setError(null);
+
+    try {
+      await deleteWearPunch(db, deletionPlan);
+      void reconcileLocalNotifications(db);
+      router.back();
+    } catch (deleteError) {
+      setError(knownCorrectionMessage(deleteError));
+      mutationInProgress.current = false;
+      setPendingAction(null);
+    }
+  }
+
+  function confirmDeletion() {
+    if (deletionPlan === null) {
+      return;
+    }
+
+    const confirmation = getWearPunchDeletionConfirmation(deletionPlan);
+    Alert.alert(confirmation.title, confirmation.message, [
+      { style: 'cancel', text: 'Cancel' },
+      { onPress: () => void deleteEvent(), style: 'destructive', text: 'Delete' },
+    ]);
   }
 
   if (isLoading) {
@@ -157,7 +197,7 @@ export function EditEventScreen() {
       <DateTimeFields
         dateInputNavigation={keyboardNavigation.getInputProps(0)}
         dateValue={dateValue}
-        disabled={isSaving}
+        disabled={pendingAction !== null}
         label="Recorded date and time"
         onChangeDate={(value) => {
           setDateValue(value);
@@ -179,24 +219,50 @@ export function EditEventScreen() {
 
       <Pressable
         accessibilityRole="button"
-        disabled={isSaving}
+        disabled={pendingAction !== null}
         onPress={() => void saveCorrection()}
         style={({ pressed }) => [
           styles.saveButton,
           {
             backgroundColor: pressed ? theme.primaryPressed : theme.primary,
-            opacity: isSaving ? 0.6 : 1,
+            opacity: pendingAction !== null ? 0.6 : 1,
           },
         ]}>
         <AppText style={{ color: theme.onPrimary, fontWeight: '700' }}>
-          {isSaving ? 'Saving…' : 'Save correction'}
+          {pendingAction === 'save' ? 'Saving…' : 'Save correction'}
         </AppText>
       </Pressable>
+
+      {deletionPlan ? (
+        <Pressable
+          accessibilityRole="button"
+          disabled={pendingAction !== null}
+          onPress={confirmDeletion}
+          style={({ pressed }) => [
+            styles.deleteButton,
+            {
+              borderColor: theme.error,
+              opacity: pendingAction !== null ? 0.6 : pressed ? 0.75 : 1,
+            },
+          ]}>
+          <AppText style={{ color: theme.error, fontWeight: '700' }}>
+            {pendingAction === 'delete' ? 'Deleting…' : 'Delete event'}
+          </AppText>
+        </Pressable>
+      ) : null}
     </AppScreen>
   );
 }
 
 const styles = StyleSheet.create({
+  deleteButton: {
+    alignItems: 'center',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    justifyContent: 'center',
+    minHeight: 54,
+    paddingHorizontal: spacing.lg,
+  },
   message: {
     flex: 1,
     gap: spacing.md,

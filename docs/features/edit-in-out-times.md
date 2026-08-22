@@ -173,17 +173,44 @@ If the correction cannot be represented safely, reject it with a concise useful 
 
 ## Deletion
 
-Arbitrary deletion of a single `WearPunch` is **not part of the initial version** of this feature.
+The Edit Event screen offers deletion when the selected punch is not the first punch in its
+`TrayPeriod`.
 
-Deleting a single transition can easily create invalid state such as:
+For an interior punch, deletion removes the state interval that begins at the selected punch:
 
 ```text
-IN → IN
+08:00 IN
+12:15 OUT  ← selected
+12:51 IN   ← following transition
+18:34 OUT
 ```
 
-A future enhancement may support removing an entire recorded IN or OUT period atomically.
+Deleting the selected `OUT` removes both the `12:15 OUT` and `12:51 IN` transitions. The
+surrounding IN time is combined:
 
-Do not implement single-punch deletion unless the feature specification is explicitly revised.
+```text
+08:00 IN
+18:34 OUT
+```
+
+For the final punch in a tray period, deletion removes only that punch. The preceding status
+continues through the end of the tray period, or through the current time when the period is
+active.
+
+The first punch in a tray period cannot be deleted because it anchors the known state for that
+period. A deletion must never inspect, merge, or remove punches across tray-period boundaries.
+An interval may cross midnight when both transitions belong to the same tray period.
+
+Before deleting, show a destructive confirmation that identifies the affected transition or
+transitions, explains which status will be combined or extended, and states that deletion cannot
+be undone.
+
+Deletion requirements:
+
+- preserve strict IN/OUT alternation
+- perform multi-punch deletion atomically
+- reject the operation if the selected or neighboring history changed after confirmation was shown
+- refresh derived tracker state, totals, and local notifications after success
 
 ## Tray-Period Boundaries
 
@@ -267,4 +294,3 @@ Do not implement as part of this feature:
 - cloud sync
 - backend/API
 - CSV export
-- arbitrary single-punch deletion

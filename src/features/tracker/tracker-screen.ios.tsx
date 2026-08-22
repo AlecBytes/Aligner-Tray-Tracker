@@ -178,6 +178,7 @@ export function TrackerScreen() {
   const tracker = createTrackerReadModel(currentSnapshot, now);
   const latestPunch = getLatestWearPunch(currentSnapshot.punches);
   const isIn = tracker.currentStatus === 'IN';
+  const currentOutDuration = formatDuration(tracker.currentOutSeconds);
   const daysRemainingLabel = `${tracker.daysRemaining} ${
     tracker.daysRemaining === 1 ? 'day' : 'days'
   } left`;
@@ -414,7 +415,9 @@ export function TrackerScreen() {
             disabled(isMutating),
             frame({ maxWidth: Infinity, maxHeight: Infinity, minHeight: 124 }),
             accessibilityLabel(
-              `Trays are ${isIn ? 'in' : 'out'}. Tap when ${isIn ? 'removed' : 'inserted'}.`,
+              isIn
+                ? 'Trays are in. Tap when removed.'
+                : `Trays are out for ${currentOutDuration}. Tap when inserted.`,
             ),
             accessibilityHint('Updates the saved IN or OUT state.'),
           ]}
@@ -431,6 +434,18 @@ export function TrackerScreen() {
               ]}>
               {isMutating ? 'SAVING…' : `TRAYS ARE ${tracker.currentStatus}`}
             </Text>
+            {!isIn ? (
+              <Text
+                modifiers={[
+                  font({ textStyle: 'title', weight: 'bold' }),
+                  monospacedDigit(),
+                  contentTransition('numericText'),
+                  minimumScaleFactor(0.75),
+                  lineLimit(1),
+                ]}>
+                {currentOutDuration}
+              </Text>
+            ) : null}
             <Text>{isIn ? 'Tap when removed' : 'Tap when inserted'}</Text>
             <Spacer />
           </VStack>

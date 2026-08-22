@@ -7,9 +7,23 @@ import {
   getLatestWearPunch,
   getLocalDayStart,
 } from '@/features/tracker/tracker-calculations';
-import type { WearPunchEvent } from '@/features/tracker/tracker-model';
+import type {
+  TrackerSnapshot,
+  WearPunchEvent,
+} from '@/features/tracker/tracker-model';
 
 const HOUR_IN_MILLISECONDS = 60 * 60 * 1000;
+
+function createSnapshot(punches: WearPunchEvent[]): TrackerSnapshot {
+  return {
+    currentTrayNumber: 9,
+    daysPerTray: 7,
+    punches,
+    totalTrays: 48,
+    trayPeriodId: 4,
+    trayStartedAt: punches[0]?.timestamp ?? 0,
+  };
+}
 
 describe('formatDuration', () => {
   it('displays hours, minutes, and seconds', () => {
@@ -98,6 +112,7 @@ describe('calculateDailyWearTotals', () => {
       ),
     ).toEqual({
       currentStatus: 'IN',
+      currentOutSeconds: 0,
       currentTrayNumber: 9,
       daysRemaining: 2,
       inTodaySeconds: 12 * 60 * 60,
@@ -105,6 +120,41 @@ describe('calculateDailyWearTotals', () => {
       totalTrays: 48,
       trayDay: 5,
     });
+  });
+});
+
+describe('current OUT duration', () => {
+  it('measures from the effective latest OUT punch in unordered history', () => {
+    const now = new Date(2026, 7, 15, 12).getTime();
+    const punches: WearPunchEvent[] = [
+      { id: 3, status: 'OUT', timestamp: now - 5_900 },
+      { id: 1, status: 'OUT', timestamp: now - 60_000 },
+      { id: 2, status: 'IN', timestamp: now - 30_000 },
+    ];
+
+    expect(createTrackerReadModel(createSnapshot(punches), now).currentOutSeconds).toBe(5);
+  });
+
+  it('returns zero while trays are IN', () => {
+    const now = new Date(2026, 7, 15, 12).getTime();
+    const punches: WearPunchEvent[] = [
+      { id: 1, status: 'OUT', timestamp: now - HOUR_IN_MILLISECONDS },
+      { id: 2, status: 'IN', timestamp: now - 5_000 },
+    ];
+
+    expect(createTrackerReadModel(createSnapshot(punches), now).currentOutSeconds).toBe(0);
+  });
+
+  it('continues measuring the current OUT interval across midnight', () => {
+    const outAt = new Date(2026, 7, 14, 23, 30).getTime();
+    const now = new Date(2026, 7, 15, 0, 15).getTime();
+
+    expect(
+      createTrackerReadModel(
+        createSnapshot([{ id: 1, status: 'OUT', timestamp: outAt }]),
+        now,
+      ).currentOutSeconds,
+    ).toBe(45 * 60);
   });
 });
 

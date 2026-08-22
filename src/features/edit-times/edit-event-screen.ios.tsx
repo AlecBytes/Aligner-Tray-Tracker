@@ -1,4 +1,4 @@
-import { DatePicker, Form, Host, Section, Text } from '@expo/ui/swift-ui';
+import { Alert, Button, DatePicker, Form, Host, Section, Text } from '@expo/ui/swift-ui';
 import { disabled, environment, font, foregroundStyle } from '@expo/ui/swift-ui/modifiers';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -11,9 +11,14 @@ import {
   ValidationMessage,
 } from '@/components/expo-ui-components';
 import { CorrectionValidationError } from '@/features/edit-times/edit-times-corrections';
-import type { EditableWearPunch } from '@/features/edit-times/edit-times-model';
+import { getWearPunchDeletionConfirmation } from '@/features/edit-times/edit-times-deletion';
+import type {
+  EditableWearPunch,
+  WearPunchDeletionPlan,
+} from '@/features/edit-times/edit-times-model';
 import {
   CorrectionConflictError,
+  deleteWearPunch,
   getWearPunchForEdit,
   updateWearPunchTimestamp,
 } from '@/features/edit-times/edit-times-repository';
@@ -43,11 +48,13 @@ export function EditEventScreen() {
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const idValue = firstParameter(params.id);
   const punchId = idValue && /^\d+$/.test(idValue) ? Number(idValue) : null;
-  const saveInProgress = useRef(false);
+  const mutationInProgress = useRef(false);
   const [punch, setPunch] = useState<EditableWearPunch | null>(null);
+  const [deletionPlan, setDeletionPlan] = useState<WearPunchDeletionPlan | null>(null);
   const [selectedDate, setSelectedDate] = useState(() => startOfMinute(Date.now()));
   const [isLoading, setIsLoading] = useState(punchId !== null);
-  const [isSaving, setIsSaving] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'delete' | 'save' | null>(null);
+  const [deleteConfirmationPresented, setDeleteConfirmationPresented] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadPunch = useCallback(async () => {
@@ -69,10 +76,12 @@ export function EditEventScreen() {
           }
           if (savedPunch === null) {
             setPunch(null);
+            setDeletionPlan(null);
             setError('This punch no longer exists.');
             return;
           }
           setPunch(savedPunch.punch);
+          setDeletionPlan(savedPunch.deletionPlan);
           setSelectedDate(startOfMinute(savedPunch.punch.timestamp));
           setError(null);
         })
@@ -94,12 +103,12 @@ export function EditEventScreen() {
   );
 
   async function saveCorrection() {
-    if (saveInProgress.current || punch === null) {
+    if (mutationInProgress.current || punch === null) {
       return;
     }
 
-    saveInProgress.current = true;
-    setIsSaving(true);
+    mutationInProgress.current = true;
+    setPendingAction('save');
     setError(null);
 
     try {
@@ -108,8 +117,29 @@ export function EditEventScreen() {
       router.back();
     } catch (saveError) {
       setError(knownCorrectionMessage(saveError));
-      saveInProgress.current = false;
-      setIsSaving(false);
+      mutationInProgress.current = false;
+      setPendingAction(null);
+    }
+  }
+
+  async function deleteEvent() {
+    if (mutationInProgress.current || deletionPlan === null) {
+      return;
+    }
+
+    mutationInProgress.current = true;
+    setPendingAction('delete');
+    setError(null);
+    setDeleteConfirmationPresented(false);
+
+    try {
+      await deleteWearPunch(db, deletionPlan);
+      void reconcileLocalNotifications(db);
+      router.back();
+    } catch (deleteError) {
+      setError(knownCorrectionMessage(deleteError));
+      mutationInProgress.current = false;
+      setPendingAction(null);
     }
   }
 
@@ -130,6 +160,10 @@ export function EditEventScreen() {
     );
   }
 
+  const deletionConfirmation = deletionPlan
+    ? getWearPunchDeletionConfirmation(deletionPlan)
+    : null;
+
   return (
     <Host seedColor={theme.primary} style={{ flex: 1 }}>
       <Form>
@@ -144,7 +178,7 @@ export function EditEventScreen() {
         <Section title="Recorded date and time">
           <DatePicker
             displayedComponents={['date']}
-            modifiers={[disabled(isSaving)]}
+            modifiers={[disabled(pendingAction !== null)]}
             onDateChange={(date) => {
               setSelectedDate(startOfMinute(date.getTime()));
               setError(null);
@@ -154,7 +188,10 @@ export function EditEventScreen() {
           />
           <DatePicker
             displayedComponents={['hourAndMinute']}
-            modifiers={[environment('locale', 'en_US'), disabled(isSaving)]}
+            modifiers={[
+              environment('locale', 'en_US'),
+              disabled(pendingAction !== null),
+            ]}
             onDateChange={(date) => {
               setSelectedDate(startOfMinute(date.getTime()));
               setError(null);
@@ -172,11 +209,42 @@ export function EditEventScreen() {
 
         <Section>
           <ActionButton
-            label={isSaving ? 'Saving…' : 'Save correction'}
+            disabled={pendingAction !== null}
+            label={pendingAction === 'save' ? 'Saving…' : 'Save correction'}
             onPress={() => void saveCorrection()}
-            pending={isSaving}
+            pending={pendingAction === 'save'}
           />
         </Section>
+
+        {deletionPlan && deletionConfirmation ? (
+          <Section>
+            <Alert
+              isPresented={deleteConfirmationPresented}
+              onIsPresentedChange={setDeleteConfirmationPresented}
+              title={deletionConfirmation.title}>
+              <Alert.Trigger>
+                <Button
+                  label={pendingAction === 'delete' ? 'Deleting event…' : 'Delete event'}
+                  modifiers={[disabled(pendingAction !== null)]}
+                  onPress={() => setDeleteConfirmationPresented(true)}
+                  role="destructive"
+                  systemImage="trash"
+                />
+              </Alert.Trigger>
+              <Alert.Actions>
+                <Button
+                  label="Delete"
+                  onPress={() => void deleteEvent()}
+                  role="destructive"
+                />
+                <Button label="Cancel" role="cancel" />
+              </Alert.Actions>
+              <Alert.Message>
+                <Text>{deletionConfirmation.message}</Text>
+              </Alert.Message>
+            </Alert>
+          </Section>
+        ) : null}
       </Form>
     </Host>
   );

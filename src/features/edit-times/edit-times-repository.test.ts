@@ -2,6 +2,8 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import {
   addMissingWearPeriod,
+  deleteWearPunch,
+  getWearPunchForEdit,
   updateWearPunchTimestamp,
 } from '@/features/edit-times/edit-times-repository';
 
@@ -12,13 +14,17 @@ type PunchState = {
   trayPeriodId: number;
 };
 
-function createCorrectionDatabase(options?: { failSecondInsert?: boolean }) {
+function createCorrectionDatabase(options?: {
+  deleteChanges?: number;
+  failSecondInsert?: boolean;
+  punches?: PunchState[];
+}) {
   const period = { endedAt: 1000, id: 33, startedAt: 0 };
   const state: { punches: PunchState[] } = {
-    punches: [
+    punches: (options?.punches ?? [
       { id: 1, status: 'IN', timestamp: 100, trayPeriodId: period.id },
       { id: 2, status: 'OUT', timestamp: 800, trayPeriodId: period.id },
-    ],
+    ]).map((punch) => ({ ...punch })),
   };
   let nextId = 3;
   let insertCount = 0;
@@ -58,6 +64,37 @@ function createCorrectionDatabase(options?: { failSecondInsert?: boolean }) {
       }));
   });
   const runAsync = jest.fn(async (sql: string, ...parameters: (number | string)[]) => {
+    if (sql.includes('DELETE FROM wear_punches')) {
+      const [trayPeriodId, ...punchParameters] = parameters;
+      const expectedPunches: { id: number; status: string; timestamp: number }[] = [];
+
+      for (let index = 0; index < punchParameters.length; index += 3) {
+        expectedPunches.push({
+          id: punchParameters[index] as number,
+          status: punchParameters[index + 1] as string,
+          timestamp: punchParameters[index + 2] as number,
+        });
+      }
+
+      const matchingPunches = state.punches.filter(
+        (savedPunch) =>
+          savedPunch.trayPeriodId === trayPeriodId &&
+          expectedPunches.some(
+            (expectedPunch) =>
+              expectedPunch.id === savedPunch.id &&
+              expectedPunch.status === savedPunch.status &&
+              expectedPunch.timestamp === savedPunch.timestamp,
+          ),
+      );
+      const punchesToDelete = matchingPunches.slice(
+        0,
+        options?.deleteChanges ?? matchingPunches.length,
+      );
+      const deletedIds = new Set(punchesToDelete.map((punch) => punch.id));
+      state.punches = state.punches.filter((punch) => !deletedIds.has(punch.id));
+      return { changes: punchesToDelete.length, lastInsertRowId: 0 };
+    }
+
     if (sql.includes('UPDATE wear_punches')) {
       const [timestamp, punchId, trayPeriodId, previousTimestamp] = parameters as number[];
       const savedPunch = state.punches.find(
@@ -99,6 +136,7 @@ function createCorrectionDatabase(options?: { failSecondInsert?: boolean }) {
 
   return {
     db: { getAllAsync, getFirstAsync, runAsync, withTransactionAsync } as unknown as SQLiteDatabase,
+    period,
     runAsync,
     state,
     withTransactionAsync,
@@ -172,5 +210,94 @@ describe('Edit In/Out Times persistence', () => {
     expect(database.state.punches).toEqual(originalPunches);
     expect(database.withTransactionAsync).toHaveBeenCalledTimes(1);
   });
-});
 
+  it('deletes an interior state interval in one transaction', async () => {
+    const punches: PunchState[] = [
+      { id: 1, status: 'IN', timestamp: 100, trayPeriodId: 33 },
+      { id: 2, status: 'OUT', timestamp: 300, trayPeriodId: 33 },
+      { id: 3, status: 'IN', timestamp: 400, trayPeriodId: 33 },
+      { id: 4, status: 'OUT', timestamp: 800, trayPeriodId: 33 },
+    ];
+    const database = createCorrectionDatabase({ punches });
+    const editablePunch = await getWearPunchForEdit(database.db, 2);
+
+    expect(editablePunch?.deletionPlan).not.toBeNull();
+    await expect(
+      deleteWearPunch(database.db, editablePunch!.deletionPlan!),
+    ).resolves.toEqual([punches[1], punches[2]]);
+
+    expect(database.state.punches).toEqual([punches[0], punches[3]]);
+    expect(database.runAsync).toHaveBeenCalledWith(
+      expect.stringContaining('DELETE FROM wear_punches'),
+      33,
+      2,
+      'OUT',
+      300,
+      3,
+      'IN',
+      400,
+    );
+    expect(database.withTransactionAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it('deletes only the final event in its tray period', async () => {
+    const database = createCorrectionDatabase();
+    const editablePunch = await getWearPunchForEdit(database.db, 2);
+
+    await expect(
+      deleteWearPunch(database.db, editablePunch!.deletionPlan!),
+    ).resolves.toEqual([
+      { id: 2, status: 'OUT', timestamp: 800, trayPeriodId: 33 },
+    ]);
+    expect(database.state.punches).toEqual([
+      { id: 1, status: 'IN', timestamp: 100, trayPeriodId: 33 },
+    ]);
+  });
+
+  it('does not offer a deletion plan for the first punch', async () => {
+    const database = createCorrectionDatabase();
+
+    await expect(getWearPunchForEdit(database.db, 1)).resolves.toMatchObject({
+      deletionPlan: null,
+    });
+  });
+
+  it('rejects deletion when the confirmed neighboring event is stale', async () => {
+    const punches: PunchState[] = [
+      { id: 1, status: 'IN', timestamp: 100, trayPeriodId: 33 },
+      { id: 2, status: 'OUT', timestamp: 300, trayPeriodId: 33 },
+      { id: 3, status: 'IN', timestamp: 400, trayPeriodId: 33 },
+      { id: 4, status: 'OUT', timestamp: 800, trayPeriodId: 33 },
+    ];
+    const database = createCorrectionDatabase({ punches });
+    const editablePunch = await getWearPunchForEdit(database.db, 2);
+    const stalePlan = {
+      ...editablePunch!.deletionPlan!,
+      followingPunch: {
+        ...editablePunch!.deletionPlan!.followingPunch!,
+        timestamp: 401,
+      },
+    };
+
+    await expect(deleteWearPunch(database.db, stalePlan)).rejects.toThrow(
+      'Punch history changed',
+    );
+    expect(database.state.punches).toEqual(punches);
+  });
+
+  it('rolls back a partial pair deletion', async () => {
+    const punches: PunchState[] = [
+      { id: 1, status: 'IN', timestamp: 100, trayPeriodId: 33 },
+      { id: 2, status: 'OUT', timestamp: 300, trayPeriodId: 33 },
+      { id: 3, status: 'IN', timestamp: 400, trayPeriodId: 33 },
+      { id: 4, status: 'OUT', timestamp: 800, trayPeriodId: 33 },
+    ];
+    const database = createCorrectionDatabase({ deleteChanges: 1, punches });
+    const editablePunch = await getWearPunchForEdit(database.db, 2);
+
+    await expect(
+      deleteWearPunch(database.db, editablePunch!.deletionPlan!),
+    ).rejects.toThrow('Punch history changed');
+    expect(database.state.punches).toEqual(punches);
+  });
+});

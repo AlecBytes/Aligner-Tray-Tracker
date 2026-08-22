@@ -23,6 +23,7 @@ export type TrackerSnapshot = {
 
 export type TrackerReadModel = {
   currentStatus: WearStatus;
+  currentOutSeconds: number;
   currentTrayNumber: number;
   daysRemaining: number;
   inTodaySeconds: number;

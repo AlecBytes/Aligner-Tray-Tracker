@@ -4,6 +4,7 @@ import type {
   MissingPeriodInput,
   PlannedWearPunch,
   TrayPeriodWindow,
+  WearPunchDeletionPlan,
 } from '@/features/edit-times/edit-times-model';
 
 export class CorrectionValidationError extends Error {
@@ -38,7 +39,16 @@ export function assertValidWearTimeline(
     const punch = orderedPunches[index];
     const previousPunch = orderedPunches[index - 1];
 
-    if (!Number.isSafeInteger(punch.timestamp) || !isTimestampWithinPeriod(period, punch.timestamp)) {
+    if (punch.trayPeriodId !== period.id) {
+      throw new CorrectionValidationError(
+        'Punch history must stay within one tray period.',
+      );
+    }
+
+    if (
+      !Number.isSafeInteger(punch.timestamp) ||
+      !isTimestampWithinPeriod(period, punch.timestamp)
+    ) {
       throw new CorrectionValidationError(
         'The saved punch history does not fit within its tray period.',
       );
@@ -92,6 +102,45 @@ export function validateEditedPunchTimestamp(
     punch.id === punchId ? { ...punch, timestamp: newTimestamp } : punch,
   );
   assertValidWearTimeline(period, correctedPunches);
+}
+
+export function planWearPunchDeletion(
+  period: TrayPeriodWindow,
+  punches: readonly EditableWearPunch[],
+  punchId: number,
+): WearPunchDeletionPlan {
+  assertValidWearTimeline(period, punches);
+
+  const orderedPunches = orderPunches(punches);
+  const punchIndex = orderedPunches.findIndex((punch) => punch.id === punchId);
+
+  if (punchIndex < 0) {
+    throw new CorrectionValidationError('The punch no longer exists.');
+  }
+
+  if (punchIndex === 0) {
+    throw new CorrectionValidationError(
+      'The first punch anchors this tray period and cannot be deleted.',
+    );
+  }
+
+  const previousPunch = orderedPunches[punchIndex - 1];
+  const selectedPunch = orderedPunches[punchIndex];
+  const followingPunch = orderedPunches[punchIndex + 1] ?? null;
+  const punchesToDelete = followingPunch
+    ? [selectedPunch, followingPunch]
+    : [selectedPunch];
+  const deletedIds = new Set(punchesToDelete.map((punch) => punch.id));
+  const remainingPunches = orderedPunches.filter((punch) => !deletedIds.has(punch.id));
+
+  assertValidWearTimeline(period, remainingPunches);
+
+  return {
+    followingPunch,
+    previousPunch,
+    punchesToDelete,
+    selectedPunch,
+  };
 }
 
 export function planMissingWearPeriod(
@@ -160,4 +209,3 @@ export function planMissingWearPeriod(
   assertValidWearTimeline(period, correctedPunches);
   return plannedPunches;
 }
-

@@ -2,14 +2,17 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import type { WearStatus } from '@/db/schema';
 import {
+  assertValidWearTimeline,
   CorrectionValidationError,
   planMissingWearPeriod,
+  planWearPunchDeletion,
   validateEditedPunchTimestamp,
 } from '@/features/edit-times/edit-times-corrections';
 import type {
   EditableWearPunch,
   MissingPeriodInput,
   TrayPeriodWindow,
+  WearPunchDeletionPlan,
 } from '@/features/edit-times/edit-times-model';
 
 type TreatmentStartRow = {
@@ -52,6 +55,33 @@ function mapWearPunch(row: WearPunchRow): EditableWearPunch {
 
 function mapTrayPeriod(row: TrayPeriodRow): TrayPeriodWindow {
   return { endedAt: row.ended_at, id: row.id, startedAt: row.started_at };
+}
+
+function punchesMatch(left: EditableWearPunch | null, right: EditableWearPunch | null) {
+  return (
+    left === right ||
+    (left !== null &&
+      right !== null &&
+      left.id === right.id &&
+      left.status === right.status &&
+      left.timestamp === right.timestamp &&
+      left.trayPeriodId === right.trayPeriodId)
+  );
+}
+
+function deletionPlansMatch(
+  left: WearPunchDeletionPlan,
+  right: WearPunchDeletionPlan,
+) {
+  return (
+    punchesMatch(left.previousPunch, right.previousPunch) &&
+    punchesMatch(left.selectedPunch, right.selectedPunch) &&
+    punchesMatch(left.followingPunch, right.followingPunch) &&
+    left.punchesToDelete.length === right.punchesToDelete.length &&
+    left.punchesToDelete.every((punch, index) =>
+      punchesMatch(punch, right.punchesToDelete[index] ?? null),
+    )
+  );
 }
 
 async function getTrayPeriodPunches(db: SQLiteDatabase, trayPeriodId: number) {
@@ -117,12 +147,19 @@ export async function getWearPunchForEdit(db: SQLiteDatabase, punchId: number) {
     return null;
   }
 
+  const period = mapTrayPeriod({
+    ended_at: row.ended_at,
+    id: row.tray_period_id,
+    started_at: row.started_at,
+  });
+  const punches = await getTrayPeriodPunches(db, period.id);
+  const isFirstPunch = punches[0]?.id === punchId;
+
   return {
-    period: mapTrayPeriod({
-      ended_at: row.ended_at,
-      id: row.tray_period_id,
-      started_at: row.started_at,
-    }),
+    deletionPlan: isFirstPunch
+      ? null
+      : planWearPunchDeletion(period, punches, punchId),
+    period,
     punch: mapWearPunch(row),
   };
 }
@@ -180,6 +217,77 @@ export async function updateWearPunchTimestamp(
   }
 
   return correctedPunch as EditableWearPunch;
+}
+
+export async function deleteWearPunch(
+  db: SQLiteDatabase,
+  expectedPlan: WearPunchDeletionPlan,
+) {
+  let deletedPunches: EditableWearPunch[] | null = null;
+
+  await db.withTransactionAsync(async () => {
+    const row = await db.getFirstAsync<WearPunchWithPeriodRow>(
+      `SELECT wear_punches.id, wear_punches.tray_period_id,
+              wear_punches.status, wear_punches.timestamp,
+              tray_periods.started_at, tray_periods.ended_at
+       FROM wear_punches
+       JOIN tray_periods ON tray_periods.id = wear_punches.tray_period_id
+       WHERE wear_punches.id = ?
+       LIMIT 1`,
+      expectedPlan.selectedPunch.id,
+    );
+
+    if (row === null) {
+      throw new CorrectionConflictError();
+    }
+
+    const period = mapTrayPeriod({
+      ended_at: row.ended_at,
+      id: row.tray_period_id,
+      started_at: row.started_at,
+    });
+    const punches = await getTrayPeriodPunches(db, period.id);
+    let currentPlan: WearPunchDeletionPlan;
+
+    try {
+      currentPlan = planWearPunchDeletion(period, punches, row.id);
+    } catch {
+      throw new CorrectionConflictError();
+    }
+
+    if (!deletionPlansMatch(currentPlan, expectedPlan)) {
+      throw new CorrectionConflictError();
+    }
+
+    const deleteParameters: (number | string)[] = [period.id];
+    const deletePredicates = currentPlan.punchesToDelete.map((punch) => {
+      deleteParameters.push(punch.id, punch.status, punch.timestamp);
+      return '(id = ? AND status = ? AND timestamp = ?)';
+    });
+    const result = await db.runAsync(
+      `DELETE FROM wear_punches
+       WHERE tray_period_id = ?
+         AND (${deletePredicates.join(' OR ')})`,
+      ...deleteParameters,
+    );
+
+    if (result.changes !== currentPlan.punchesToDelete.length) {
+      throw new CorrectionConflictError();
+    }
+
+    const deletedIds = new Set(currentPlan.punchesToDelete.map((punch) => punch.id));
+    assertValidWearTimeline(
+      period,
+      punches.filter((punch) => !deletedIds.has(punch.id)),
+    );
+    deletedPunches = currentPlan.punchesToDelete;
+  });
+
+  if (deletedPunches === null) {
+    throw new CorrectionConflictError();
+  }
+
+  return deletedPunches as EditableWearPunch[];
 }
 
 export async function addMissingWearPeriod(
@@ -242,4 +350,3 @@ export async function addMissingWearPeriod(
 
   return insertedPunches as EditableWearPunch[];
 }
-
