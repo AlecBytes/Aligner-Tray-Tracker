@@ -7,6 +7,7 @@
   },
   "dependencies": {
     "@expo/ui": "~57.0.12",
+    "@supabase/supabase-js": "^2.112.3",
     "expo": "~57.0.15",
     "expo-constants": "~57.0.10",
     "expo-dev-client": "~57.0.14",
