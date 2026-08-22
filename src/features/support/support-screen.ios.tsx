@@ -12,11 +12,11 @@ import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 
 import { AppLoadingScreen } from '@/components/app-loading-screen';
 import { ActionButton, ValidationMessage } from '@/components/expo-ui-components';
-import { mockSupportPurchaseService } from '@/features/support/mock-support-purchase-service';
 import type {
   SupportProduct,
   SupportPurchaseService,
 } from '@/features/support/support-purchase-service';
+import { defaultSupportPurchaseService } from '@/features/support/support-purchase-service-config';
 import { supportReducer, type SupportState } from '@/features/support/support-state';
 import { useAppTheme } from '@/theme/use-app-theme';
 
@@ -32,17 +32,6 @@ type ProductOptionsProps = {
 };
 
 const INITIAL_STATE: SupportState = { status: 'loading' };
-const unavailableSupportPurchaseService: SupportPurchaseService = {
-  async loadProducts() {
-    return [];
-  },
-  async purchase() {
-    throw new Error('Support purchases are not configured.');
-  },
-};
-const defaultSupportPurchaseService = __DEV__
-  ? mockSupportPurchaseService
-  : unavailableSupportPurchaseService;
 
 function ProductOptions({
   disabled: purchasesDisabled,

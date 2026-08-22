@@ -5,6 +5,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useRef, useState } from 'react';
 
 import { NavigationRow } from '@/components/expo-ui-components';
+import { isSupportEnabled } from '@/config/support-config';
 import { reconcileLocalNotifications } from '@/features/notifications/local-notifications';
 import { resetAppData } from '@/features/reset/reset-app-repository';
 import { useAppTheme } from '@/theme/use-app-theme';
@@ -70,7 +71,7 @@ export function MenuScreen() {
           />
         </Section>
 
-        {__DEV__ ? (
+        {isSupportEnabled ? (
           <Section title="Development">
             <NavigationRow
               label="Support Aligner Tracker (Preview)"

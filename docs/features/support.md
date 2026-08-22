@@ -173,6 +173,16 @@ Avoid implementing StoreKit or Google Play Billing directly unless RevenueCat no
 
 Real native purchase testing requires the RevenueCat native module and platform billing systems.
 
+Until RevenueCat is implemented, Support availability is controlled by
+`EXPO_PUBLIC_SUPPORT_MODE`:
+
+- `mock`: show the Support menu item and use the local mock purchase service
+- `disabled` (or any missing/unrecognized value): hide Support and leave purchases unavailable
+
+Local development and EAS development/preview builds use `mock`. EAS production builds use
+`disabled`, so Support remains hidden in production until the real purchase implementation is
+ready. The `/support` route remains in place while Support is disabled.
+
 Use an **Expo development build** for real StoreKit / Google Play purchase testing.
 
 RevenueCat's Expo Go preview/mock capability may be used for basic development or UI flows where appropriate, but it does not replace real native store testing.

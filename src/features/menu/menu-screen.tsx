@@ -5,6 +5,7 @@ import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppScreen } from '@/components/app-screen';
 import { AppText } from '@/components/app-text';
+import { isSupportEnabled } from '@/config/support-config';
 import { reconcileLocalNotifications } from '@/features/notifications/local-notifications';
 import { resetAppData } from '@/features/reset/reset-app-repository';
 import { radius, spacing } from '@/theme/tokens';
@@ -96,7 +97,7 @@ export function MenuScreen() {
           onPress={() => router.push('/edit-times')}
         />
         <MenuItem label="Statistics" onPress={() => router.push('/statistics')} />
-        {__DEV__ ? (
+        {isSupportEnabled ? (
           <MenuItem
             label="Support Aligner Tracker (Preview)"
             onPress={() => router.push('/support')}
