@@ -275,21 +275,22 @@ This models the physical tray-change process accurately.
 MVP menu:
 
 ```text
-Account
+Cloud Backup (iOS)
 Treatment Plan
 Help
 ```
 
 Features that are not yet implemented should not appear as disabled menu items.
 
-## Account
+Android and web retain the informational **Account** destination while their authentication flow is deferred.
 
-- Informational while cloud work is deferred
-- Future Sign in with Apple and sign out
+## Cloud Backup / Account
+
+- iOS Sign in with Apple and local sign out
 - Future cloud-account deletion
 - Future Cloud Backup & Restore status
 
-An account is optional. Multi-device sync is a separate future feature and is not part of Cloud Backup & Restore V1.
+An account is optional. The iOS authentication phase only connects the account and does not run a backup. Multi-device sync is a separate future feature and is not part of Cloud Backup & Restore V1.
 
 ## Treatment Plan
 
@@ -391,7 +392,7 @@ Login
 Treatment Setup
 ```
 
-When the deferred Cloud Backup & Restore feature is implemented, signing in with Apple will automatically enable:
+Phase 1 iOS authentication only connects an Apple account. When the later Cloud Backup & Restore phase is implemented, signing in with Apple will automatically enable:
 
 - backup
 - restore
@@ -452,7 +453,7 @@ Primary cloud responsibilities:
 - backup retention and cloud-account deletion
 - future synchronization only after its product semantics are resolved
 
-Cloud work is deferred until the local core is excellent. Normal tracker interactions must not depend on Supabase or any network request.
+The iOS authentication foundation is available from the Cloud Backup menu. Backup, restore, retention, account deletion, and sync remain deferred. Normal tracker interactions must not depend on Supabase or any network request.
 
 See `docs/features/cloud-backup-restore.md` for the authoritative backup behavior and `docs/features/cloud-sync-future.md` for future sync constraints.
 
@@ -460,12 +461,13 @@ See `docs/features/cloud-backup-restore.md` for the authoritative backup behavio
 
 # Authentication
 
-Confirmed direction for the deferred cloud feature:
+Current authentication foundation and confirmed direction:
 
 - Supabase authentication
 - Sign in with Apple as the account mechanism
 - no account requirement for core tracking
-- successful sign-in automatically enables cloud backup
+- the current iOS phase only connects the account and explicitly reports that no backup has run
+- a later backup phase automatically enables cloud backup after sign-in
 
 Signing out preserves retained backups. Deleting the cloud account deletes its snapshots and backup metadata.
 
@@ -510,7 +512,7 @@ Example logical modules:
 App Shell
 ├── Tracker
 ├── Treatment Plan
-├── Account
+├── Cloud Backup (Account on Android/web)
 └── Help
 ```
 
@@ -667,7 +669,7 @@ Unsigned users keep treatment data on their device.
 
 ## Optional Cloud
 
-Cloud services remain optional. When Cloud Backup & Restore is implemented, choosing to sign in with Apple automatically enables backup. Future multi-device sync remains a separate capability and must not be inferred from backup sign-in.
+Cloud services remain optional. Phase 1 iOS sign-in only connects the account. When the later Cloud Backup & Restore phase is implemented, choosing to sign in with Apple automatically enables backup. Future multi-device sync remains a separate capability and must not be inferred from backup sign-in.
 
 ## Data Minimization
 

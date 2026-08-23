@@ -2,7 +2,7 @@
 
 ## Status
 
-Planned post-core feature. This document records the agreed product direction; it does not schedule or implement cloud work.
+Phase 1 authentication foundation is implemented on iOS. Backup, restore, retention, storage, cloud-account deletion, and multi-device sync remain planned and are not implemented by Phase 1.
 
 ## Purpose
 
@@ -15,22 +15,33 @@ SQLite remains the on-device source of truth. Core tracking must work without an
 - Use Supabase for authentication, private snapshot storage, and backup metadata.
 - Use Sign in with Apple as the account mechanism.
 - An account is optional and cloud backup is not feature-gated.
-- A successful sign-in automatically enables backup; no second enable step is required.
+- In the later backup phase, a successful sign-in will automatically enable backup; no second enable step will be required. Phase 1 only connects the Apple account and must not claim that a backup has run.
 - Restore is allowed only when the installation has no local treatment data.
 - The latest backup is the default restore choice, with an option to choose an older retained backup.
 - Retain 7 daily snapshots, then 8 weekly snapshots, then one snapshot per month indefinitely while the cloud account exists.
 
-## V1 Scope
+## Phased Scope
 
-### Included
+### Phase 1: iOS authentication foundation
 
-- Sign in with Apple through Supabase, sign out, and cloud-account deletion
+- Native Sign in with Apple through Supabase on iOS only
+- securely persisted, installation-bound session and local-scope sign out
+- **Cloud Backup** menu destination after local treatment setup
+- explicit messaging that backup and restore are not available and no backup has run
+
+The Phase 1 native Apple flow identifies the app with its iOS bundle identifier. It does not use a web OAuth redirect, so it needs neither an Apple Services ID nor a rotating OAuth client secret. Android and web OAuth are deferred. The Android and web **Account** destination remains informational and does not initialize Apple Authentication or Supabase.
+
+### Later backup-and-restore phase
+
+#### Included
+
+- cloud-account deletion
 - automatic backup after sign-in
 - versioned logical snapshots of authoritative user data
 - restore of the latest or a selected retained snapshot on an empty installation
 - automatic tiered retention
 
-### Excluded
+#### Excluded
 
 - live or multi-device sync
 - merging cloud and local treatment data
@@ -41,7 +52,7 @@ SQLite remains the on-device source of truth. Core tracking must work without an
 
 ## Backup Behavior
 
-1. After successful sign-in, enable automatic backup and evaluate the local and remote state.
+1. After the later backup phase is available, a successful sign-in enables automatic backup and evaluates the local and remote state. Phase 1 sign-ins do not run this step.
 2. If the installation is empty and the account has backups, do not upload anything; offer restore first.
 3. If local treatment data exists, backup work may be scheduled only after the local operation has completed.
 4. If both the installation and account are empty, wait until authoritative local treatment data exists before creating a backup.
@@ -51,6 +62,8 @@ Backup serialization, upload, retention, and failure handling must run outside n
 ### Snapshot Contents
 
 Back up the authoritative user-created state needed to reconstruct the app, including treatment-plan versions, tray periods, wear punches, corrections, and any settings required to restore behavior. Do not back up derived statistics, cached read models, performance logs, or transient UI state.
+
+The local `app_installation` record is device metadata used to bind secure sessions to the current install. It survives **Reset App** and must never be included in a backup.
 
 Use a versioned logical snapshot rather than treating a live SQLite file as a remotely shared database. Each snapshot must carry enough metadata to validate and interpret it, including:
 
@@ -108,7 +121,7 @@ Signing out does not delete backups. Deleting the cloud account permanently dele
 ## Acceptance Criteria
 
 - Core tracking remains fully usable while signed out, offline, uploading, or after an upload failure.
-- Sign-in enables backup automatically without a second opt-in control.
+- In the later backup phase, sign-in enables backup automatically without a second opt-in control; Phase 1 explicitly reports that no backup has run.
 - An empty installation with existing remote backups is not uploaded before restore is offered.
 - Local saves complete without waiting for Supabase.
 - A user can restore the latest or another retained snapshot only on an empty installation.

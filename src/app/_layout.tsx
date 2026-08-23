@@ -6,6 +6,7 @@ import { useColorScheme } from 'react-native';
 
 import { AppLoadingScreen } from '@/components/app-loading-screen';
 import { AppDatabaseProvider } from '@/db/database-provider';
+import { CloudAuthInitializer } from '@/features/cloud-auth/cloud-auth-initializer';
 import { NotificationInitializer } from '@/features/notifications/notification-initializer';
 
 void SplashScreen.preventAutoHideAsync();
@@ -26,6 +27,7 @@ export default function RootLayout() {
   return (
     <AppDatabaseProvider fallback={<AppLoadingScreen />}>
       <DatabaseReady>
+        <CloudAuthInitializer />
         <NotificationInitializer />
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <StatusBar style="auto" />

@@ -6,8 +6,10 @@ import { useRef, useState } from 'react';
 
 import { NavigationRow } from '@/components/expo-ui-components';
 import { isSupportEnabled } from '@/config/support-config';
+import { clearLocalCloudSession } from '@/features/cloud-auth/cloud-auth-service.ios';
 import { reconcileLocalNotifications } from '@/features/notifications/local-notifications';
 import { resetAppData } from '@/features/reset/reset-app-repository';
+import { resetAppWithLocalSession } from '@/features/reset/reset-app';
 import { useAppTheme } from '@/theme/use-app-theme';
 
 export function MenuScreen() {
@@ -30,13 +32,16 @@ export function MenuScreen() {
     setResetConfirmationPresented(false);
 
     try {
-      await resetAppData(db);
-      await reconcileLocalNotifications(db);
+      await resetAppWithLocalSession({
+        clearLocalSession: () => clearLocalCloudSession(db),
+        resetLocalData: () => resetAppData(db),
+        reconcileNotifications: () => reconcileLocalNotifications(db),
+      });
       router.replace('/setup');
     } catch {
       resetInProgress.current = false;
       setIsResetting(false);
-      setResetError('Your app data could not be reset. Please try again.');
+      setResetError('Your local session and app data could not be reset. Please try again.');
     }
   }
 
@@ -45,7 +50,7 @@ export function MenuScreen() {
       <Form>
         <Section>
           <NavigationRow
-            label="Account"
+            label="Cloud Backup"
             onPress={() => router.push('/account')}
             systemImage="person.circle"
           />

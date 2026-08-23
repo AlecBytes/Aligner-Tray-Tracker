@@ -30,6 +30,7 @@ describe('resetAppData', () => {
     expect(sql).toContain('DELETE FROM treatments');
     expect(sql).toContain('DELETE FROM settings');
     expect(sql).toContain('INSERT INTO settings (id) VALUES (1)');
+    expect(sql).not.toContain('DELETE FROM app_installation');
   });
 
   it('rejects when the reset transaction cannot complete', async () => {

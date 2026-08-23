@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-export const DATABASE_VERSION = 3;
+export const DATABASE_VERSION = 4;
 
 const migrationOne = `
   CREATE TABLE IF NOT EXISTS treatments (
@@ -74,6 +74,16 @@ const migrationThree = `
       CHECK (out_persistent_reminder_interval_minutes BETWEEN 5 AND 240);
 `;
 
+const migrationFour = `
+  CREATE TABLE IF NOT EXISTS app_installation (
+    id INTEGER PRIMARY KEY NOT NULL DEFAULT 1 CHECK (id = 1),
+    installation_id TEXT NOT NULL UNIQUE
+  );
+
+  INSERT OR IGNORE INTO app_installation (id, installation_id)
+  VALUES (1, lower(hex(randomblob(32))));
+`;
+
 export async function migrateDatabase(db: SQLiteDatabase) {
   await db.execAsync('PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;');
 
@@ -104,6 +114,13 @@ export async function migrateDatabase(db: SQLiteDatabase) {
     await db.withTransactionAsync(async () => {
       await db.execAsync(migrationThree);
       await db.execAsync('PRAGMA user_version = 3');
+    });
+  }
+
+  if (currentVersion < 4) {
+    await db.withTransactionAsync(async () => {
+      await db.execAsync(migrationFour);
+      await db.execAsync('PRAGMA user_version = 4');
     });
   }
 }

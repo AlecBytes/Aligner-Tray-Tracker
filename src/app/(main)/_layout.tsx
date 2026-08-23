@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import { Platform } from 'react-native';
 
 import { TreatmentRouteGate } from '@/features/treatment/treatment-route-gate';
 import { useAppTheme } from '@/theme/use-app-theme';
@@ -19,7 +20,10 @@ export default function MainLayout() {
         <Stack.Screen name="intervals" options={{ title: 'Today’s Intervals' }} />
         <Stack.Screen name="change-tray" options={{ title: 'Change Tray' }} />
         <Stack.Screen name="menu" options={{ title: 'Menu' }} />
-        <Stack.Screen name="account" options={{ title: 'Account' }} />
+        <Stack.Screen
+          name="account"
+          options={{ title: Platform.OS === 'ios' ? 'Cloud Backup' : 'Account' }}
+        />
         <Stack.Screen name="treatment-plan" options={{ title: 'Treatment Plan' }} />
         <Stack.Screen name="treatment-plan-history" options={{ title: 'Plan History' }} />
         <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
