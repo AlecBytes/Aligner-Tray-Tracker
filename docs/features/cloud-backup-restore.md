@@ -2,7 +2,7 @@
 
 ## Status
 
-Phase 1 authentication is implemented on iOS. Phase 2A provides private snapshot Storage and metadata, and Phase 2B provides deterministic native-mobile snapshot serialization. Upload orchestration, restore, retention, cloud-account deletion, and multi-device sync remain planned.
+Phase 1 authentication is implemented on iOS. Phase 2A provides private snapshot Storage and metadata, Phase 2B provides deterministic native-mobile snapshot serialization, and Phase 2C provides an iOS **Back Up Now** flow. Automatic backup, restore, retention, cloud-account deletion, and multi-device sync remain planned.
 
 ## Purpose
 
@@ -31,6 +31,15 @@ SQLite remains the on-device source of truth. Core tracking must work without an
 
 The Phase 1 native Apple flow identifies the app with its iOS bundle identifier. It does not use a web OAuth redirect, so it needs neither an Apple Services ID nor a rotating OAuth client secret. Android and web OAuth are deferred. The Android and web **Account** destination remains informational and does not initialize Apple Authentication or Supabase.
 
+### Phase 2C: manual iOS backup
+
+- The signed-in iOS Cloud Backup screen provides **Back Up Now**, progress, the last completed server timestamp, and retryable failure feedback.
+- A backup revalidates the Supabase user, serializes SQLite atomically, skips an unchanged completed content hash, uploads a new immutable JSON object, and then inserts metadata.
+- Metadata insertion is the completion marker. An object whose metadata insert failed remains private and incomplete, is not shown as a recovery point, and is never treated as success.
+- Ordinary navigation does not cancel an in-flight backup. The operation may finish without updating the departed screen, and completed metadata is reloaded when the screen returns.
+
+Phase 2C does not automatically run after sign-in or local changes. It adds no durable background retry, cleanup, retention, restore, or client overwrite/delete access.
+
 ### Later backup-and-restore phase
 
 #### Included
@@ -51,6 +60,17 @@ The Phase 1 native Apple flow identifies the app with its iOS bundle identifier.
 - sharing, collaboration, web access, or account-required core features
 
 ## Backup Behavior
+
+The Phase 2C manual flow is:
+
+1. Revalidate the current user with Supabase Auth and derive the storage namespace only from that verified user.
+2. Produce the canonical V1 snapshot and SHA-256 metadata from one isolated SQLite read transaction.
+3. Query completed metadata for the same content hash. If it exists, report that backup is current without uploading.
+4. Generate a client snapshot UUID and upload compact JSON to `<user UUID>/<snapshot UUID>.json` with overwrite disabled.
+5. Insert the matching metadata and use its server-controlled `created_at` as the last successful backup time.
+6. If a concurrent metadata insert wins the unique user/hash race, re-read it and report the existing recovery point as current.
+
+Storage success without metadata success is incomplete. The client has no update or delete policy, so it leaves that private orphan for a future trusted cleanup phase and retries with a new UUID.
 
 1. After the later backup phase is available, a successful sign-in enables automatic backup and evaluates the local and remote state. Phase 1 sign-ins do not run this step.
 2. If the installation is empty and the account has backups, do not upload anything; offer restore first.

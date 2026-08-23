@@ -288,9 +288,9 @@ Android and web retain the informational **Account** destination while their aut
 
 - iOS Sign in with Apple and local sign out
 - Future cloud-account deletion
-- Future Cloud Backup & Restore status
+- Manual Cloud Backup status on iOS
 
-An account is optional. The iOS authentication phase only connects the account and does not run a backup. Multi-device sync is a separate future feature and is not part of Cloud Backup & Restore V1.
+An account is optional. A signed-in iOS user can create an explicit immutable snapshot with **Back Up Now**; sign-in itself does not run a backup. Automatic backup, restore, retention, and cloud-account deletion remain later phases. Multi-device sync is a separate future feature and is not part of Cloud Backup & Restore V1.
 
 ## Treatment Plan
 
@@ -453,7 +453,7 @@ Primary cloud responsibilities:
 - backup retention and cloud-account deletion
 - future synchronization only after its product semantics are resolved
 
-The iOS authentication foundation is available from the Cloud Backup menu. Backup, restore, retention, account deletion, and sync remain deferred. Normal tracker interactions must not depend on Supabase or any network request.
+The iOS authentication foundation and manual **Back Up Now** flow are available from the Cloud Backup menu. Automatic backup, restore, retention, account deletion, and sync remain deferred. Normal tracker interactions must not depend on Supabase or any network request.
 
 See `docs/features/cloud-backup-restore.md` for the authoritative backup behavior and `docs/features/cloud-sync-future.md` for future sync constraints.
 
@@ -466,7 +466,7 @@ Current authentication foundation and confirmed direction:
 - Supabase authentication
 - Sign in with Apple as the account mechanism
 - no account requirement for core tracking
-- the current iOS phase only connects the account and explicitly reports that no backup has run
+- the current iOS phase connects the account and allows an explicit manual backup; sign-in alone does not create one
 - a later backup phase automatically enables cloud backup after sign-in
 
 Signing out preserves retained backups. Deleting the cloud account deletes its snapshots and backup metadata.
