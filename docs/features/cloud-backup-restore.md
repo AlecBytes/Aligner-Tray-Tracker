@@ -2,7 +2,7 @@
 
 ## Status
 
-Phase 1 authentication foundation is implemented on iOS. Backup, restore, retention, storage, cloud-account deletion, and multi-device sync remain planned and are not implemented by Phase 1.
+Phase 1 authentication is implemented on iOS. Phase 2A provides private snapshot Storage and metadata, and Phase 2B provides deterministic native-mobile snapshot serialization. Upload orchestration, restore, retention, cloud-account deletion, and multi-device sync remain planned.
 
 ## Purpose
 
@@ -68,10 +68,38 @@ The local `app_installation` record is device metadata used to bind secure sessi
 Use a versioned logical snapshot rather than treating a live SQLite file as a remotely shared database. Each snapshot must carry enough metadata to validate and interpret it, including:
 
 - snapshot/schema version
-- creation time
+- server-controlled creation time in the backup metadata record
 - an integrity value such as a checksum
 
-The precise payload format, compression policy, and metadata schema must be defined when implementation is scheduled.
+#### Snapshot format V1
+
+The compact JSON envelope is:
+
+```text
+{
+  schemaVersion: 1,
+  sourceAppVersion: string,
+  payload: SnapshotPayloadV1
+}
+```
+
+`SnapshotPayloadV1` uses camel-case property names and includes only these SQLite fields:
+
+- `treatments`: `id`, `created_at`
+- `treatment_plan_versions`: `id`, `treatment_id`, `total_trays`, `days_per_tray`, `daily_wear_goal_minutes`, `effective_at`, `created_at`
+- `tray_periods`: `id`, `treatment_id`, `tray_number`, `started_at`, `ended_at`
+- `wear_punches`: `id`, `tray_period_id`, `status`, `timestamp`
+- `settings`: `out_reminder_enabled`, `out_reminder_minutes`, `out_persistent_reminder_interval_minutes`, `tray_change_reminder_enabled`, `tray_change_reminder_hour`, `tray_change_reminder_minute`, represented by the singleton `notificationSettings` object without its fixed row ID
+
+Punch corrections have no separate audit table. The final corrected, added, or remaining `wear_punches` rows are the authoritative state included in the snapshot.
+
+Records are canonicalized in ascending order by stable semantic keys: treatments by ID; plan versions by treatment, effective time, and ID; tray periods by treatment, start time, and ID; and punches by tray period, timestamp, and ID. Object properties also use a fixed order, so the same state produces byte-identical JSON when the source app version is unchanged.
+
+The lowercase hexadecimal SHA-256 `content_hash` covers compact JSON containing only `{ schemaVersion, payload }`. It excludes `sourceAppVersion` and does not include a snapshot ID or creation time, so those volatile values do not make unchanged local state appear new. `payload_bytes` is the UTF-8 byte length of the complete envelope JSON. Phase 2A metadata receives the serializer's `schemaVersion`, `sourceAppVersion`, `contentHash`, and `payloadBytes` as `schema_version`, `app_version`, `content_hash`, and `payload_bytes` respectively.
+
+Serialization is supported on native iOS and Android and uses one isolated Expo SQLite read transaction. Web backup serialization is deferred because the required exclusive transaction API is not supported by Expo SQLite 57 on web.
+
+V1 explicitly excludes the device-bound `app_installation` row, the obsolete `settings.notifications_enabled` column, SQLite schema metadata, derived statistics and cached read models, scheduled-notification identifiers and delivery state, UI/navigation state, performance logs, authentication or SecureStore data, Supabase identifiers or credentials, and non-persisted support-purchase state. V1 uses uncompressed complete snapshots; compression and incremental formats are not part of this phase.
 
 ## Restore Behavior
 
