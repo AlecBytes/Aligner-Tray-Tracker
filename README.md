@@ -98,3 +98,6 @@ eas build --platform ios --profile preview
 The preview build is self-contained and does **not** require Metro or a connection to the development computer.
 
 The development and preview builds have different iOS bundle identifiers, so they can remain installed on the same device at the same time. iOS treats them as separate apps, which also means each build has its own local SQLite database. Treatment data entered in one build does not appear in the other.
+
+## start the dev server with MCP capabilities
+EXPO_UNSTABLE_MCP_SERVER=1 npx expo start
