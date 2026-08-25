@@ -4,24 +4,25 @@ Aligner Tracker is a performance-first, utility-first app for tracking orthodont
 
 ## Architecture
 
-The current app is a local-first React Native application built with Expo SDK 57, TypeScript, Expo Router, and SQLite. SQLite is the on-device source of truth; elapsed wear time and statistics are derived from persisted timestamps rather than a continuously stored timer. Local reminders use Expo Notifications.
+The current app is a local-first, iOS-only React Native application built with Expo SDK 57, TypeScript, Expo Router, and SQLite. SQLite is the on-device source of truth; elapsed wear time and statistics are derived from persisted timestamps rather than a continuously stored timer. Local reminders use Expo Notifications. Android and web are not currently supported product targets.
 
-Authentication, cloud backup/restore, and synchronization are intentionally deferred and are not present in this repository. The confirmed cloud direction is Supabase with Sign in with Apple: Backup & Restore is the first planned cloud capability, while multi-device sync remains a separate future feature.
+The optional cloud foundation uses Supabase with Sign in with Apple. Phase 1 iOS authentication and Phase 2C manual **Back Up Now** are implemented without changing the local-first source of truth. Automatic backup, restore, retention, cloud-account deletion, and multi-device sync remain future work.
 
 ## Documentation
 
 - [`docs/mvp-plan.md`](docs/mvp-plan.md) — product goals and overall architecture direction
 - [`docs/planner-context.md`](docs/planner-context.md) — current cross-feature decisions and priorities
 - [`docs/performance.md`](docs/performance.md) — performance budgets and measurement plan
+- [`docs/expo-audit-follow-ups.md`](docs/expo-audit-follow-ups.md) — open items from the Expo best-practices audit
 - [`docs/features/`](docs/features/) — feature-specific behavior, requirements, and future decisions
-- [`docs/features/cloud-backup-restore.md`](docs/features/cloud-backup-restore.md) — deferred Backup & Restore product direction
+- [`docs/features/cloud-backup-restore.md`](docs/features/cloud-backup-restore.md) — implemented iOS authentication and manual backup phases, plus the remaining Backup & Restore roadmap
 - [`docs/features/cloud-sync-future.md`](docs/features/cloud-sync-future.md) — constraints and unresolved decisions for future sync
 
 ## Current status
 
 The repository contains the on-device treatment setup and tracker, tray changes, versioned treatment-plan editing and history, IN/OUT corrections, local statistics, notification settings/reminders, and help screens. A support-purchase screen is available only as a development preview backed by a mock service.
 
-The Account screen is informational: Sign in with Apple, Supabase integration, cloud backup/restore, synchronization, and other cloud services have not been implemented and remain intentionally deferred while the local experience is developed.
+On iOS, Cloud Backup supports Sign in with Apple, securely persisted sessions, local sign-out, and a manual **Back Up Now** flow through Supabase. The manual flow creates deterministic snapshots, skips unchanged completed content, and reports retryable failures. Automatic backup, restore, retention, cloud-account deletion, and multi-device synchronization are not implemented.
 
 ## Prerequisites
 
@@ -99,5 +100,8 @@ The preview build is self-contained and does **not** require Metro or a connecti
 
 The development and preview builds have different iOS bundle identifiers, so they can remain installed on the same device at the same time. iOS treats them as separate apps, which also means each build has its own local SQLite database. Treatment data entered in one build does not appear in the other.
 
-## start the dev server with MCP capabilities
+## Start the dev server with MCP capabilities
+
+```sh
 EXPO_UNSTABLE_MCP_SERVER=1 npx expo start
+```
