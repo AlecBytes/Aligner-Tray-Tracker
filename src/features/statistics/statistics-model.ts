@@ -49,3 +49,40 @@ export type StatisticsReadModel = {
   recentDays: RecentTreatmentDay[];
   treatmentOverall: StatisticsSummary;
 };
+
+export const STATISTICS_GRAPH_KINDS = [
+  'wear-time',
+  'goal-progress',
+  'tray-progress',
+] as const;
+
+export type StatisticsGraphKind = (typeof STATISTICS_GRAPH_KINDS)[number];
+
+export const STATISTICS_GRAPH_RANGES = ['7-days', '30-days', 'treatment'] as const;
+
+export type StatisticsGraphRange = (typeof STATISTICS_GRAPH_RANGES)[number];
+
+export type DailyStatisticsGraphPoint = {
+  dateStart: number;
+  goalDifferenceSeconds: number;
+  goalMet: boolean;
+  goalSeconds: number;
+  inSeconds: number;
+};
+
+export type TrayPeriodStatisticsGraphPoint = {
+  durationSeconds: number;
+  endedAt: number;
+  id: number;
+  isActive: boolean;
+  label: string;
+  startedAt: number;
+  trayNumber: number;
+};
+
+export type StatisticsGraphReadModel = {
+  dailyPoints: DailyStatisticsGraphPoint[];
+  rangeEndedAt: number;
+  rangeStartedAt: number;
+  trayPeriods: TrayPeriodStatisticsGraphPoint[];
+};

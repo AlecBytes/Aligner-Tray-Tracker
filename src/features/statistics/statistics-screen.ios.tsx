@@ -1,6 +1,6 @@
 import { Host, HStack, Image, List, Section, Spacer, Text } from '@expo/ui/swift-ui';
 import { font, foregroundStyle, monospacedDigit } from '@expo/ui/swift-ui/modifiers';
-import { useFocusEffect } from 'expo-router';
+import { type Href, useFocusEffect, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
 
@@ -8,6 +8,7 @@ import { AppLoadingScreen } from '@/components/app-loading-screen';
 import {
   CenteredState,
   MetricRow,
+  NavigationRow,
   ValidationMessage,
 } from '@/components/expo-ui-components';
 import {
@@ -93,6 +94,7 @@ function RecentDaySummary({ day }: { day: RecentTreatmentDay }) {
 
 export function StatisticsScreen() {
   const db = useSQLiteContext();
+  const router = useRouter();
   const theme = useAppTheme();
   const [statistics, setStatistics] = useState<StatisticsReadModel | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -172,6 +174,13 @@ export function StatisticsScreen() {
             <ValidationMessage message={error} />
           </Section>
         ) : null}
+        <Section>
+          <NavigationRow
+            label="Graphs"
+            onPress={() => router.push('/statistics/graphs' as Href)}
+            systemImage="chart.bar"
+          />
+        </Section>
         <Section title="Current Tray">
           <StatisticsSummaryRows
             daysWorn={statistics.currentTray.daysWorn}

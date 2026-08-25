@@ -32,6 +32,8 @@ export default function MainLayout() {
         <Stack.Screen name="edit-times/event" options={{ title: 'Edit Event' }} />
         <Stack.Screen name="edit-times/add" options={{ title: 'Add Missing Time' }} />
         <Stack.Screen name="statistics" options={{ title: 'Statistics' }} />
+        <Stack.Screen name="statistics/graphs/index" options={{ title: 'Graphs' }} />
+        <Stack.Screen name="statistics/graphs/[graph]" options={{ title: 'Graph' }} />
         <Stack.Screen name="support" options={{ title: 'Support Aligner Tracker' }} />
         <Stack.Screen name="help" options={{ title: 'Help' }} />
       </Stack>

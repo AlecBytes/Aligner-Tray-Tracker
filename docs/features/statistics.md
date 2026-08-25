@@ -1,10 +1,10 @@
-# Statistics V1
+# Statistics
 
 ## Status
 
-Implemented after **Edit In/Out Times**.
+Statistics V1 and the Statistics Graphs MVP are implemented after **Edit In/Out Times**.
 
-This document is the source of truth for Statistics V1.
+This document is the source of truth for statistics behavior.
 
 ## Purpose
 
@@ -17,6 +17,73 @@ Statistics compare recorded IN time only with the prescribed daily wear goal sav
 Add `Statistics` to the main menu as an active item.
 
 Statistics is a read-only screen. It does not provide editing, export, sync, or treatment-plan history controls.
+
+Add a `Graphs` entry near the top of Statistics. It opens a separate native list of
+available graphs, followed by a separate graph-detail screen:
+
+`Statistics -> Graphs -> Graph detail`
+
+The Graphs list displays a title and short description for each graph. It does not load
+statistics history or render chart previews.
+
+## Graphs
+
+### Shared Date Ranges
+
+Every graph detail uses the same segmented range control and defaults to `7 Days`:
+
+- `7 Days`: the current local calendar date and the six preceding local dates
+- `30 Days`: the current local calendar date and the 29 preceding local dates
+- `Treatment`: the complete treatment timeline beginning at the first
+  `TrayPeriod.startedAt`
+
+The 7- and 30-day ranges are clamped to treatment start. Their range start is local
+midnight unless treatment began later on that first included date. Every range ends at
+the detail screen's read time. Local-date calculations remain daylight-saving-time safe.
+
+Changing the range recalculates from the snapshot already loaded by that detail screen.
+Refocusing the detail screen reloads the SQLite source history and captures one new read
+time. Graph data is not loaded or rendered on the main Statistics screen or Graphs list.
+
+### Wear Time
+
+Display daily recorded IN hours in chronological order as bars. A bar's color indicates
+whether that day's prescribed goal was met, and an exact-value row for every day displays:
+
+- local date
+- recorded IN duration
+- the prescribed goal selected for that historical treatment day
+- `Goal met` or `Goal not met`
+
+The exact rows are the accessible, non-color comparison between actual wear and the goal.
+The chart does not imply medical effectiveness or adherence beyond that comparison.
+
+### Goal Progress
+
+Display each treatment day's signed difference between recorded IN duration and that
+day's prescribed goal in chronological order. Bars at or above the zero reference line
+mean the goal was met; bars below zero mean the recorded duration was short of the goal.
+An exact-value row for every day displays the local date, recorded IN duration, historical
+goal, and a formatted `Met by`, `Short by`, or `Goal met exactly` result.
+
+### Tray Progress
+
+Display elapsed time spent in every `TrayPeriod` that overlaps the selected range. Clip
+each period to the selected range boundaries; the active period ends at the detail
+screen's read time. Plot duration in elapsed 24-hour days and display the exact elapsed
+duration and clipped start/end values in a row below the chart.
+
+Repeated tray numbers remain distinct periods. Assign treatment-wide occurrence labels
+in chronological order, such as `Tray 8 · Period 1` and `Tray 8 · Period 2`; periods whose
+tray number occurs only once use `Tray 8`. The labels do not change when a shorter date
+range hides an earlier occurrence.
+
+### Graph Presentation
+
+Use the native Expo UI Swift Charts component on iOS. Keep chronological charts
+horizontally scrollable when their points exceed a readable viewport width, while exact
+values remain in the screen's vertically scrolling native list. Provide loading, empty,
+error, and retry states. Do not add chart interaction or previews.
 
 ## Display
 
@@ -105,11 +172,15 @@ SQLite remains the source of truth.
 - Keep raw SQLite out of React components.
 - Use pure calculation and formatting functions where practical.
 - Do not write calculated daily totals, averages, goal results, or other statistics to SQLite.
-- Do not cache calculated statistics in V1.
+- Do not cache calculated statistics or graph data.
 - Re-read source history whenever the Statistics screen gains focus so historical punch corrections are reflected automatically.
+- Re-read source history whenever a graph detail screen gains focus. Range changes on an
+  already-focused detail screen reuse its in-memory source snapshot.
 - Do not require network access.
 
-The repository may read the treatment history in a small number of bulk queries. V1 intentionally favors a simple derived read model over a new schema or dependency.
+The repository may read the treatment history in a small number of bulk queries.
+Statistics intentionally favor simple derived read models over a new schema or dependency.
+The Graphs list itself performs no repository read. No graph data is persisted.
 
 ## UI
 
@@ -117,7 +188,7 @@ Keep the screen minimal and consistent with the existing app:
 
 - three sections in the order Current Tray, Treatment Overall, Recent Days
 - plain text/card rows using existing components and theme tokens
-- no graphs or charts
+- a `Graphs` navigation row near the top of the screen
 - clear loading, empty, error, and retry states
 
 The screen does not need a continuously persisted or background timer. A newly focused screen must calculate through its current read time.
@@ -136,6 +207,9 @@ Add focused tests for:
 - corrected punches affecting recalculated results
 - days with no state changes but a continuing IN or OUT state
 - repository mapping of `WearPunch`, `TrayPeriod`, and `TreatmentPlanVersion` history
+- 7-day, 30-day, and full-treatment graph ranges
+- historical and prorated graph goals, exact-goal boundaries, and goal differences
+- tray-period range clipping, active periods, stable ordering, and repeated tray labels
 
 Use the project's existing test framework.
 
@@ -146,8 +220,10 @@ Do not add:
 - CSV export
 - cloud sync
 - authentication
-- charts, graphs, or a charting dependency
+- a third-party charting dependency
+- chart previews or chart interaction
+- custom date ranges
 - treatment-plan history UI
 - medical judgments or recommendations
-- persisted or cached statistics
+- persisted or cached statistics or graph data
 - unrelated features

@@ -1,17 +1,23 @@
 import type { WearStatus } from '@/db/schema';
 import type {
+  DailyStatisticsGraphPoint,
   RecentTreatmentDay,
+  StatisticsGraphRange,
+  StatisticsGraphReadModel,
   StatisticsPlanVersion,
   StatisticsReadModel,
   StatisticsSnapshot,
   StatisticsSummary,
+  StatisticsTrayPeriod,
   StatisticsWearPunch,
+  TrayPeriodStatisticsGraphPoint,
 } from '@/features/statistics/statistics-model';
 
 const MILLISECONDS_PER_SECOND = 1000;
 const MILLISECONDS_PER_MINUTE = 60 * MILLISECONDS_PER_SECOND;
 const SECONDS_PER_MINUTE = 60;
 const MINUTES_PER_HOUR = 60;
+const HOURS_PER_DAY = 24;
 
 type TreatmentDayWindow = {
   dateEnd: number;
@@ -23,6 +29,7 @@ type TreatmentDayWindow = {
 
 type CalculatedTreatmentDay = RecentTreatmentDay & {
   dateEnd: number;
+  goalMilliseconds: number;
   inMilliseconds: number;
   outMilliseconds: number;
   windowEnd: number;
@@ -39,6 +46,12 @@ function addLocalDays(timestamp: number, days: number) {
   const date = new Date(getLocalDayStart(timestamp));
   date.setDate(date.getDate() + days);
   return date.getTime();
+}
+
+function orderTrayPeriods(periods: readonly StatisticsTrayPeriod[]) {
+  return [...periods].sort(
+    (left, right) => left.startedAt - right.startedAt || left.id - right.id,
+  );
 }
 
 function orderPunches(punches: readonly StatisticsWearPunch[]) {
@@ -156,12 +169,14 @@ function calculateDays(
           (window.dateEnd - window.dateStart)
         : 1;
 
+    const goalMilliseconds =
+      plan.dailyWearGoalMinutes * MILLISECONDS_PER_MINUTE * goalWindowRatio;
+
     return {
       dateEnd: window.dateEnd,
       dateStart: window.dateStart,
-      goalMet:
-        totals.IN >=
-        plan.dailyWearGoalMinutes * MILLISECONDS_PER_MINUTE * goalWindowRatio,
+      goalMet: totals.IN >= goalMilliseconds,
+      goalMilliseconds,
       inMilliseconds: totals.IN,
       inSeconds: Math.floor(totals.IN / MILLISECONDS_PER_SECOND),
       outMilliseconds: totals.OUT,
@@ -247,20 +262,156 @@ export function formatStatisticsDuration(totalSeconds: number) {
   return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
 }
 
-export function createStatisticsReadModel(
-  snapshot: StatisticsSnapshot,
-  now = Date.now(),
-): StatisticsReadModel {
-  const activeTray = [...snapshot.trayPeriods]
+export function formatStatisticsGoalDifference(totalSeconds: number) {
+  if (totalSeconds === 0) {
+    return 'Goal met exactly';
+  }
+
+  return totalSeconds > 0
+    ? `Met by ${formatStatisticsDuration(totalSeconds)}`
+    : `Short by ${formatStatisticsDuration(Math.abs(totalSeconds))}`;
+}
+
+export function formatStatisticsTrayDuration(totalSeconds: number) {
+  const totalMinutes = Math.floor(
+    Math.max(0, totalSeconds) / SECONDS_PER_MINUTE,
+  );
+  const days = Math.floor(totalMinutes / (MINUTES_PER_HOUR * HOURS_PER_DAY));
+  const remainingMinutes = totalMinutes % (MINUTES_PER_HOUR * HOURS_PER_DAY);
+  const hours = Math.floor(remainingMinutes / MINUTES_PER_HOUR);
+  const minutes = remainingMinutes % MINUTES_PER_HOUR;
+
+  if (days > 0) {
+    return `${days}d ${hours}h ${minutes}m`;
+  }
+
+  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+}
+
+function getStatisticsTreatmentBounds(snapshot: StatisticsSnapshot, now: number) {
+  const orderedTrayPeriods = orderTrayPeriods(snapshot.trayPeriods);
+  const firstTray = orderedTrayPeriods[0];
+  const activeTray = [...orderedTrayPeriods]
     .filter((period) => period.endedAt === null && period.startedAt <= now)
     .sort((left, right) => right.startedAt - left.startedAt || right.id - left.id)[0];
-  const firstTray = [...snapshot.trayPeriods].sort(
-    (left, right) => left.startedAt - right.startedAt || left.id - right.id,
-  )[0];
 
   if (!activeTray || !firstTray || !Number.isFinite(firstTray.startedAt)) {
     throw new Error('Statistics require an active treatment history.');
   }
+
+  return { activeTray, firstTray, orderedTrayPeriods };
+}
+
+function getStatisticsGraphRangeStart(
+  range: StatisticsGraphRange,
+  treatmentStartedAt: number,
+  now: number,
+) {
+  if (range === 'treatment') {
+    return treatmentStartedAt;
+  }
+
+  const includedDayCount = range === '7-days' ? 7 : 30;
+  const requestedStart = addLocalDays(getLocalDayStart(now), -(includedDayCount - 1));
+  return Math.max(treatmentStartedAt, requestedStart);
+}
+
+function createDailyGraphPoints(
+  snapshot: StatisticsSnapshot,
+  treatmentStartedAt: number,
+  rangeStartedAt: number,
+  now: number,
+): DailyStatisticsGraphPoint[] {
+  return calculateDays(
+    createTreatmentDayWindows(treatmentStartedAt, rangeStartedAt, now),
+    orderPunches(snapshot.punches),
+    orderPlans(snapshot.planVersions),
+    treatmentStartedAt,
+  ).map((day) => ({
+    dateStart: day.dateStart,
+    goalDifferenceSeconds:
+      (day.inMilliseconds - day.goalMilliseconds) / MILLISECONDS_PER_SECOND,
+    goalMet: day.goalMet,
+    goalSeconds: day.goalMilliseconds / MILLISECONDS_PER_SECOND,
+    inSeconds: day.inSeconds,
+  }));
+}
+
+function createTrayPeriodGraphPoints(
+  orderedTrayPeriods: readonly StatisticsTrayPeriod[],
+  rangeStartedAt: number,
+  now: number,
+): TrayPeriodStatisticsGraphPoint[] {
+  const totalOccurrences = orderedTrayPeriods.reduce<Map<number, number>>(
+    (counts, period) => {
+      counts.set(period.trayNumber, (counts.get(period.trayNumber) ?? 0) + 1);
+      return counts;
+    },
+    new Map(),
+  );
+  const seenOccurrences = new Map<number, number>();
+
+  return orderedTrayPeriods.flatMap((period) => {
+    const occurrence = (seenOccurrences.get(period.trayNumber) ?? 0) + 1;
+    seenOccurrences.set(period.trayNumber, occurrence);
+
+    const periodEndedAt = Math.min(period.endedAt ?? now, now);
+    const startedAt = Math.max(period.startedAt, rangeStartedAt);
+    const endedAt = periodEndedAt;
+    const isInstantActivePeriod =
+      period.endedAt === null && period.startedAt === now;
+
+    if (
+      period.startedAt > now ||
+      (periodEndedAt <= rangeStartedAt && !isInstantActivePeriod) ||
+      endedAt < startedAt
+    ) {
+      return [];
+    }
+
+    const repeated = (totalOccurrences.get(period.trayNumber) ?? 0) > 1;
+    const point: TrayPeriodStatisticsGraphPoint = {
+      durationSeconds: Math.floor((endedAt - startedAt) / MILLISECONDS_PER_SECOND),
+      endedAt,
+      id: period.id,
+      isActive: period.endedAt === null,
+      label: repeated
+        ? `Tray ${period.trayNumber} · Period ${occurrence}`
+        : `Tray ${period.trayNumber}`,
+      startedAt,
+      trayNumber: period.trayNumber,
+    };
+
+    return [point];
+  });
+}
+
+export function createStatisticsGraphReadModel(
+  snapshot: StatisticsSnapshot,
+  range: StatisticsGraphRange,
+  now = Date.now(),
+): StatisticsGraphReadModel {
+  const { firstTray, orderedTrayPeriods } = getStatisticsTreatmentBounds(snapshot, now);
+  const rangeStartedAt = getStatisticsGraphRangeStart(range, firstTray.startedAt, now);
+
+  return {
+    dailyPoints: createDailyGraphPoints(
+      snapshot,
+      firstTray.startedAt,
+      rangeStartedAt,
+      now,
+    ),
+    rangeEndedAt: now,
+    rangeStartedAt,
+    trayPeriods: createTrayPeriodGraphPoints(orderedTrayPeriods, rangeStartedAt, now),
+  };
+}
+
+export function createStatisticsReadModel(
+  snapshot: StatisticsSnapshot,
+  now = Date.now(),
+): StatisticsReadModel {
+  const { activeTray, firstTray } = getStatisticsTreatmentBounds(snapshot, now);
 
   const treatmentStartedAt = firstTray.startedAt;
   const orderedPunches = orderPunches(snapshot.punches);
@@ -294,6 +445,7 @@ export function createStatisticsReadModel(
       .map(
         ({
           dateEnd: _dateEnd,
+          goalMilliseconds: _goalMilliseconds,
           inMilliseconds: _inMilliseconds,
           outMilliseconds: _outMilliseconds,
           windowEnd: _windowEnd,

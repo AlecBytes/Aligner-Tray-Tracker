@@ -1,4 +1,4 @@
-import { useFocusEffect } from 'expo-router';
+import { type Href, useFocusEffect, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -83,6 +83,7 @@ function RecentDayCard({ day }: { day: RecentTreatmentDay }) {
 
 export function StatisticsScreen() {
   const db = useSQLiteContext();
+  const router = useRouter();
   const theme = useAppTheme();
   const [statistics, setStatistics] = useState<StatisticsReadModel | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -176,6 +177,22 @@ export function StatisticsScreen() {
         </AppText>
       ) : null}
 
+      <Pressable
+        accessibilityHint="Opens the available statistics graphs"
+        accessibilityRole="button"
+        onPress={() => router.push('/statistics/graphs' as Href)}
+        style={({ pressed }) => [
+          styles.card,
+          styles.graphsRow,
+          {
+            backgroundColor: pressed ? theme.border : theme.surface,
+            borderColor: theme.border,
+          },
+        ]}>
+        <AppText style={styles.dayDate}>Graphs</AppText>
+        <AppText muted>›</AppText>
+      </Pressable>
+
       <View style={styles.section}>
         <AppText muted style={styles.sectionLabel} variant="caption">CURRENT TRAY</AppText>
         <SummaryCard daysWorn={statistics.currentTray.daysWorn} summary={statistics.currentTray} />
@@ -216,6 +233,11 @@ const styles = StyleSheet.create({
   },
   goalResult: {
     fontWeight: '700',
+  },
+  graphsRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
   message: {
     flex: 1,
