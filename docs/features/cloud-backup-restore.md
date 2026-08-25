@@ -2,9 +2,9 @@
 
 ## Status
 
-Phase 1 authentication is implemented on iOS. Phase 2A provides private snapshot Storage and metadata, Phase 2B provides deterministic native-mobile snapshot serialization, and Phase 2C provides an iOS **Back Up Now** flow.
+Phase 1 authentication is implemented on iOS. Phase 2A provides private snapshot Storage and metadata, Phase 2B provides deterministic native-mobile snapshot serialization, Phase 2C provides an iOS **Back Up Now** flow, and Phase 2D provides empty-installation restore on iOS.
 
-The next implementation increment is Phase 2D empty-installation restore. Phase 2E automatic backup depends on that restore discovery path. Phase 2F retention and orphan cleanup, and Phase 2G cloud-account deletion, follow. Multi-device sync is a separate future feature and is not part of these phases.
+Phase 2D still requires local Supabase policy-test execution and release-like iPhone verification before release. The next implementation increment is Phase 2E automatic foreground backup, followed by Phase 2F retention and orphan cleanup and Phase 2G cloud-account deletion. Multi-device sync is a separate future feature and is not part of these phases.
 
 ## Purpose
 
@@ -49,12 +49,12 @@ Phase 2C does not automatically run after sign-in or local changes. It adds no d
 
 ### Phase 2D: empty-installation restore
 
-- Add an iOS **Restore from Cloud Backup** entry point to treatment setup, outside the treatment-present route gate.
-- Reuse Sign in with Apple and the installation-bound Supabase session.
-- List the authenticated user's completed recovery points, select the latest by default, and allow an older recovery point to be selected.
-- Download, validate, and verify a selected snapshot without mutating live SQLite data.
-- Recheck local eligibility and import the selected snapshot in one exclusive SQLite transaction.
-- Reconcile local notifications after the database commit and route into the restored tracker.
+- The iOS treatment-setup screen provides **Restore from Cloud Backup** outside the treatment-present route gate.
+- Restore reuses Sign in with Apple and the installation-bound Supabase session.
+- The recovery screen lists the authenticated user's completed recovery points with stable keyset pagination, selects the latest supported point by default, and allows an older point to be selected.
+- A selected snapshot is privately downloaded, canonicalized, hashed, and semantically validated before any live SQLite mutation.
+- Restore rechecks local eligibility and imports the snapshot with preserved IDs in one exclusive SQLite transaction.
+- Local notifications are reconciled after commit before routing into the restored tracker; scheduling failure is reported without rolling back treatment data.
 
 ### Phase 2E: automatic foreground backup
 
@@ -330,9 +330,9 @@ All app-owned visible iOS restore, status, confirmation, and error UI uses `@exp
 
 ## Implementation Order and Verification
 
-Implement and release the remaining work in this order:
+Verify, implement, and release the remaining work in this order:
 
-1. **Phase 2D restore:** route accessibility, recovery-point query/index, private download, validation, atomic import, notification reconciliation, and iOS UI.
+1. **Phase 2D release verification:** run local database policy tests and advisors, then complete release-like iPhone restore and mature-treatment measurements.
 2. **Phase 2E automatic foreground backup:** state evaluator, coordinator triggers, coalescing, status, and retry behavior.
 3. **Phase 2F retention and orphan cleanup:** trusted access migration, pure bucket-selection tests, scheduled cleanup, idempotency, and operational visibility.
 4. **Phase 2G cloud-account deletion:** authenticated endpoint, complete object cleanup, Auth deletion, local-session cleanup, and destructive UI.

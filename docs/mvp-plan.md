@@ -453,7 +453,7 @@ Primary cloud responsibilities:
 - backup retention and cloud-account deletion
 - future synchronization only after its product semantics are resolved
 
-The iOS authentication foundation and manual **Back Up Now** flow are available from the Cloud Backup menu. Automatic backup, restore, retention, account deletion, and sync remain deferred. Normal tracker interactions must not depend on Supabase or any network request.
+The iOS authentication foundation and manual **Back Up Now** flow are available from the Cloud Backup menu. Empty-installation restore is available from iOS treatment setup. Automatic backup, retention, account deletion, and sync remain deferred. Normal tracker interactions must not depend on Supabase or any network request.
 
 See `docs/features/cloud-backup-restore.md` for the authoritative backup behavior and `docs/features/cloud-sync-future.md` for future sync constraints.
 

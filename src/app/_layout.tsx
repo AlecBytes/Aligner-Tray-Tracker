@@ -31,7 +31,12 @@ export default function RootLayout() {
         <NotificationInitializer />
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <StatusBar style="auto" />
-          <Stack screenOptions={{ headerShown: false }} />
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen
+              name="restore"
+              options={{ headerBackButtonDisplayMode: 'minimal', headerShown: true, title: 'Restore Backup' }}
+            />
+          </Stack>
         </ThemeProvider>
       </DatabaseReady>
     </AppDatabaseProvider>

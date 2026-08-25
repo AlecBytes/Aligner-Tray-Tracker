@@ -156,6 +156,12 @@ select ok(
   'latest-backup lookup index exists'
 );
 
+select is(
+  pg_get_indexdef('public.backup_snapshots_user_created_at_idx'::regclass),
+  'CREATE INDEX backup_snapshots_user_created_at_idx ON public.backup_snapshots USING btree (user_id, created_at DESC, id DESC)',
+  'recovery-list index covers user ownership and stable keyset ordering'
+);
+
 select ok(
   has_table_privilege('authenticated', 'public.backup_snapshots', 'select'),
   'authenticated users can select backup metadata'

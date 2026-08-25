@@ -1,13 +1,15 @@
-import {
-  isAuthRetryableFetchError,
-  type SupabaseClient,
-} from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
 import * as Crypto from 'expo-crypto';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-import { getCloudAuthClient } from '@/features/cloud-auth/supabase-client.ios';
 import { serializeBackupSnapshot } from '@/features/cloud-backup/backup-snapshot';
+import {
+  getConfiguredCloudBackupClient,
+  getVerifiedCloudBackupUser,
+  isCloudBackupAccessError,
+  throwCloudBackupNetworkError,
+} from '@/features/cloud-backup/cloud-backup-client.ios';
 import {
   BACKUP_SNAPSHOTS_BUCKET,
   DuplicateBackupMetadataError,
@@ -23,42 +25,15 @@ import {
 
 export type { ManualBackupResult } from '@/features/cloud-backup/manual-backup-core';
 
-type ErrorWithDetails = {
-  message?: unknown;
-  name?: unknown;
-  originalError?: unknown;
-};
-
-function errorText(error: unknown): string {
-  if (error instanceof Error) return `${error.name} ${error.message}`.toLowerCase();
-  if (typeof error === 'object' && error !== null) {
-    const details = error as ErrorWithDetails;
-    return `${String(details.name ?? '')} ${String(details.message ?? '')}`.toLowerCase();
-  }
-  return String(error).toLowerCase();
-}
-
-function isNetworkError(error: unknown): boolean {
-  if (isAuthRetryableFetchError(error) || error instanceof TypeError) return true;
-
-  const details = error as ErrorWithDetails | null;
-  if (details?.originalError && details.originalError !== error) {
-    return isNetworkError(details.originalError);
-  }
-
-  const text = errorText(error);
-  return (
-    text.includes('network request failed') ||
-    text.includes('failed to fetch') ||
-    text.includes('fetch failed') ||
-    text.includes('networkerror') ||
-    text.includes('timed out')
-  );
-}
-
 function networkOr(error: unknown) {
-  if (isNetworkError(error)) throw new ManualBackupOperationError('network');
-  throw error;
+  try {
+    throwCloudBackupNetworkError(error);
+  } catch (nextError) {
+    if (isCloudBackupAccessError(nextError) && nextError.kind === 'network') {
+      throw new ManualBackupOperationError('network');
+    }
+    throw nextError;
+  }
 }
 
 function sourceAppVersion() {
@@ -66,34 +41,25 @@ function sourceAppVersion() {
 }
 
 async function configuredClient(db: SQLiteDatabase) {
-  const result = await getCloudAuthClient(db);
-  if (result.status === 'unavailable') {
-    throw new ManualBackupOperationError('configuration');
-  }
-  return result.client;
-}
-
-async function clearExpiredSession(client: SupabaseClient) {
   try {
-    await client.auth.signOut({ scope: 'local' });
-  } catch {
-    // getUser has already rejected the session. The auth listener and next load
-    // will reconcile the screen even if explicit local cleanup also fails.
+    return await getConfiguredCloudBackupClient(db);
+  } catch (error) {
+    if (isCloudBackupAccessError(error)) {
+      throw new ManualBackupOperationError(error.kind);
+    }
+    throw error;
   }
 }
 
 async function getVerifiedUser(client: SupabaseClient) {
-  const { data, error } = await client.auth.getUser();
-  if (error) {
-    if (isNetworkError(error)) throw new ManualBackupOperationError('network');
-    await clearExpiredSession(client);
-    throw new ManualBackupOperationError('sessionExpired');
+  try {
+    return await getVerifiedCloudBackupUser(client);
+  } catch (error) {
+    if (isCloudBackupAccessError(error)) {
+      throw new ManualBackupOperationError(error.kind);
+    }
+    throw error;
   }
-  if (!data.user) {
-    await clearExpiredSession(client);
-    throw new ManualBackupOperationError('sessionExpired');
-  }
-  return { id: data.user.id };
 }
 
 async function findCompletedByHash(

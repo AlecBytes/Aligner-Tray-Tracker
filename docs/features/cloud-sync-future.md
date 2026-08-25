@@ -4,7 +4,7 @@
 
 Future design track. Not part of Cloud Backup & Restore V1 and explicitly not ready for implementation.
 
-No sync code, local outbox, sync metadata, server record tables, Realtime subscription, or migration should be added while Cloud Backup & Restore Phases 2D through 2G are incomplete. The next cloud implementation work is empty-installation restore, followed by automatic foreground backup, retention/orphan cleanup, and cloud-account deletion.
+No sync code, local outbox, sync metadata, server record tables, Realtime subscription, or migration should be added while Cloud Backup & Restore Phases 2E through 2G are incomplete and Phase 2D release verification remains open. The next cloud implementation work is automatic foreground backup, followed by retention/orphan cleanup and cloud-account deletion.
 
 ## Purpose
 

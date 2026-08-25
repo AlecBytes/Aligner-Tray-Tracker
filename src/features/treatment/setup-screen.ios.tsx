@@ -33,7 +33,7 @@ import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useMemo, useRef, useState } from 'react';
 
-import { isLiquidGlassPlatform } from '@/components/expo-ui-components';
+import { isLiquidGlassPlatform, NavigationRow } from '@/components/expo-ui-components';
 import { initializeLocalNotifications } from '@/features/notifications/local-notifications';
 import { createInitialTreatment } from '@/features/treatment/treatment-repository';
 import {
@@ -190,6 +190,15 @@ export function SetupScreen() {
               Enter the plan prescribed for your current treatment.
             </Text>
           </VStack>
+        </Section>
+
+        <Section title="Already have a cloud backup?">
+          <NavigationRow
+            disabled={isSubmitting}
+            label="Restore from Cloud Backup"
+            onPress={() => router.push('/restore')}
+            systemImage="icloud.and.arrow.down"
+          />
         </Section>
 
         <Section footer={errorFooter(errors.totalTrays)} title="Total number of trays">
