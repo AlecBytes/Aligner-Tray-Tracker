@@ -21,6 +21,10 @@ jest.mock('expo-notifications', () => ({
 }));
 
 describe('notification failure isolation', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   it('keeps saved preferences when the native notification API fails', async () => {
     const originalPlatform = Platform.OS;
     Object.defineProperty(Platform, 'OS', { configurable: true, value: 'ios' });
@@ -44,5 +48,20 @@ describe('notification failure isolation', () => {
     }
 
     expect(runAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps notification reconciliation disabled on web', async () => {
+    const originalPlatform = Platform.OS;
+    Object.defineProperty(Platform, 'OS', { configurable: true, value: 'web' });
+
+    try {
+      await expect(
+        reconcileLocalNotifications({} as SQLiteDatabase),
+      ).resolves.toBeUndefined();
+    } finally {
+      Object.defineProperty(Platform, 'OS', { configurable: true, value: originalPlatform });
+    }
+
+    expect(mockGetPermissionsAsync).not.toHaveBeenCalled();
   });
 });

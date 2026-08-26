@@ -19,7 +19,8 @@ import {
 } from '@expo/ui/swift-ui/modifiers';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 
 import { AppLoadingScreen } from '@/components/app-loading-screen';
 import {
@@ -30,10 +31,16 @@ import {
 } from '@/components/expo-ui-components';
 import { reconcileLocalNotifications } from '@/features/notifications/local-notifications';
 import {
+  addWearStatusChangedListener,
+  ensureWearStatus,
+  isNativeWearStatusAvailable,
+} from '@/features/siri/aligner-tracker-intents';
+import {
   createTrackerReadModel,
   formatDuration,
   getLatestWearPunch,
 } from '@/features/tracker/tracker-calculations';
+import { subscribeToTrackerExternalChanges } from '@/features/tracker/tracker-external-refresh';
 import {
   applyTrackerRedo,
   applyTrackerUndo,
@@ -145,6 +152,36 @@ export function TrackerScreen() {
     }
   }, [readPersistedTracker]);
 
+  const refreshExternalTracker = useCallback(async () => {
+    try {
+      const { persistedSnapshot, readAt } = await readPersistedTracker();
+      setSnapshot(persistedSnapshot);
+      setHistory(validateTrackerSessionHistory(persistedSnapshot));
+      setNow(readAt);
+      setError(
+        persistedSnapshot === null
+          ? 'No active treatment was found. Complete treatment setup first.'
+          : null,
+      );
+    } catch {
+      setError('The saved tracker could not be loaded. Please try again.');
+    }
+  }, [readPersistedTracker]);
+
+  useEffect(() => {
+    const subscription = subscribeToTrackerExternalChanges({
+      addWearStatusListener: addWearStatusChangedListener,
+      appState: AppState,
+      refresh() {
+        void refreshExternalTracker();
+      },
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [refreshExternalTracker]);
+
   useFocusEffect(
     useCallback(() => {
       let active = true;
@@ -217,12 +254,24 @@ export function TrackerScreen() {
     setIsMutating(true);
     setError(null);
     try {
-      const punch = await toggleWearStatus(
-        db,
-        currentSnapshot.trayPeriodId,
-        persistedStatus,
-        timestamp,
-      );
+      const desiredStatus = persistedStatus === 'IN' ? 'OUT' : 'IN';
+      const nativeWearStatusAvailable = isNativeWearStatusAvailable();
+      const result = nativeWearStatusAvailable
+        ? await ensureWearStatus(desiredStatus, timestamp)
+        : {
+            notificationStatus: 'not-needed' as const,
+            outcome: 'changed' as const,
+            punch: await toggleWearStatus(
+              db,
+              currentSnapshot.trayPeriodId,
+              persistedStatus,
+              timestamp,
+            ),
+          };
+      if (result.outcome !== 'changed') {
+        throw new Error('The saved tracker state changed before the action completed.');
+      }
+      const punch = result.punch;
       setSnapshot((currentSnapshot) =>
         currentSnapshot === null
           ? currentSnapshot
@@ -236,7 +285,11 @@ export function TrackerScreen() {
         }),
       );
       setNow(timestamp);
-      void reconcileLocalNotifications(db);
+      if (result.notificationStatus === 'failed') {
+        setError('Tracker saved, but reminders could not be refreshed.');
+      } else if (!nativeWearStatusAvailable) {
+        void reconcileLocalNotifications(db);
+      }
     } catch {
       setError('The tracker could not be updated. Showing the last saved state.');
       try {

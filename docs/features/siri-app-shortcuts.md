@@ -31,9 +31,9 @@ iOS only.
 
 Use Apple's modern App Intents / App Shortcuts integration.
 
-The feature should be available only on iOS versions that support the required system APIs.
-
-Do not raise the application's overall minimum iOS version solely to support this feature.
+The feature requires iOS 16.4 or later, matching the application's configured iOS
+deployment target. It requires a development or production build because the local
+native module and generated app-target intents are unavailable in Expo Go.
 
 ### Later
 
@@ -176,7 +176,9 @@ Repeated requests for the existing state must therefore be idempotent.
 
 ## Timestamp Semantics
 
-The resulting `WearPunch.timestamp` must represent when the Siri action was invoked.
+The resulting `WearPunch.timestamp` represents the start of the App Intent's
+`perform()` execution. The intent captures this timestamp before opening SQLite or
+performing any notification work.
 
 It must not represent when JavaScript, React Native, or another delayed processing layer eventually handles the request.
 
@@ -191,13 +193,16 @@ WearPunch.timestamp = 12:15:03
 
 This preserves the accuracy of wear calculations.
 
-If the platform queues an invocation while the application is not running, the original invocation timestamp must be retained.
+Apple does not provide a general original speech/request timestamp for Siri and App
+Shortcuts. `IntentSystemContext.preciseTimestamp` is specific to supported Action
+button invocations such as Apple Watch Ultra. V1 therefore uses the earliest timestamp
+available to the application: entry to `perform()`.
 
 ---
 
 ## Exactly-Once Processing
 
-Each Siri/App Intent invocation must be applied at most once.
+Each Siri/App Intent execution must be applied at most once.
 
 A queued invocation must not generate another `WearPunch` because the app:
 
@@ -206,9 +211,14 @@ A queued invocation must not generate another `WearPunch` because the app:
 - reconnects to the JavaScript runtime
 - processes the same pending intent twice
 
-Once successfully handled, an invocation should be marked or removed according to the platform integration so it cannot be processed again.
+App Intents does not expose a stable, general-purpose invocation identifier. V1 uses
+an atomic desired-state SQLite transaction and state-level idempotency: the first
+execution can create the requested transition, while immediate system retries or
+repeated same-state commands observe the requested state and create no punch.
 
-State-level idempotency remains an additional safeguard.
+The transaction re-reads the active tray and latest punch after obtaining the SQLite
+write lock. A delayed execution whose timestamp can no longer be inserted without
+violating timeline ordering fails safely without modifying data.
 
 ---
 
@@ -299,6 +309,11 @@ I couldn't update Aligner Tracker.
 
 Do not expose SQLite, transaction, or implementation terminology to the user.
 
+The `WearPunch` is committed before notification reconciliation. If reminder
+scheduling fails afterward, keep the committed punch authoritative and tell the user
+that the trays were marked but reminders could not be refreshed. Normal application
+initialization retries notification reconciliation.
+
 ---
 
 ## Data Model
@@ -366,6 +381,13 @@ Preference order:
 Avoid adding a dependency solely to avoid a small amount of straightforward native integration.
 
 Any native implementation should expose the smallest interface needed for the V1 actions.
+
+The native SQLite and notification implementation lives in a project-local Apple-only
+Expo module. The config plugin places only the thin App Intent declarations and App
+Shortcuts provider in the generated main app target. This preserves iOS 16.4 metadata
+discovery; Apple's framework-level `AppIntentsPackage` export API begins with iOS 17.
+An Expo app-delegate subscriber asks the generated provider to refresh its shortcut
+parameters at launch.
 
 ---
 

@@ -10,6 +10,11 @@ import {
   type ScheduledReminder,
 } from '@/features/notifications/notification-policy';
 import { getNotificationSettings } from '@/features/notifications/notification-settings-repository';
+import { reconcileNotificationsForPlatform } from '@/features/notifications/notification-routing';
+import {
+  isNativeWearStatusAvailable,
+  reconcileNativeNotifications,
+} from '@/features/siri/aligner-tracker-intents';
 import { getTrackerSnapshot } from '@/features/tracker/tracker-repository';
 
 const REMINDER_CHANNEL_ID = 'treatment-reminders';
@@ -130,7 +135,7 @@ function permissionState(
   return 'denied';
 }
 
-async function reconcile(
+async function reconcileWithExpoNotifications(
   db: SQLiteDatabase,
   notifications: NotificationsModule,
   canSchedule: boolean,
@@ -194,7 +199,12 @@ export function initializeLocalNotifications(db: SQLiteDatabase) {
       ? await requestPermissionIfNeeded(notifications)
       : notificationsAreAllowed(notifications, await notifications.getPermissionsAsync());
 
-    await reconcile(db, notifications, allowed);
+    await reconcileNotificationsForPlatform(
+      Platform.OS,
+      isNativeWearStatusAvailable(),
+      reconcileNativeNotifications,
+      () => reconcileWithExpoNotifications(db, notifications, allowed),
+    );
   });
 }
 
@@ -213,7 +223,12 @@ export function reconcileLocalNotifications(
       ? await requestPermissionIfNeeded(notifications)
       : notificationsAreAllowed(notifications, await notifications.getPermissionsAsync());
 
-    await reconcile(db, notifications, allowed);
+    await reconcileNotificationsForPlatform(
+      Platform.OS,
+      isNativeWearStatusAvailable(),
+      reconcileNativeNotifications,
+      () => reconcileWithExpoNotifications(db, notifications, allowed),
+    );
   });
 }
 
