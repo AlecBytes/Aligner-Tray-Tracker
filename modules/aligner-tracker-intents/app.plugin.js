@@ -1,7 +1,7 @@
 const { IOSConfig } = require('expo/config-plugins');
 
 const appTargetIntents = `import AppIntents
-import AlignerTrackerIntents
+internal import AlignerTrackerIntents
 import Foundation
 
 @available(iOS 16.4, *)

@@ -259,7 +259,7 @@ final class AlignerTrackerStoreTests: XCTestCase {
   private func execute(_ sql: String, database: OpaquePointer?) throws {
     var errorPointer: UnsafeMutablePointer<CChar>?
     guard sqlite3_exec(database, sql, nil, nil, &errorPointer) == SQLITE_OK else {
-      let message = errorPointer.map(String.init(cString:)) ?? "SQLite test setup failed."
+      let message = errorPointer.map { String(cString: $0) } ?? "SQLite test setup failed."
       sqlite3_free(errorPointer)
       throw NSError(domain: "AlignerTrackerIntentsTests", code: 1, userInfo: [
         NSLocalizedDescriptionKey: message,
