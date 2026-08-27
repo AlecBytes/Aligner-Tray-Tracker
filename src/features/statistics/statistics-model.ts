@@ -2,8 +2,10 @@ import type { WearStatus } from '@/db/schema';
 
 export type StatisticsPlanVersion = {
   dailyWearGoalMinutes: number;
+  daysPerTray: number;
   effectiveAt: number;
   id: number;
+  totalTrays: number;
 };
 
 export type StatisticsTrayPeriod = {
@@ -45,6 +47,13 @@ export type RecentTreatmentDay = {
 };
 
 export type StatisticsReadModel = {
+  currentTreatment: {
+    currentTrayNumber: number;
+    currentTrayStartedAt: number;
+    dailyWearGoalMinutes: number;
+    daysPerTray: number;
+    totalTrays: number;
+  };
   currentTray: CurrentTrayStatistics;
   recentDays: RecentTreatmentDay[];
   treatmentOverall: StatisticsSummary;

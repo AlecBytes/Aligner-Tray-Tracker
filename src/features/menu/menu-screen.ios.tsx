@@ -74,6 +74,11 @@ export function MenuScreen() {
             onPress={() => router.push('/statistics')}
             systemImage="chart.bar"
           />
+          <NavigationRow
+            label="Share Progress"
+            onPress={() => router.push('/share-progress')}
+            systemImage="square.and.arrow.up"
+          />
         </Section>
 
         {isSupportEnabled ? (

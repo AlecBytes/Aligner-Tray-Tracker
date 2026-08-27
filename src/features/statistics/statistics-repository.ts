@@ -14,8 +14,10 @@ type ActiveTreatmentRow = {
 
 type StatisticsPlanVersionRow = {
   daily_wear_goal_minutes: number;
+  days_per_tray: number;
   effective_at: number;
   id: number;
+  total_trays: number;
 };
 
 type StatisticsTrayPeriodRow = {
@@ -35,8 +37,10 @@ type StatisticsWearPunchRow = {
 function mapPlanVersion(row: StatisticsPlanVersionRow): StatisticsPlanVersion {
   return {
     dailyWearGoalMinutes: row.daily_wear_goal_minutes,
+    daysPerTray: row.days_per_tray,
     effectiveAt: row.effective_at,
     id: row.id,
+    totalTrays: row.total_trays,
   };
 }
 
@@ -75,7 +79,7 @@ export async function getStatisticsSnapshot(
 
   const [planRows, trayPeriodRows, punchRows] = await Promise.all([
     db.getAllAsync<StatisticsPlanVersionRow>(
-      `SELECT id, daily_wear_goal_minutes, effective_at
+      `SELECT id, total_trays, days_per_tray, daily_wear_goal_minutes, effective_at
        FROM treatment_plan_versions
        WHERE treatment_id = ?
        ORDER BY effective_at, id`,

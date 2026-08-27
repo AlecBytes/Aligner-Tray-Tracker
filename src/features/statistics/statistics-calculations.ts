@@ -416,6 +416,7 @@ export function createStatisticsReadModel(
   const treatmentStartedAt = firstTray.startedAt;
   const orderedPunches = orderPunches(snapshot.punches);
   const orderedPlans = orderPlans(snapshot.planVersions);
+  const currentPlan = getPlanForTreatmentDay(orderedPlans, now);
   const overallDays = calculateDays(
     createTreatmentDayWindows(treatmentStartedAt, treatmentStartedAt, now),
     orderedPunches,
@@ -435,6 +436,13 @@ export function createStatisticsReadModel(
   );
 
   return {
+    currentTreatment: {
+      currentTrayNumber: activeTray.trayNumber,
+      currentTrayStartedAt: activeTray.startedAt,
+      dailyWearGoalMinutes: currentPlan.dailyWearGoalMinutes,
+      daysPerTray: currentPlan.daysPerTray,
+      totalTrays: currentPlan.totalTrays,
+    },
     currentTray: {
       ...currentTraySummary,
       daysWorn: currentTraySummary.trackedDays,

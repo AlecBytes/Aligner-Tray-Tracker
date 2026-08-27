@@ -24,8 +24,10 @@ function plan(
 ): StatisticsPlanVersion {
   return {
     dailyWearGoalMinutes: dailyWearGoalHours * 60,
+    daysPerTray: 7,
     effectiveAt,
     id,
+    totalTrays: 48,
   };
 }
 
