@@ -386,6 +386,54 @@ Document:
 
 If the existing Expo/CNG approach cannot reasonably support the feature, stop and evaluate alternatives before introducing permanent native-project complexity.
 
+### Spike status (2026-08-26)
+
+The local CNG portion of the spike passes. The signing and physical-device portions remain release gates and have not been claimed as passing.
+
+Proven locally:
+
+- `@bacons/apple-targets` is pinned to `5.0.0`.
+- The tracked target lives at `targets/aligner-tracker-watch/`; generated `ios/` files remain untracked.
+- A clean Expo 57 prebuild creates an `AlignerTrackerWatch` watchOS 9.0 application target, links `WatchConnectivity.framework`, adds the iPhone target dependency, and embeds the product through `Embed Watch Content`.
+- Production identifiers are `com.alecsbytes.alignertraytracker` and `com.alecsbytes.alignertraytracker.watchapp`.
+- Development identifiers are `com.alecsbytes.alignertraytracker.dev` and `com.alecsbytes.alignertraytracker.dev.watchapp`.
+- The Watch target's `WKCompanionAppBundleIdentifier` follows the matching variant's iPhone identifier.
+- The iPhone receiver invokes `AlignerTrackerWearStatusService` and reads SQLite without going through the React Native runtime.
+
+Local verification command (Node 22.13 or newer is required):
+
+```sh
+APPLE_TEAM_ID=YOUR_TEAM_ID \
+TMPDIR=/tmp/aligner-watch-prebuild \
+npx expo prebuild --platform ios --clean --no-install
+```
+
+Signing/build requirements:
+
+- macOS 15 or newer, Xcode 16 or newer, and CocoaPods 1.16.2 or newer (the minimums declared by Apple Targets 5.0.0)
+- one paid Apple Developer team supplied as `APPLE_TEAM_ID`
+- development and distribution provisioning for both the iPhone and matching Watch bundle identifiers
+- an authenticated EAS account with access to project `6e2c069a-68b7-4612-91a9-3d29a3bbcc09`
+
+Commands still required on an authenticated, signing-capable machine:
+
+```sh
+APPLE_TEAM_ID=YOUR_TEAM_ID eas build --platform ios --profile development
+APPLE_TEAM_ID=YOUR_TEAM_ID eas build --platform ios --profile production
+```
+
+Device gate still required:
+
+| iPhone state | Connectivity | Expected result | Verified |
+| --- | --- | --- | --- |
+| Foreground | Bluetooth/Wi-Fi | SQLite commit and reply | No |
+| Background | Bluetooth/Wi-Fi | Native receiver wakes, commits, and replies | No |
+| Suspended | Bluetooth/Wi-Fi | Native receiver wakes, commits, and replies | No |
+| Force-quit or unreachable | Any | Safe transport failure and no write | No |
+| Foreground | Bluetooth only, no internet | SQLite commit and reply | No |
+
+This checkout has no Apple team identifier, no Xcode/watchOS toolchain, no paired devices, and its EAS CLI is not logged in. Therefore EAS credentials, archive signing, installation, response delivery, and background/suspended behavior remain unverified. Do not release the Watch target until every row above is exercised on the intended device/OS matrix. If any required state is unreliable, stop rollout and evaluate a project-owned config plugin before changing the protocol or adding queues.
+
 ---
 
 ## Performance

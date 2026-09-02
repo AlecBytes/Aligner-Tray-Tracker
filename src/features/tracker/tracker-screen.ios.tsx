@@ -34,6 +34,7 @@ import {
   addWearStatusChangedListener,
   ensureWearStatus,
   isNativeWearStatusAvailable,
+  refreshWatchTrackerSnapshot,
 } from '@/features/siri/aligner-tracker-intents';
 import {
   createTrackerReadModel,
@@ -325,6 +326,7 @@ export function TrackerScreen() {
       setHistory(rememberTrackerUndo(action));
       setNow(Date.now());
       void reconcileLocalNotifications(db);
+      void refreshWatchTrackerSnapshot();
     } catch {
       setError('The tracker change could not be undone. Showing the last saved state.');
       try {
@@ -362,6 +364,7 @@ export function TrackerScreen() {
       setHistory(rememberTrackerRedo(restoredPunch));
       setNow(Date.now());
       void reconcileLocalNotifications(db);
+      void refreshWatchTrackerSnapshot();
     } catch {
       setError('The tracker change could not be redone. Showing the last saved state.');
       try {

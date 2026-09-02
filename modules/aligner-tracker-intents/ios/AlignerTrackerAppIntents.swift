@@ -53,11 +53,16 @@ public final class AlignerTrackerIntentsAppDelegateSubscriber: ExpoAppDelegateSu
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
+    AlignerTrackerWatchConnectivityCoordinator.shared.activate()
     let updaterClass = NSClassFromString("AlignerTrackerAppShortcutsUpdater") as? NSObject.Type
     let updateSelector = NSSelectorFromString("updateAppShortcutParameters")
     if updaterClass?.responds(to: updateSelector) == true {
       _ = updaterClass?.perform(updateSelector)
     }
     return false
+  }
+
+  public func applicationDidBecomeActive(_ application: UIApplication) {
+    _ = AlignerTrackerWatchConnectivityCoordinator.shared.publishLatestSnapshot()
   }
 }

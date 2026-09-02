@@ -28,6 +28,7 @@ import {
   ValidationMessage,
 } from '@/components/expo-ui-components';
 import { reconcileLocalNotifications } from '@/features/notifications/local-notifications';
+import { refreshWatchTrackerSnapshot } from '@/features/siri/aligner-tracker-intents';
 import {
   type TreatmentPlanFormValues,
   type TreatmentPlanValidationErrors,
@@ -184,6 +185,7 @@ export function TreatmentPlanScreen() {
       // eslint-disable-next-line react-hooks/purity
       await createTreatmentPlanVersion(db, validation.data, Date.now());
       void reconcileLocalNotifications(db);
+      void refreshWatchTrackerSnapshot();
       router.dismissTo('/tracker');
     } catch {
       setSaveError('Treatment plan could not be saved. Please try again.');

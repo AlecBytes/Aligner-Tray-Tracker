@@ -36,6 +36,7 @@ import {
   ValidationMessage,
 } from '@/components/expo-ui-components';
 import { reconcileLocalNotifications } from '@/features/notifications/local-notifications';
+import { refreshWatchTrackerSnapshot } from '@/features/siri/aligner-tracker-intents';
 import { createTrackerReadModel } from '@/features/tracker/tracker-calculations';
 import type { TrackerSnapshot } from '@/features/tracker/tracker-model';
 import { getTrackerSnapshot } from '@/features/tracker/tracker-repository';
@@ -155,6 +156,7 @@ export function ChangeTrayScreen() {
         trayNumber: pendingTrayNumber,
       });
       void reconcileLocalNotifications(db);
+      void refreshWatchTrackerSnapshot();
       router.dismissTo('/tracker');
     } catch {
       setChangeError('The tray could not be changed. Your previous tray is unchanged.');

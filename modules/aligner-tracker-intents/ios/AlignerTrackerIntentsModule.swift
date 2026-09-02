@@ -58,6 +58,10 @@ public class AlignerTrackerIntentsModule: Module {
         return false
       }
     }
+
+    AsyncFunction("refreshWatchTrackerSnapshot") { () -> Bool in
+      AlignerTrackerWatchConnectivityCoordinator.shared.publishLatestSnapshot()
+    }
   }
 
   private static func bridgeResult(

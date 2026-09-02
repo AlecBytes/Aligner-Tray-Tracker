@@ -47,6 +47,7 @@ import {
 } from '@/features/cloud-backup/cloud-restore-core';
 import { createCloudRestoreScreenOperation } from '@/features/cloud-backup/cloud-restore-screen-operation';
 import { isCloudRestoreEligible } from '@/features/cloud-backup/restore-repository';
+import { refreshWatchTrackerSnapshot } from '@/features/siri/aligner-tracker-intents';
 import { useAppTheme } from '@/theme/use-app-theme';
 
 type AppleAuthenticationModule = typeof import('expo-apple-authentication');
@@ -148,6 +149,7 @@ export function RestoreScreen() {
           setRestoreFailure(result);
           return;
         }
+        void refreshWatchTrackerSnapshot();
         if (result.reminders === 'needsAttention') setShowReminderWarning(true);
         else router.replace('/tracker');
       },

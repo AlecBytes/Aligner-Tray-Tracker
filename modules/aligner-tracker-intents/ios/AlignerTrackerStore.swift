@@ -44,6 +44,30 @@ struct AlignerNotificationSnapshot: Sendable {
   let trayStartedAt: Int64
 }
 
+struct AlignerWatchTrackerSnapshot: Equatable, Sendable {
+  let currentTrayNumber: Int
+  let generatedAt: Int64
+  let inTodayMinutes: Int
+  let outTodayMinutes: Int
+  let status: AlignerWearStatus
+  let totalTrays: Int
+  let trayDay: Int
+
+  var dictionary: [String: Any] {
+    [
+      "version": 1,
+      "kind": "ready",
+      "currentTrayNumber": currentTrayNumber,
+      "totalTrays": totalTrays,
+      "trayDay": trayDay,
+      "status": status.rawValue,
+      "inTodayMinutes": inTodayMinutes,
+      "outTodayMinutes": outTodayMinutes,
+      "generatedAtMs": generatedAt,
+    ]
+  }
+}
+
 private final class AlignerSQLiteConnection {
   private(set) var handle: OpaquePointer?
 
@@ -307,6 +331,102 @@ enum AlignerTrackerStore {
     return snapshot
   }
 
+  static func loadWatchTrackerSnapshot(
+    now: Date = Date(),
+    calendar: Calendar = .current,
+    databaseURL: URL? = nil
+  ) throws -> AlignerWatchTrackerSnapshot? {
+    let connection: AlignerSQLiteConnection
+    do {
+      connection = try AlignerSQLiteConnection(databaseURL: databaseURL)
+    } catch AlignerTrackerStoreError.databaseUnavailable {
+      return nil
+    }
+
+    try requireSupportedSchema(connection)
+    try connection.execute("BEGIN DEFERRED TRANSACTION")
+    var transactionFinished = false
+    defer {
+      if !transactionFinished {
+        try? connection.execute("ROLLBACK")
+      }
+    }
+
+    let activeTrayPeriodIds = try loadActiveTrayPeriodIds(connection)
+    guard !activeTrayPeriodIds.isEmpty else {
+      try connection.execute("COMMIT")
+      transactionFinished = true
+      return nil
+    }
+    guard activeTrayPeriodIds.count == 1 else {
+      throw AlignerTrackerStoreError.invalidTrackerState
+    }
+
+    let trackerStatement = try connection.prepare(
+      """
+      SELECT
+        tray_periods.treatment_id,
+        tray_periods.tray_number,
+        tray_periods.started_at,
+        treatment_plan_versions.total_trays
+      FROM tray_periods
+      JOIN treatments ON treatments.id = tray_periods.treatment_id
+      JOIN treatment_plan_versions
+        ON treatment_plan_versions.id = (
+          SELECT plan.id
+          FROM treatment_plan_versions AS plan
+          WHERE plan.treatment_id = tray_periods.treatment_id
+          ORDER BY plan.effective_at DESC, plan.id DESC
+          LIMIT 1
+        )
+      WHERE tray_periods.id = ? AND tray_periods.ended_at IS NULL
+      """
+    )
+    defer { sqlite3_finalize(trackerStatement) }
+    sqlite3_bind_int64(trackerStatement, 1, activeTrayPeriodIds[0])
+    guard sqlite3_step(trackerStatement) == SQLITE_ROW else {
+      throw AlignerTrackerStoreError.invalidTrackerState
+    }
+
+    let treatmentId = sqlite3_column_int64(trackerStatement, 0)
+    let currentTrayNumber = Int(sqlite3_column_int64(trackerStatement, 1))
+    let trayStartedAt = sqlite3_column_int64(trackerStatement, 2)
+    let totalTrays = Int(sqlite3_column_int64(trackerStatement, 3))
+    let generatedAt = Int64((now.timeIntervalSince1970 * 1_000).rounded(.down))
+    let dayStart = calendar.startOfDay(for: now)
+    let dayStartTimestamp = Int64((dayStart.timeIntervalSince1970 * 1_000).rounded(.down))
+    let punches = try loadWatchPunches(
+      connection,
+      treatmentId: treatmentId,
+      dayStart: dayStartTimestamp,
+      now: generatedAt
+    )
+    guard let status = punches.last?.status else {
+      throw AlignerTrackerStoreError.invalidTrackerState
+    }
+
+    let totals = calculateWatchDailyTotals(
+      punches: punches,
+      dayStart: dayStartTimestamp,
+      now: generatedAt
+    )
+    let trayStartedDate = Date(timeIntervalSince1970: Double(trayStartedAt) / 1_000)
+    let trayStartDay = calendar.startOfDay(for: trayStartedDate)
+    let elapsedDays = calendar.dateComponents([.day], from: trayStartDay, to: dayStart).day ?? 0
+    let snapshot = AlignerWatchTrackerSnapshot(
+      currentTrayNumber: currentTrayNumber,
+      generatedAt: generatedAt,
+      inTodayMinutes: totals.inMinutes,
+      outTodayMinutes: totals.outMinutes,
+      status: status,
+      totalTrays: totalTrays,
+      trayDay: max(1, elapsedDays + 1)
+    )
+    try connection.execute("COMMIT")
+    transactionFinished = true
+    return snapshot
+  }
+
   private static func requireSupportedSchema(_ connection: AlignerSQLiteConnection) throws {
     let statement = try connection.prepare("PRAGMA user_version")
     defer { sqlite3_finalize(statement) }
@@ -379,6 +499,109 @@ enum AlignerTrackerStore {
     defer { sqlite3_finalize(statement) }
     sqlite3_bind_int64(statement, 1, trayPeriodId)
     return try readPunch(statement)
+  }
+
+  private static func loadWatchPunches(
+    _ connection: AlignerSQLiteConnection,
+    treatmentId: Int64,
+    dayStart: Int64,
+    now: Int64
+  ) throws -> [AlignerWearPunch] {
+    let statement = try connection.prepare(
+      """
+      SELECT id, status, timestamp
+      FROM (
+        SELECT wear_punches.id, wear_punches.status, wear_punches.timestamp
+        FROM wear_punches
+        JOIN tray_periods ON tray_periods.id = wear_punches.tray_period_id
+        WHERE tray_periods.treatment_id = ? AND wear_punches.timestamp < ?
+        ORDER BY wear_punches.timestamp DESC, wear_punches.id DESC
+        LIMIT 1
+      )
+      UNION ALL
+      SELECT wear_punches.id, wear_punches.status, wear_punches.timestamp
+      FROM wear_punches
+      JOIN tray_periods ON tray_periods.id = wear_punches.tray_period_id
+      WHERE tray_periods.treatment_id = ?
+        AND wear_punches.timestamp >= ?
+        AND wear_punches.timestamp <= ?
+      ORDER BY timestamp, id
+      """
+    )
+    defer { sqlite3_finalize(statement) }
+    sqlite3_bind_int64(statement, 1, treatmentId)
+    sqlite3_bind_int64(statement, 2, dayStart)
+    sqlite3_bind_int64(statement, 3, treatmentId)
+    sqlite3_bind_int64(statement, 4, dayStart)
+    sqlite3_bind_int64(statement, 5, now)
+
+    var punches: [AlignerWearPunch] = []
+    while true {
+      let stepResult = sqlite3_step(statement)
+      if stepResult == SQLITE_DONE {
+        return punches
+      }
+      guard stepResult == SQLITE_ROW,
+            let statusPointer = sqlite3_column_text(statement, 1),
+            let status = AlignerWearStatus(rawValue: String(cString: statusPointer)) else {
+        throw AlignerTrackerStoreError.invalidTrackerState
+      }
+      punches.append(
+        AlignerWearPunch(
+          id: sqlite3_column_int64(statement, 0),
+          status: status,
+          timestamp: sqlite3_column_int64(statement, 2)
+        )
+      )
+    }
+  }
+
+  private static func calculateWatchDailyTotals(
+    punches: [AlignerWearPunch],
+    dayStart: Int64,
+    now: Int64
+  ) -> (inMinutes: Int, outMinutes: Int) {
+    var totals: [AlignerWearStatus: Int64] = [.inTrays: 0, .outTrays: 0]
+    var currentStatus: AlignerWearStatus?
+    var intervalStartedAt = dayStart
+    var index = 0
+
+    while index < punches.count {
+      var punch = punches[index]
+      while index + 1 < punches.count && punches[index + 1].timestamp == punch.timestamp {
+        index += 1
+        punch = punches[index]
+      }
+
+      if punch.timestamp > now {
+        break
+      }
+      if punch.timestamp <= dayStart {
+        currentStatus = punch.status
+        index += 1
+        continue
+      }
+      guard let activeStatus = currentStatus else {
+        currentStatus = punch.status
+        intervalStartedAt = punch.timestamp
+        index += 1
+        continue
+      }
+      if punch.status != activeStatus && punch.timestamp > intervalStartedAt {
+        totals[activeStatus, default: 0] += punch.timestamp - intervalStartedAt
+        currentStatus = punch.status
+        intervalStartedAt = punch.timestamp
+      }
+      index += 1
+    }
+
+    if let currentStatus, now > intervalStartedAt {
+      totals[currentStatus, default: 0] += now - intervalStartedAt
+    }
+    return (
+      inMinutes: Int(totals[.inTrays, default: 0] / 60_000),
+      outMinutes: Int(totals[.outTrays, default: 0] / 60_000)
+    )
   }
 
   private static func loadLatestPunch(

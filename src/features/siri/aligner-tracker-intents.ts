@@ -20,6 +20,10 @@ export function reconcileNativeNotifications(): Promise<boolean> {
   return Promise.resolve(false);
 }
 
+export function refreshWatchTrackerSnapshot(): Promise<boolean> {
+  return Promise.resolve(false);
+}
+
 export function addWearStatusChangedListener(
   _listener: WearStatusChangedListener,
 ): WearStatusChangedSubscription {

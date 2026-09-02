@@ -35,6 +35,7 @@ import { useMemo, useRef, useState } from 'react';
 
 import { isLiquidGlassPlatform, NavigationRow } from '@/components/expo-ui-components';
 import { initializeLocalNotifications } from '@/features/notifications/local-notifications';
+import { refreshWatchTrackerSnapshot } from '@/features/siri/aligner-tracker-intents';
 import { createInitialTreatment } from '@/features/treatment/treatment-repository';
 import {
   type TreatmentSetupFormValues,
@@ -146,6 +147,7 @@ export function SetupScreen() {
     try {
       await createInitialTreatment(db, validation.data);
       void initializeLocalNotifications(db);
+      void refreshWatchTrackerSnapshot();
       router.replace('/tracker');
     } catch {
       setSubmissionError('Treatment setup could not be saved. Please try again.');

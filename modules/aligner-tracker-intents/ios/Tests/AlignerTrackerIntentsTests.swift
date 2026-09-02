@@ -2,6 +2,10 @@ import SQLite3
 import XCTest
 @testable import AlignerTrackerIntents
 
+private enum WatchBridgeTestError: Error {
+  case notificationFailure
+}
+
 final class AlignerTrackerStoreTests: XCTestCase {
   func testChangesInToOutAndOutToIn() throws {
     let inDatabase = try makeDatabase(initialStatus: "IN")
@@ -147,6 +151,190 @@ final class AlignerTrackerStoreTests: XCTestCase {
     )
   }
 
+  func testWatchSnapshotMatchesDailyTrackerStateToTheMinute() throws {
+    let database = try makeDatabase(initialStatus: "IN")
+    try execute(
+      "INSERT INTO wear_punches VALUES (2, 1, 'OUT', 3601000);",
+      databaseURL: database
+    )
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+
+    let snapshot = try XCTUnwrap(
+      AlignerTrackerStore.loadWatchTrackerSnapshot(
+        now: Date(timeIntervalSince1970: 7_201),
+        calendar: calendar,
+        databaseURL: database
+      )
+    )
+
+    XCTAssertEqual(snapshot.currentTrayNumber, 1)
+    XCTAssertEqual(snapshot.totalTrays, 48)
+    XCTAssertEqual(snapshot.trayDay, 1)
+    XCTAssertEqual(snapshot.status, .outTrays)
+    XCTAssertEqual(snapshot.inTodayMinutes, 60)
+    XCTAssertEqual(snapshot.outTodayMinutes, 60)
+    XCTAssertEqual(snapshot.generatedAt, 7_201_000)
+  }
+
+  func testWatchSnapshotReturnsNoTreatmentWithoutCreatingState() throws {
+    let database = try makeDatabase(activePeriodCount: 0, initialStatus: nil)
+    XCTAssertNil(
+      try AlignerTrackerStore.loadWatchTrackerSnapshot(
+        now: Date(timeIntervalSince1970: 2),
+        databaseURL: database
+      )
+    )
+    XCTAssertEqual(try punchCount(database), 0)
+  }
+
+  func testWatchProtocolRejectsMalformedAndUnknownRequests() async {
+    let malformed = await AlignerTrackerWatchBridge.handle(["operation": "getSnapshot"])
+    XCTAssertEqual(malformed["outcome"] as? String, "failed")
+
+    let unknown = await AlignerTrackerWatchBridge.handle([
+      "version": 1,
+      "requestId": "request-1",
+      "operation": "unknown",
+    ])
+    XCTAssertEqual(unknown["requestId"] as? String, "request-1")
+    XCTAssertEqual(unknown["outcome"] as? String, "failed")
+  }
+
+  func testWatchBridgeCommitsExactlyOnePhoneTimestampedPunch() async throws {
+    let database = try makeDatabase(initialStatus: "IN")
+    let now = Date(timeIntervalSince1970: 2)
+    let request: [String: Any] = [
+      "version": 1,
+      "requestId": "request-1",
+      "operation": "setWearStatus",
+      "expectedStatus": "IN",
+      "desiredStatus": "OUT",
+    ]
+
+    let changed = await AlignerTrackerWatchBridge.handle(
+      request,
+      now: now,
+      databaseURL: database,
+      notificationReconciler: {}
+    )
+    XCTAssertEqual(changed["outcome"] as? String, "changed")
+    XCTAssertEqual(changed["requestId"] as? String, "request-1")
+    XCTAssertEqual(try punchCount(database), 2)
+    XCTAssertEqual(try latestPunch(database).status, "OUT")
+    XCTAssertEqual(try latestPunch(database).timestamp, 2_000)
+    let snapshot = try XCTUnwrap(changed["snapshot"] as? [String: Any])
+    XCTAssertEqual(snapshot["status"] as? String, "OUT")
+    XCTAssertEqual((snapshot["generatedAtMs"] as? NSNumber)?.int64Value, 2_000)
+
+    let repeated = await AlignerTrackerWatchBridge.handle(
+      request.merging(["requestId": "request-2"], uniquingKeysWith: { _, replacement in
+        replacement
+      }),
+      now: Date(timeIntervalSince1970: 3),
+      databaseURL: database,
+      notificationReconciler: {}
+    )
+    XCTAssertEqual(repeated["outcome"] as? String, "state-conflict")
+    XCTAssertEqual(try punchCount(database), 2)
+  }
+
+  func testWatchBridgeReturnsNoTreatmentAndDatabaseFailuresWithoutWriting() async throws {
+    let noTreatmentDatabase = try makeDatabase(activePeriodCount: 0, initialStatus: nil)
+    let noTreatment = await AlignerTrackerWatchBridge.handle(
+      [
+        "version": 1,
+        "requestId": "request-no-treatment",
+        "operation": "setWearStatus",
+        "expectedStatus": "IN",
+        "desiredStatus": "OUT",
+      ],
+      now: Date(timeIntervalSince1970: 2),
+      databaseURL: noTreatmentDatabase,
+      notificationReconciler: {}
+    )
+    XCTAssertEqual(noTreatment["outcome"] as? String, "no-treatment")
+    XCTAssertEqual(try punchCount(noTreatmentDatabase), 0)
+
+    let corruptDatabase = FileManager.default.temporaryDirectory
+      .appendingPathComponent("aligner-watch-corrupt-\(UUID().uuidString).db")
+    try Data("not a sqlite database".utf8).write(to: corruptDatabase)
+    addTeardownBlock {
+      try? FileManager.default.removeItem(at: corruptDatabase)
+    }
+    let failed = await AlignerTrackerWatchBridge.handle(
+      [
+        "version": 1,
+        "requestId": "request-failed",
+        "operation": "setWearStatus",
+        "expectedStatus": "IN",
+        "desiredStatus": "OUT",
+      ],
+      now: Date(timeIntervalSince1970: 2),
+      databaseURL: corruptDatabase,
+      notificationReconciler: {}
+    )
+    XCTAssertEqual(failed["outcome"] as? String, "failed")
+  }
+
+  func testWatchBridgeReportsPostWriteNotificationWarning() async throws {
+    let database = try makeDatabase(initialStatus: "IN")
+    let response = await AlignerTrackerWatchBridge.handle(
+      [
+        "version": 1,
+        "requestId": "request-warning",
+        "operation": "setWearStatus",
+        "expectedStatus": "IN",
+        "desiredStatus": "OUT",
+      ],
+      now: Date(timeIntervalSince1970: 2),
+      databaseURL: database,
+      notificationReconciler: {
+        throw WatchBridgeTestError.notificationFailure
+      }
+    )
+    XCTAssertEqual(response["outcome"] as? String, "changed")
+    XCTAssertEqual(response["notificationWarning"] as? Bool, true)
+    XCTAssertEqual(try punchCount(database), 2)
+  }
+
+  func testWatchSnapshotUsesCalendarDaysAcrossDST() throws {
+    let database = try makeDatabase(initialStatus: "IN")
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "America/New_York"))
+    let trayStartedAt = try XCTUnwrap(
+      calendar.date(from: DateComponents(
+        year: 2026,
+        month: 3,
+        day: 7,
+        hour: 23,
+        minute: 30
+      ))
+    )
+    let now = try XCTUnwrap(
+      calendar.date(from: DateComponents(
+        year: 2026,
+        month: 3,
+        day: 9,
+        hour: 0,
+        minute: 30
+      ))
+    )
+    try execute(
+      "UPDATE tray_periods SET started_at = \(Int64(trayStartedAt.timeIntervalSince1970 * 1_000));",
+      databaseURL: database
+    )
+
+    let snapshot = try XCTUnwrap(
+      AlignerTrackerStore.loadWatchTrackerSnapshot(
+        now: now,
+        calendar: calendar,
+        databaseURL: database
+      )
+    )
+    XCTAssertEqual(snapshot.trayDay, 3)
+  }
+
   private func assertChanged(
     _ mutation: AlignerWearMutation,
     status: AlignerWearStatus,
@@ -256,6 +444,28 @@ final class AlignerTrackerStoreTests: XCTestCase {
     return Int(sqlite3_column_int64(statement, 0))
   }
 
+  private func latestPunch(_ url: URL) throws -> (status: String, timestamp: Int64) {
+    var database: OpaquePointer?
+    guard sqlite3_open(url.path, &database) == SQLITE_OK else {
+      throw NSError(domain: "AlignerTrackerIntentsTests", code: 4)
+    }
+    defer { sqlite3_close(database) }
+    var statement: OpaquePointer?
+    sqlite3_prepare_v2(
+      database,
+      "SELECT status, timestamp FROM wear_punches ORDER BY timestamp DESC, id DESC LIMIT 1",
+      -1,
+      &statement,
+      nil
+    )
+    defer { sqlite3_finalize(statement) }
+    guard sqlite3_step(statement) == SQLITE_ROW,
+          let statusPointer = sqlite3_column_text(statement, 0) else {
+      throw NSError(domain: "AlignerTrackerIntentsTests", code: 5)
+    }
+    return (String(cString: statusPointer), sqlite3_column_int64(statement, 1))
+  }
+
   private func execute(_ sql: String, database: OpaquePointer?) throws {
     var errorPointer: UnsafeMutablePointer<CChar>?
     guard sqlite3_exec(database, sql, nil, nil, &errorPointer) == SQLITE_OK else {
@@ -265,6 +475,15 @@ final class AlignerTrackerStoreTests: XCTestCase {
         NSLocalizedDescriptionKey: message,
       ])
     }
+  }
+
+  private func execute(_ sql: String, databaseURL: URL) throws {
+    var database: OpaquePointer?
+    guard sqlite3_open(databaseURL.path, &database) == SQLITE_OK else {
+      throw NSError(domain: "AlignerTrackerIntentsTests", code: 3)
+    }
+    defer { sqlite3_close(database) }
+    try execute(sql, database: database)
   }
 }
 

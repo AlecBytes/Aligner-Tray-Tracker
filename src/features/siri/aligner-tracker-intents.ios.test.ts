@@ -1,5 +1,6 @@
 const mockEnsureWearStatus = jest.fn();
 const mockReconcileNotifications = jest.fn();
+const mockRefreshWatchTrackerSnapshot = jest.fn();
 const mockAddListener = jest.fn();
 
 jest.mock('../../../modules/aligner-tracker-intents', () => ({
@@ -8,6 +9,7 @@ jest.mock('../../../modules/aligner-tracker-intents', () => ({
     addListener: mockAddListener,
     ensureWearStatus: mockEnsureWearStatus,
     reconcileNotifications: mockReconcileNotifications,
+    refreshWatchTrackerSnapshot: mockRefreshWatchTrackerSnapshot,
   },
 }));
 
@@ -18,6 +20,7 @@ import {
   ensureWearStatus,
   isNativeWearStatusAvailable,
   reconcileNativeNotifications,
+  refreshWatchTrackerSnapshot,
 } from '@/features/siri/aligner-tracker-intents.ios';
 
 describe('Aligner Tracker App Intents bridge', () => {
@@ -42,10 +45,18 @@ describe('Aligner Tracker App Intents bridge', () => {
     const subscription = { remove: jest.fn() };
     const listener = jest.fn();
     mockReconcileNotifications.mockResolvedValue(true);
+    mockRefreshWatchTrackerSnapshot.mockResolvedValue(true);
     mockAddListener.mockReturnValue(subscription);
 
     await expect(reconcileNativeNotifications()).resolves.toBe(true);
+    await expect(refreshWatchTrackerSnapshot()).resolves.toBe(true);
     expect(addWearStatusChangedListener(listener)).toBe(subscription);
     expect(mockAddListener).toHaveBeenCalledWith('onWearStatusChanged', listener);
+  });
+
+  it('treats Watch refresh failures as best-effort', async () => {
+    mockRefreshWatchTrackerSnapshot.mockRejectedValue(new Error('Watch is unavailable'));
+
+    await expect(refreshWatchTrackerSnapshot()).resolves.toBe(false);
   });
 });

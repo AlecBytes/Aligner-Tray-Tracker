@@ -41,6 +41,14 @@ export async function reconcileNativeNotifications(): Promise<boolean> {
   return getIntentsModule()?.reconcileNotifications() ?? false;
 }
 
+export async function refreshWatchTrackerSnapshot(): Promise<boolean> {
+  try {
+    return (await getIntentsModule()?.refreshWatchTrackerSnapshot()) ?? false;
+  } catch {
+    return false;
+  }
+}
+
 export function addWearStatusChangedListener(
   listener: WearStatusChangedListener,
 ): WearStatusChangedSubscription {

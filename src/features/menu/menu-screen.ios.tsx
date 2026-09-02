@@ -10,6 +10,7 @@ import { clearLocalCloudSession } from '@/features/cloud-auth/cloud-auth-service
 import { reconcileLocalNotifications } from '@/features/notifications/local-notifications';
 import { resetAppData } from '@/features/reset/reset-app-repository';
 import { resetAppWithLocalSession } from '@/features/reset/reset-app';
+import { refreshWatchTrackerSnapshot } from '@/features/siri/aligner-tracker-intents';
 import { useAppTheme } from '@/theme/use-app-theme';
 
 export function MenuScreen() {
@@ -37,6 +38,7 @@ export function MenuScreen() {
         resetLocalData: () => resetAppData(db),
         reconcileNotifications: () => reconcileLocalNotifications(db),
       });
+      void refreshWatchTrackerSnapshot();
       router.replace('/setup');
     } catch {
       resetInProgress.current = false;
