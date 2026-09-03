@@ -6,6 +6,7 @@ import {
   getWearPunchForEdit,
   updateWearPunchTimestamp,
 } from '@/features/edit-times/edit-times-repository';
+import { toggleWearStatus } from '@/features/tracker/tracker-repository';
 
 type PunchState = {
   id: number;
@@ -14,9 +15,15 @@ type PunchState = {
   trayPeriodId: number;
 };
 
+type PauseFirstInsert = {
+  release: Promise<void>;
+  started: () => void;
+};
+
 function createCorrectionDatabase(options?: {
   deleteChanges?: number;
   failSecondInsert?: boolean;
+  pauseFirstInsert?: PauseFirstInsert;
   punches?: PunchState[];
 }) {
   const period = { endedAt: 1000, id: 33, startedAt: 0 };
@@ -26,9 +33,11 @@ function createCorrectionDatabase(options?: {
       { id: 2, status: 'OUT', timestamp: 800, trayPeriodId: period.id },
     ]).map((punch) => ({ ...punch })),
   };
+  let insideExclusiveTransaction = false;
   let nextId = 3;
   let insertCount = 0;
-  const getFirstAsync = jest.fn(async (sql: string, punchId: number) => {
+
+  const readFirst = async (sql: string, punchId: number) => {
     if (!sql.includes('WHERE wear_punches.id')) {
       return null;
     }
@@ -44,8 +53,9 @@ function createCorrectionDatabase(options?: {
           tray_period_id: savedPunch.trayPeriodId,
         }
       : null;
-  });
-  const getAllAsync = jest.fn(async (sql: string, ...parameters: number[]) => {
+  };
+
+  const readAll = async (sql: string, ...parameters: number[]) => {
     if (sql.includes('SELECT id, started_at, ended_at')) {
       const [startTimestamp, endTimestamp] = parameters;
       return startTimestamp >= period.startedAt && endTimestamp <= period.endedAt
@@ -62,8 +72,9 @@ function createCorrectionDatabase(options?: {
         timestamp: punch.timestamp,
         tray_period_id: punch.trayPeriodId,
       }));
-  });
-  const runAsync = jest.fn(async (sql: string, ...parameters: (number | string)[]) => {
+  };
+
+  const write = async (sql: string, ...parameters: (number | string)[]) => {
     if (sql.includes('DELETE FROM wear_punches')) {
       const [trayPeriodId, ...punchParameters] = parameters;
       const expectedPunches: { id: number; status: string; timestamp: number }[] = [];
@@ -121,30 +132,73 @@ function createCorrectionDatabase(options?: {
     const id = nextId;
     nextId += 1;
     state.punches.push({ id, status, timestamp, trayPeriodId });
-    return { changes: 1, lastInsertRowId: id };
-  });
-  const withTransactionAsync = jest.fn(async (task: () => Promise<void>) => {
-    const beforeTransaction = state.punches.map((punch) => ({ ...punch }));
 
-    try {
-      await task();
-    } catch (error) {
-      state.punches = beforeTransaction;
-      throw error;
+    if (insertCount === 1 && options?.pauseFirstInsert) {
+      options.pauseFirstInsert.started();
+      await options.pauseFirstInsert.release;
     }
+
+    return { changes: 1, lastInsertRowId: id };
+  };
+
+  const transactionGetFirstAsync = jest.fn(readFirst);
+  const transactionGetAllAsync = jest.fn(readAll);
+  const transactionRunAsync = jest.fn(write);
+  const rootGetFirstAsync = jest.fn(async (...args: Parameters<typeof readFirst>) => {
+    if (insideExclusiveTransaction) {
+      throw new Error('Shared connection read entered an exclusive mutation.');
+    }
+    return readFirst(...args);
   });
+  const rootGetAllAsync = jest.fn(async (...args: Parameters<typeof readAll>) => {
+    if (insideExclusiveTransaction) {
+      throw new Error('Shared connection read entered an exclusive mutation.');
+    }
+    return readAll(...args);
+  });
+  const rootRunAsync = jest.fn(async () => {
+    if (insideExclusiveTransaction) {
+      throw new Error('database is locked');
+    }
+    throw new Error('Unexpected shared-connection write.');
+  });
+  const transaction = {
+    getAllAsync: transactionGetAllAsync,
+    getFirstAsync: transactionGetFirstAsync,
+    runAsync: transactionRunAsync,
+  } as unknown as SQLiteDatabase;
+  const withExclusiveTransactionAsync = jest.fn(
+    async (task: (transaction: SQLiteDatabase) => Promise<void>) => {
+      const beforeTransaction = state.punches.map((punch) => ({ ...punch }));
+      insideExclusiveTransaction = true;
+
+      try {
+        await task(transaction);
+      } catch (error) {
+        state.punches = beforeTransaction;
+        throw error;
+      } finally {
+        insideExclusiveTransaction = false;
+      }
+    },
+  );
 
   return {
-    db: { getAllAsync, getFirstAsync, runAsync, withTransactionAsync } as unknown as SQLiteDatabase,
+    db: {
+      getAllAsync: rootGetAllAsync,
+      getFirstAsync: rootGetFirstAsync,
+      runAsync: rootRunAsync,
+      withExclusiveTransactionAsync,
+    } as unknown as SQLiteDatabase,
     period,
-    runAsync,
+    runAsync: transactionRunAsync,
     state,
-    withTransactionAsync,
+    withExclusiveTransactionAsync,
   };
 }
 
 describe('Edit In/Out Times persistence', () => {
-  it('edits a punch timestamp in a transaction', async () => {
+  it('edits a punch timestamp in an exclusive transaction', async () => {
     const database = createCorrectionDatabase();
 
     await expect(updateWearPunchTimestamp(database.db, 2, 700)).resolves.toEqual({
@@ -155,7 +209,7 @@ describe('Edit In/Out Times persistence', () => {
     });
 
     expect(database.state.punches.find((punch) => punch.id === 2)?.timestamp).toBe(700);
-    expect(database.withTransactionAsync).toHaveBeenCalledTimes(1);
+    expect(database.withExclusiveTransactionAsync).toHaveBeenCalledTimes(1);
     expect(database.runAsync).toHaveBeenCalledWith(
       expect.stringContaining('UPDATE wear_punches'),
       700,
@@ -208,7 +262,7 @@ describe('Edit In/Out Times persistence', () => {
     ).rejects.toThrow('Simulated second insert failure.');
 
     expect(database.state.punches).toEqual(originalPunches);
-    expect(database.withTransactionAsync).toHaveBeenCalledTimes(1);
+    expect(database.withExclusiveTransactionAsync).toHaveBeenCalledTimes(1);
   });
 
   it('deletes an interior state interval in one transaction', async () => {
@@ -237,7 +291,7 @@ describe('Edit In/Out Times persistence', () => {
       'IN',
       400,
     );
-    expect(database.withTransactionAsync).toHaveBeenCalledTimes(1);
+    expect(database.withExclusiveTransactionAsync).toHaveBeenCalledTimes(1);
   });
 
   it('deletes only the final event in its tray period', async () => {
@@ -299,5 +353,42 @@ describe('Edit In/Out Times persistence', () => {
       deleteWearPunch(database.db, editablePunch!.deletionPlan!),
     ).rejects.toThrow('Punch history changed');
     expect(database.state.punches).toEqual(punches);
+  });
+
+  it('keeps a simultaneous tracker toggle outside a punch-correction transaction', async () => {
+    let releaseFirstInsert!: () => void;
+    const release = new Promise<void>((resolve) => {
+      releaseFirstInsert = resolve;
+    });
+    let notifyFirstInsert!: () => void;
+    const firstInsertStarted = new Promise<void>((resolve) => {
+      notifyFirstInsert = resolve;
+    });
+    const database = createCorrectionDatabase({
+      pauseFirstInsert: {
+        release,
+        started: notifyFirstInsert,
+      },
+    });
+
+    const correction = addMissingWearPeriod(database.db, {
+      endTimestamp: 400,
+      startTimestamp: 300,
+      status: 'OUT',
+    });
+    await firstInsertStarted;
+
+    await expect(toggleWearStatus(database.db, 33, 'OUT', 900)).rejects.toThrow(
+      'database is locked',
+    );
+
+    releaseFirstInsert();
+    await expect(correction).resolves.toHaveLength(2);
+
+    expect(
+      [...database.state.punches]
+        .sort((left, right) => left.timestamp - right.timestamp)
+        .map((punch) => punch.status),
+    ).toEqual(['IN', 'OUT', 'IN', 'OUT']);
   });
 });

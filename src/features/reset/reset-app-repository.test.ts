@@ -8,20 +8,23 @@ describe('resetAppData', () => {
     const execAsync = jest.fn(async (_sql: string) => {
       expect(insideTransaction).toBe(true);
     });
-    const withTransactionAsync = jest.fn(async (task: () => Promise<void>) => {
-      insideTransaction = true;
+    const transaction = { execAsync } as unknown as SQLiteDatabase;
+    const withExclusiveTransactionAsync = jest.fn(
+      async (task: (transaction: SQLiteDatabase) => Promise<void>) => {
+        insideTransaction = true;
 
-      try {
-        await task();
-      } finally {
-        insideTransaction = false;
-      }
-    });
-    const db = { execAsync, withTransactionAsync } as unknown as SQLiteDatabase;
+        try {
+          await task(transaction);
+        } finally {
+          insideTransaction = false;
+        }
+      },
+    );
+    const db = { withExclusiveTransactionAsync } as unknown as SQLiteDatabase;
 
     await resetAppData(db);
 
-    expect(withTransactionAsync).toHaveBeenCalledTimes(1);
+    expect(withExclusiveTransactionAsync).toHaveBeenCalledTimes(1);
     expect(execAsync).toHaveBeenCalledTimes(1);
     const sql = execAsync.mock.calls[0][0];
     expect(sql).toContain('DELETE FROM wear_punches');
@@ -38,8 +41,11 @@ describe('resetAppData', () => {
     const execAsync = jest.fn(async (_sql: string) => {
       throw error;
     });
-    const withTransactionAsync = jest.fn(async (task: () => Promise<void>) => task());
-    const db = { execAsync, withTransactionAsync } as unknown as SQLiteDatabase;
+    const transaction = { execAsync } as unknown as SQLiteDatabase;
+    const withExclusiveTransactionAsync = jest.fn(
+      async (task: (transaction: SQLiteDatabase) => Promise<void>) => task(transaction),
+    );
+    const db = { withExclusiveTransactionAsync } as unknown as SQLiteDatabase;
 
     await expect(resetAppData(db)).rejects.toBe(error);
   });

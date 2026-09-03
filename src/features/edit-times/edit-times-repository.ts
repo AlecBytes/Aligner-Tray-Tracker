@@ -1,6 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import type { WearStatus } from '@/db/schema';
+import { withUserMutationTransaction } from '@/db/mutation-transaction';
 import {
   assertValidWearTimeline,
   CorrectionValidationError,
@@ -36,6 +37,8 @@ type TrayPeriodRow = {
   id: number;
   started_at: number;
 };
+
+type WearPunchReader = Pick<SQLiteDatabase, 'getAllAsync'>;
 
 export class CorrectionConflictError extends Error {
   constructor() {
@@ -84,7 +87,7 @@ function deletionPlansMatch(
   );
 }
 
-async function getTrayPeriodPunches(db: SQLiteDatabase, trayPeriodId: number) {
+async function getTrayPeriodPunches(db: WearPunchReader, trayPeriodId: number) {
   const rows = await db.getAllAsync<WearPunchRow>(
     `SELECT id, tray_period_id, status, timestamp
      FROM wear_punches
@@ -171,8 +174,8 @@ export async function updateWearPunchTimestamp(
 ) {
   let correctedPunch: EditableWearPunch | null = null;
 
-  await db.withTransactionAsync(async () => {
-    const row = await db.getFirstAsync<WearPunchWithPeriodRow>(
+  await withUserMutationTransaction(db, async (transaction) => {
+    const row = await transaction.getFirstAsync<WearPunchWithPeriodRow>(
       `SELECT wear_punches.id, wear_punches.tray_period_id,
               wear_punches.status, wear_punches.timestamp,
               tray_periods.started_at, tray_periods.ended_at
@@ -192,10 +195,10 @@ export async function updateWearPunchTimestamp(
       id: row.tray_period_id,
       started_at: row.started_at,
     });
-    const punches = await getTrayPeriodPunches(db, period.id);
+    const punches = await getTrayPeriodPunches(transaction, period.id);
     validateEditedPunchTimestamp(period, punches, punchId, newTimestamp);
 
-    const result = await db.runAsync(
+    const result = await transaction.runAsync(
       `UPDATE wear_punches
        SET timestamp = ?
        WHERE id = ? AND tray_period_id = ? AND timestamp = ?`,
@@ -225,8 +228,8 @@ export async function deleteWearPunch(
 ) {
   let deletedPunches: EditableWearPunch[] | null = null;
 
-  await db.withTransactionAsync(async () => {
-    const row = await db.getFirstAsync<WearPunchWithPeriodRow>(
+  await withUserMutationTransaction(db, async (transaction) => {
+    const row = await transaction.getFirstAsync<WearPunchWithPeriodRow>(
       `SELECT wear_punches.id, wear_punches.tray_period_id,
               wear_punches.status, wear_punches.timestamp,
               tray_periods.started_at, tray_periods.ended_at
@@ -246,7 +249,7 @@ export async function deleteWearPunch(
       id: row.tray_period_id,
       started_at: row.started_at,
     });
-    const punches = await getTrayPeriodPunches(db, period.id);
+    const punches = await getTrayPeriodPunches(transaction, period.id);
     let currentPlan: WearPunchDeletionPlan;
 
     try {
@@ -264,7 +267,7 @@ export async function deleteWearPunch(
       deleteParameters.push(punch.id, punch.status, punch.timestamp);
       return '(id = ? AND status = ? AND timestamp = ?)';
     });
-    const result = await db.runAsync(
+    const result = await transaction.runAsync(
       `DELETE FROM wear_punches
        WHERE tray_period_id = ?
          AND (${deletePredicates.join(' OR ')})`,
@@ -296,8 +299,8 @@ export async function addMissingWearPeriod(
 ) {
   let insertedPunches: EditableWearPunch[] | null = null;
 
-  await db.withTransactionAsync(async () => {
-    const periodRows = await db.getAllAsync<TrayPeriodRow>(
+  await withUserMutationTransaction(db, async (transaction) => {
+    const periodRows = await transaction.getAllAsync<TrayPeriodRow>(
       `SELECT id, started_at, ended_at
        FROM tray_periods
        WHERE treatment_id = (
@@ -321,12 +324,12 @@ export async function addMissingWearPeriod(
     }
 
     const period = mapTrayPeriod(periodRows[0]);
-    const punches = await getTrayPeriodPunches(db, period.id);
+    const punches = await getTrayPeriodPunches(transaction, period.id);
     const plannedPunches = planMissingWearPeriod(period, punches, input);
     const created: EditableWearPunch[] = [];
 
     for (const punch of plannedPunches) {
-      const result = await db.runAsync(
+      const result = await transaction.runAsync(
         `INSERT INTO wear_punches (tray_period_id, status, timestamp)
          VALUES (?, ?, ?)`,
         period.id,

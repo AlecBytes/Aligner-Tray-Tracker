@@ -1,6 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import type { WearStatus } from '@/db/schema';
+import { withUserMutationTransaction } from '@/db/mutation-transaction';
 
 type ActiveTrayRow = {
   active_period_count: number;
@@ -44,8 +45,8 @@ export async function changeTray(
 ) {
   let changedTray: ChangeTrayResult | null = null;
 
-  await db.withTransactionAsync(async () => {
-    const activeTray = await db.getFirstAsync<ActiveTrayRow>(
+  await withUserMutationTransaction(db, async (transaction) => {
+    const activeTray = await transaction.getFirstAsync<ActiveTrayRow>(
       `SELECT
          tray_periods.treatment_id,
          treatment_plan_versions.total_trays,
@@ -104,7 +105,7 @@ export async function changeTray(
     let currentTrayOutPunchId: number | null = null;
 
     if (activeTray.current_status === 'IN') {
-      const currentTrayOutPunch = await db.runAsync(
+      const currentTrayOutPunch = await transaction.runAsync(
         `INSERT INTO wear_punches (tray_period_id, status, timestamp)
          VALUES (?, ?, ?)`,
         input.currentTrayPeriodId,
@@ -114,7 +115,7 @@ export async function changeTray(
       currentTrayOutPunchId = currentTrayOutPunch.lastInsertRowId;
     }
 
-    const endedTray = await db.runAsync(
+    const endedTray = await transaction.runAsync(
       `UPDATE tray_periods
        SET ended_at = ?
        WHERE id = ? AND ended_at IS NULL`,
@@ -126,14 +127,14 @@ export async function changeTray(
       throw new TrayChangeConflictError();
     }
 
-    const newTrayPeriod = await db.runAsync(
+    const newTrayPeriod = await transaction.runAsync(
       `INSERT INTO tray_periods (treatment_id, tray_number, started_at)
        VALUES (?, ?, ?)`,
       activeTray.treatment_id,
       input.trayNumber,
       timestamp,
     );
-    const newTrayWearPunch = await db.runAsync(
+    const newTrayWearPunch = await transaction.runAsync(
       `INSERT INTO wear_punches (tray_period_id, status, timestamp)
        VALUES (?, ?, ?)`,
       newTrayPeriod.lastInsertRowId,

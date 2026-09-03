@@ -1,8 +1,10 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
+import { withUserMutationTransaction } from '@/db/mutation-transaction';
+
 export async function resetAppData(db: SQLiteDatabase) {
-  await db.withTransactionAsync(async () => {
-    await db.execAsync(`
+  await withUserMutationTransaction(db, async (transaction) => {
+    await transaction.execAsync(`
       DELETE FROM wear_punches;
       DELETE FROM tray_periods;
       DELETE FROM treatment_plan_versions;

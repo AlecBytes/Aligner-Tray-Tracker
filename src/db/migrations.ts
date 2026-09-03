@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-export const DATABASE_VERSION = 4;
+export const DATABASE_VERSION = 5;
 
 const migrationOne = `
   CREATE TABLE IF NOT EXISTS treatments (
@@ -84,6 +84,12 @@ const migrationFour = `
   VALUES (1, lower(hex(randomblob(32))));
 `;
 
+const migrationFive = `
+  CREATE UNIQUE INDEX IF NOT EXISTS tray_periods_one_active_per_treatment_idx
+    ON tray_periods (treatment_id)
+    WHERE ended_at IS NULL;
+`;
+
 export async function migrateDatabase(db: SQLiteDatabase) {
   await db.execAsync('PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;');
 
@@ -96,6 +102,8 @@ export async function migrateDatabase(db: SQLiteDatabase) {
     );
   }
 
+  // Migrations run during SQLiteProvider initialization before app consumers receive the database.
+  // They intentionally keep the broadly supported transaction API, including on web.
   if (currentVersion < 1) {
     await db.withTransactionAsync(async () => {
       await db.execAsync(migrationOne);
@@ -121,6 +129,13 @@ export async function migrateDatabase(db: SQLiteDatabase) {
     await db.withTransactionAsync(async () => {
       await db.execAsync(migrationFour);
       await db.execAsync('PRAGMA user_version = 4');
+    });
+  }
+
+  if (currentVersion < 5) {
+    await db.withTransactionAsync(async () => {
+      await db.execAsync(migrationFive);
+      await db.execAsync('PRAGMA user_version = 5');
     });
   }
 }

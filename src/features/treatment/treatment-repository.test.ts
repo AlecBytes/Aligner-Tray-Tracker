@@ -25,21 +25,24 @@ function createDatabaseMock(existingTreatment = false) {
     expect(insideTransaction).toBe(true);
     return { changes: 1, lastInsertRowId: insertedIds.shift() ?? 0 };
   });
-  const withTransactionAsync = jest.fn(async (task: () => Promise<void>) => {
-    insideTransaction = true;
+  const transaction = { getFirstAsync, runAsync } as unknown as SQLiteDatabase;
+  const withExclusiveTransactionAsync = jest.fn(
+    async (task: (transaction: SQLiteDatabase) => Promise<void>) => {
+      insideTransaction = true;
 
-    try {
-      await task();
-    } finally {
-      insideTransaction = false;
-    }
-  });
+      try {
+        await task(transaction);
+      } finally {
+        insideTransaction = false;
+      }
+    },
+  );
 
   return {
-    db: { getFirstAsync, runAsync, withTransactionAsync } as unknown as SQLiteDatabase,
+    db: { withExclusiveTransactionAsync } as unknown as SQLiteDatabase,
     getFirstAsync,
     runAsync,
-    withTransactionAsync,
+    withExclusiveTransactionAsync,
   };
 }
 
@@ -55,7 +58,7 @@ describe('createInitialTreatment', () => {
       wearPunchId: 104,
     });
 
-    expect(database.withTransactionAsync).toHaveBeenCalledTimes(1);
+    expect(database.withExclusiveTransactionAsync).toHaveBeenCalledTimes(1);
     expect(database.getFirstAsync).toHaveBeenCalledWith(
       'SELECT 1 AS treatment_exists FROM treatments LIMIT 1',
     );
@@ -95,18 +98,22 @@ describe('createInitialTreatment', () => {
       'A treatment has already been created.',
     );
 
-    expect(database.withTransactionAsync).toHaveBeenCalledTimes(1);
+    expect(database.withExclusiveTransactionAsync).toHaveBeenCalledTimes(1);
     expect(database.runAsync).not.toHaveBeenCalled();
   });
 });
 
 describe('hasTreatment', () => {
   it('reports whether setup has created a treatment record', async () => {
-    const withoutTreatment = createDatabaseMock();
-    const withTreatment = createDatabaseMock(true);
+    const withoutTreatment = {
+      getFirstAsync: jest.fn(async () => null),
+    } as unknown as SQLiteDatabase;
+    const withTreatment = {
+      getFirstAsync: jest.fn(async () => ({ treatment_exists: 1 })),
+    } as unknown as SQLiteDatabase;
 
-    await expect(hasTreatment(withoutTreatment.db)).resolves.toBe(false);
-    await expect(hasTreatment(withTreatment.db)).resolves.toBe(true);
+    await expect(hasTreatment(withoutTreatment)).resolves.toBe(false);
+    await expect(hasTreatment(withTreatment)).resolves.toBe(true);
   });
 });
 
