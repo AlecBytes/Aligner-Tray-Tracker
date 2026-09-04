@@ -2,6 +2,18 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 export const DATABASE_VERSION = 5;
 
+type DuplicateActiveTrayPeriodsRow = {
+  active_period_count: number;
+  treatment_id: number;
+};
+
+export class DatabaseIntegrityError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'DatabaseIntegrityError';
+  }
+}
+
 const migrationOne = `
   CREATE TABLE IF NOT EXISTS treatments (
     id INTEGER PRIMARY KEY NOT NULL,
@@ -134,6 +146,23 @@ export async function migrateDatabase(db: SQLiteDatabase) {
 
   if (currentVersion < 5) {
     await db.withTransactionAsync(async () => {
+      const duplicateActiveTrayPeriods =
+        await db.getFirstAsync<DuplicateActiveTrayPeriodsRow>(
+          `SELECT treatment_id, COUNT(*) AS active_period_count
+           FROM tray_periods
+           WHERE ended_at IS NULL
+           GROUP BY treatment_id
+           HAVING COUNT(*) > 1
+           ORDER BY treatment_id
+           LIMIT 1`,
+        );
+
+      if (duplicateActiveTrayPeriods !== null) {
+        throw new DatabaseIntegrityError(
+          `Cannot upgrade the local database because treatment ${duplicateActiveTrayPeriods.treatment_id} has ${duplicateActiveTrayPeriods.active_period_count} active tray periods.`,
+        );
+      }
+
       await db.execAsync(migrationFive);
       await db.execAsync('PRAGMA user_version = 5');
     });
