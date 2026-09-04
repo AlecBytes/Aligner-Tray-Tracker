@@ -141,7 +141,8 @@ private final class AlignerSQLiteConnection {
 }
 
 enum AlignerTrackerStore {
-  private static let supportedDatabaseVersion = 4
+  private static let minimumSupportedDatabaseVersion = 4
+  private static let maximumSupportedDatabaseVersion = 5
 
   static func ensureWearStatus(
     _ desiredStatus: AlignerWearStatus,
@@ -434,7 +435,7 @@ enum AlignerTrackerStore {
       throw AlignerTrackerStoreError.invalidTrackerState
     }
     let version = Int(sqlite3_column_int64(statement, 0))
-    guard version >= supportedDatabaseVersion else {
+    guard (minimumSupportedDatabaseVersion...maximumSupportedDatabaseVersion).contains(version) else {
       throw AlignerTrackerStoreError.invalidTrackerState
     }
   }

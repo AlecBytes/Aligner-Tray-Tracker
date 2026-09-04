@@ -5,6 +5,21 @@ internal import AlignerTrackerIntents
 import Foundation
 
 @available(iOS 16.4, *)
+private enum AlignerTrackerAppIntentError: Error, CustomLocalizedStringResourceConvertible {
+  case noActiveTreatment
+  case updateFailed
+
+  var localizedStringResource: LocalizedStringResource {
+    switch self {
+    case .noActiveTreatment:
+      return "Open Aligner Tracker to set up your treatment first."
+    case .updateFailed:
+      return "I couldn't update Aligner Tracker."
+    }
+  }
+}
+
+@available(iOS 16.4, *)
 struct MarkTraysOutIntent: AppIntent {
   static let title: LocalizedStringResource = "Mark Trays OUT"
   static let description = IntentDescription(
@@ -17,24 +32,26 @@ struct MarkTraysOutIntent: AppIntent {
     let invocationTimestamp = Int64(
       (Date().timeIntervalSince1970 * 1_000).rounded(.down)
     )
+    let result: AlignerTrackerIntentResult
     do {
-      let result = try await AlignerTrackerIntentBridge.ensureWearStatus(
+      result = try await AlignerTrackerIntentBridge.ensureWearStatus(
         "OUT",
         timestamp: invocationTimestamp
       )
-      switch result.outcome {
-      case .changed:
-        if result.notificationFailed {
-          return .result(dialog: "Trays marked out, but reminders couldn't be refreshed.")
-        }
-        return .result(dialog: "Trays marked out.")
-      case .alreadyInState:
-        return .result(dialog: "Your trays are already out.")
-      case .noActiveTreatment:
-        return .result(dialog: "Open Aligner Tracker to set up your treatment first.")
-      }
     } catch {
-      return .result(dialog: "I couldn't update Aligner Tracker.")
+      throw AlignerTrackerAppIntentError.updateFailed
+    }
+
+    switch result.outcome {
+    case .changed:
+      if result.notificationFailed {
+        return .result(dialog: "Trays marked out, but reminders couldn't be refreshed.")
+      }
+      return .result(dialog: "Trays marked out.")
+    case .alreadyInState:
+      return .result(dialog: "Your trays are already out.")
+    case .noActiveTreatment:
+      throw AlignerTrackerAppIntentError.noActiveTreatment
     }
   }
 }
@@ -52,24 +69,26 @@ struct MarkTraysInIntent: AppIntent {
     let invocationTimestamp = Int64(
       (Date().timeIntervalSince1970 * 1_000).rounded(.down)
     )
+    let result: AlignerTrackerIntentResult
     do {
-      let result = try await AlignerTrackerIntentBridge.ensureWearStatus(
+      result = try await AlignerTrackerIntentBridge.ensureWearStatus(
         "IN",
         timestamp: invocationTimestamp
       )
-      switch result.outcome {
-      case .changed:
-        if result.notificationFailed {
-          return .result(dialog: "Trays marked in, but reminders couldn't be refreshed.")
-        }
-        return .result(dialog: "Trays marked in.")
-      case .alreadyInState:
-        return .result(dialog: "Your trays are already in.")
-      case .noActiveTreatment:
-        return .result(dialog: "Open Aligner Tracker to set up your treatment first.")
-      }
     } catch {
-      return .result(dialog: "I couldn't update Aligner Tracker.")
+      throw AlignerTrackerAppIntentError.updateFailed
+    }
+
+    switch result.outcome {
+    case .changed:
+      if result.notificationFailed {
+        return .result(dialog: "Trays marked in, but reminders couldn't be refreshed.")
+      }
+      return .result(dialog: "Trays marked in.")
+    case .alreadyInState:
+      return .result(dialog: "Your trays are already in.")
+    case .noActiveTreatment:
+      throw AlignerTrackerAppIntentError.noActiveTreatment
     }
   }
 }

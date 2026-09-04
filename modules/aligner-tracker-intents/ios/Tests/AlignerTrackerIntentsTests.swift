@@ -41,6 +41,37 @@ final class AlignerTrackerStoreTests: XCTestCase {
     }
   }
 
+  func testDatabaseSchemaCompatibilityIsBounded() throws {
+    for version in [4, 5] {
+      let database = try makeDatabase(
+        databaseVersion: version,
+        initialStatus: "IN"
+      )
+      let result = try AlignerTrackerStore.ensureWearStatus(
+        .outTrays,
+        timestamp: 2_000,
+        databaseURL: database
+      )
+      assertChanged(result, status: .outTrays, timestamp: 2_000)
+      XCTAssertEqual(try punchCount(database), 2)
+    }
+
+    for version in [3, 6] {
+      let database = try makeDatabase(
+        databaseVersion: version,
+        initialStatus: "IN"
+      )
+      XCTAssertThrowsError(
+        try AlignerTrackerStore.ensureWearStatus(
+          .outTrays,
+          timestamp: 2_000,
+          databaseURL: database
+        )
+      )
+      XCTAssertEqual(try punchCount(database), 1)
+    }
+  }
+
   func testMissingActiveTreatmentReturnsWithoutWriting() throws {
     let database = try makeDatabase(activePeriodCount: 0, initialStatus: nil)
     let result = try AlignerTrackerStore.ensureWearStatus(
@@ -55,7 +86,11 @@ final class AlignerTrackerStoreTests: XCTestCase {
   }
 
   func testMultipleActivePeriodsFailWithoutWriting() throws {
-    let database = try makeDatabase(activePeriodCount: 2, initialStatus: "IN")
+    let database = try makeDatabase(
+      activePeriodCount: 2,
+      databaseVersion: 4,
+      initialStatus: "IN"
+    )
     XCTAssertThrowsError(
       try AlignerTrackerStore.ensureWearStatus(
         .outTrays,
@@ -349,6 +384,7 @@ final class AlignerTrackerStoreTests: XCTestCase {
 
   private func makeDatabase(
     activePeriodCount: Int = 1,
+    databaseVersion: Int = 5,
     initialStatus: String?,
     includePlan: Bool = true
   ) throws -> URL {
@@ -364,7 +400,7 @@ final class AlignerTrackerStoreTests: XCTestCase {
 
     try execute(
       """
-      PRAGMA user_version = 4;
+      PRAGMA user_version = \(databaseVersion);
       PRAGMA journal_mode = WAL;
       CREATE TABLE treatments (id INTEGER PRIMARY KEY, created_at INTEGER NOT NULL);
       CREATE TABLE treatment_plan_versions (
@@ -403,6 +439,17 @@ final class AlignerTrackerStoreTests: XCTestCase {
       """,
       database: database
     )
+
+    if databaseVersion >= 5 {
+      try execute(
+        """
+        CREATE UNIQUE INDEX tray_periods_one_active_per_treatment_idx
+          ON tray_periods (treatment_id)
+          WHERE ended_at IS NULL;
+        """,
+        database: database
+      )
+    }
 
     if includePlan {
       try execute(
