@@ -47,6 +47,16 @@ docs/mvp-plan.md.
 
 Do not implement future roadmap features unless explicitly requested.
 
+## SQLite Mutation Transactions
+
+- Follow the transaction policy in `docs/sqlite-transactions.md` when adding or changing SQLite writes.
+- Keep single-statement mutations atomic in SQL where practical.
+- On native platforms, user-initiated multi-step SQLite mutations must use `withExclusiveTransactionAsync` so unrelated app queries cannot join the transaction.
+- Execute every query in a multi-step mutation through the transaction-scoped connection passed into the operation; do not fall back to the shared database connection inside the transaction.
+- `withExclusiveTransactionAsync` is not supported on web, so preserve a scoped `withTransactionAsync` fallback there when the same repository is shared across platforms.
+- Migration transactions run during `SQLiteProvider` initialization before app consumers receive the database and may continue using `withTransactionAsync`.
+- Prefer database constraints for critical cross-record invariants when SQLite can enforce them cheaply.
+
 ## UI and Layout Conventions
 
 - Screen scrolling must be intentional.

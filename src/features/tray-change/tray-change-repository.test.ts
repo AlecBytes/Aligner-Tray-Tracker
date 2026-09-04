@@ -5,6 +5,7 @@ import {
   InvalidTrayNumberError,
   TrayChangeConflictError,
 } from '@/features/tray-change/tray-change-repository';
+import { toggleWearStatus } from '@/features/tracker/tracker-repository';
 
 type DatabaseOptions = {
   currentStatus?: 'IN' | 'OUT';
@@ -38,21 +39,24 @@ function createDatabaseMock({
     expect(insideTransaction).toBe(true);
     return { changes: 1, lastInsertRowId: insertedIds.shift() ?? 0 };
   });
-  const withTransactionAsync = jest.fn(async (task: () => Promise<void>) => {
-    insideTransaction = true;
+  const transaction = { getFirstAsync, runAsync } as unknown as SQLiteDatabase;
+  const withExclusiveTransactionAsync = jest.fn(
+    async (task: (transaction: SQLiteDatabase) => Promise<void>) => {
+      insideTransaction = true;
 
-    try {
-      await task();
-    } finally {
-      insideTransaction = false;
-    }
-  });
+      try {
+        await task(transaction);
+      } finally {
+        insideTransaction = false;
+      }
+    },
+  );
 
   return {
-    db: { getFirstAsync, runAsync, withTransactionAsync } as unknown as SQLiteDatabase,
+    db: { withExclusiveTransactionAsync } as unknown as SQLiteDatabase,
     getFirstAsync,
     runAsync,
-    withTransactionAsync,
+    withExclusiveTransactionAsync,
   };
 }
 
@@ -72,7 +76,7 @@ describe('changeTray', () => {
       wearPunchId: 103,
     });
 
-    expect(database.withTransactionAsync).toHaveBeenCalledTimes(1);
+    expect(database.withExclusiveTransactionAsync).toHaveBeenCalledTimes(1);
     expect(database.runAsync.mock.calls).toEqual([
       [expect.stringContaining('UPDATE tray_periods'), timestamp, 33],
       [expect.stringContaining('INSERT INTO tray_periods'), 12, 10, timestamp],
@@ -205,22 +209,120 @@ describe('changeTray', () => {
       });
       return { changes: 1, lastInsertRowId: 81 };
     });
-    const withTransactionAsync = jest.fn(async (task: () => Promise<void>) => {
-      const beforeTransaction = JSON.parse(JSON.stringify(state));
+    const transaction = { getFirstAsync, runAsync } as unknown as SQLiteDatabase;
+    const withExclusiveTransactionAsync = jest.fn(
+      async (task: (transaction: SQLiteDatabase) => Promise<void>) => {
+        const beforeTransaction = JSON.parse(JSON.stringify(state));
 
-      try {
-        await task();
-      } catch (error) {
-        state.punches = beforeTransaction.punches;
-        state.trayPeriods = beforeTransaction.trayPeriods;
-        throw error;
-      }
-    });
-    const db = { getFirstAsync, runAsync, withTransactionAsync } as unknown as SQLiteDatabase;
+        try {
+          await task(transaction);
+        } catch (error) {
+          state.punches = beforeTransaction.punches;
+          state.trayPeriods = beforeTransaction.trayPeriods;
+          throw error;
+        }
+      },
+    );
+    const db = { withExclusiveTransactionAsync } as unknown as SQLiteDatabase;
 
     await expect(
       changeTray(db, { currentTrayPeriodId: 33, trayNumber: 10 }, timestamp),
     ).rejects.toThrow('Simulated new-tray punch failure.');
     expect(state).toEqual(originalState);
+  });
+
+  it('keeps a simultaneous tracker toggle outside the tray-change transaction', async () => {
+    const state = {
+      punches: [{ id: 80, status: 'OUT' as const, timestamp: timestamp - 1000, trayPeriodId: 33 }],
+      trayPeriods: [
+        {
+          endedAt: null as number | null,
+          id: 33,
+          startedAt: timestamp - 10_000,
+          trayNumber: 9,
+          treatmentId: 12,
+        },
+      ],
+    };
+    let exclusiveWriteActive = false;
+    let releaseWrite!: () => void;
+    const writeStarted = new Promise<void>((resolve) => {
+      releaseWrite = resolve;
+    });
+    let notifyWriteStarted!: () => void;
+    const transactionReachedWrite = new Promise<void>((resolve) => {
+      notifyWriteStarted = resolve;
+    });
+    const transactionGetFirstAsync = jest.fn(async () => ({
+      active_period_count: 1,
+      current_status: 'OUT' as const,
+      current_timestamp: timestamp - 1000,
+      total_trays: 48,
+      treatment_id: 12,
+    }));
+    const transactionRunAsync = jest.fn(
+      async (sql: string, ...parameters: (number | string)[]) => {
+        if (sql.includes('UPDATE tray_periods')) {
+          exclusiveWriteActive = true;
+          state.trayPeriods[0].endedAt = parameters[0] as number;
+          notifyWriteStarted();
+          await writeStarted;
+          return { changes: 1, lastInsertRowId: 0 };
+        }
+
+        if (sql.includes('INSERT INTO tray_periods')) {
+          state.trayPeriods.push({
+            endedAt: null,
+            id: 34,
+            startedAt: parameters[2] as number,
+            trayNumber: parameters[1] as number,
+            treatmentId: parameters[0] as number,
+          });
+          return { changes: 1, lastInsertRowId: 34 };
+        }
+
+        state.punches.push({
+          id: 81,
+          status: parameters[1] as 'OUT',
+          timestamp: parameters[2] as number,
+          trayPeriodId: parameters[0] as number,
+        });
+        return { changes: 1, lastInsertRowId: 81 };
+      },
+    );
+    const transaction = {
+      getFirstAsync: transactionGetFirstAsync,
+      runAsync: transactionRunAsync,
+    } as unknown as SQLiteDatabase;
+    const rootRunAsync = jest.fn(async () => {
+      if (exclusiveWriteActive) {
+        throw new Error('database is locked');
+      }
+      return { changes: 0, lastInsertRowId: 0 };
+    });
+    const withExclusiveTransactionAsync = jest.fn(
+      async (task: (transaction: SQLiteDatabase) => Promise<void>) => {
+        try {
+          await task(transaction);
+        } finally {
+          exclusiveWriteActive = false;
+        }
+      },
+    );
+    const db = { runAsync: rootRunAsync, withExclusiveTransactionAsync } as unknown as SQLiteDatabase;
+
+    const trayChange = changeTray(db, { currentTrayPeriodId: 33, trayNumber: 10 }, timestamp);
+    await transactionReachedWrite;
+
+    await expect(toggleWearStatus(db, 33, 'OUT', timestamp + 1)).rejects.toThrow(
+      'database is locked',
+    );
+
+    releaseWrite();
+    await expect(trayChange).resolves.toMatchObject({ trayNumber: 10, trayPeriodId: 34 });
+
+    expect(state.trayPeriods.filter((period) => period.endedAt === null)).toHaveLength(1);
+    expect(state.trayPeriods.find((period) => period.endedAt === null)?.id).toBe(34);
+    expect(state.punches.at(-1)).toMatchObject({ status: 'OUT', trayPeriodId: 34 });
   });
 });

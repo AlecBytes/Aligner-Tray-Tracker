@@ -1,6 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import type { TreatmentPlanVersion } from '@/db/schema';
+import { withUserMutationTransaction } from '@/db/mutation-transaction';
 import {
   prescribedHoursToMinutes,
   type TreatmentPlanInput,
@@ -146,18 +147,22 @@ export async function createInitialTreatment(
 ) {
   let createdRecords: InitialTreatmentRecordIds | null = null;
 
-  await db.withTransactionAsync(async () => {
-    if (await hasTreatment(db)) {
+  await withUserMutationTransaction(db, async (transaction) => {
+    const existingTreatment = await transaction.getFirstAsync<{ treatment_exists: number }>(
+      'SELECT 1 AS treatment_exists FROM treatments LIMIT 1',
+    );
+
+    if (existingTreatment?.treatment_exists === 1) {
       throw new Error('A treatment has already been created.');
     }
 
-    const treatment = await db.runAsync(
+    const treatment = await transaction.runAsync(
       'INSERT INTO treatments (created_at) VALUES (?)',
       timestamp,
     );
     const treatmentId = treatment.lastInsertRowId;
 
-    const plan = await db.runAsync(
+    const plan = await transaction.runAsync(
       `INSERT INTO treatment_plan_versions (
         treatment_id,
         total_trays,
@@ -174,7 +179,7 @@ export async function createInitialTreatment(
       timestamp,
     );
 
-    const trayPeriod = await db.runAsync(
+    const trayPeriod = await transaction.runAsync(
       `INSERT INTO tray_periods (treatment_id, tray_number, started_at)
        VALUES (?, ?, ?)`,
       treatmentId,
@@ -182,7 +187,7 @@ export async function createInitialTreatment(
       timestamp,
     );
 
-    const wearPunch = await db.runAsync(
+    const wearPunch = await transaction.runAsync(
       `INSERT INTO wear_punches (tray_period_id, status, timestamp)
        VALUES (?, ?, ?)`,
       trayPeriod.lastInsertRowId,

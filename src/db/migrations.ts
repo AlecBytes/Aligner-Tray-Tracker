@@ -1,6 +1,18 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-export const DATABASE_VERSION = 4;
+export const DATABASE_VERSION = 5;
+
+type DuplicateActiveTrayPeriodsRow = {
+  active_period_count: number;
+  treatment_id: number;
+};
+
+export class DatabaseIntegrityError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'DatabaseIntegrityError';
+  }
+}
 
 const migrationOne = `
   CREATE TABLE IF NOT EXISTS treatments (
@@ -84,6 +96,12 @@ const migrationFour = `
   VALUES (1, lower(hex(randomblob(32))));
 `;
 
+const migrationFive = `
+  CREATE UNIQUE INDEX IF NOT EXISTS tray_periods_one_active_per_treatment_idx
+    ON tray_periods (treatment_id)
+    WHERE ended_at IS NULL;
+`;
+
 export async function migrateDatabase(db: SQLiteDatabase) {
   await db.execAsync('PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;');
 
@@ -96,6 +114,8 @@ export async function migrateDatabase(db: SQLiteDatabase) {
     );
   }
 
+  // Migrations run during SQLiteProvider initialization before app consumers receive the database.
+  // They intentionally keep the broadly supported transaction API, including on web.
   if (currentVersion < 1) {
     await db.withTransactionAsync(async () => {
       await db.execAsync(migrationOne);
@@ -121,6 +141,30 @@ export async function migrateDatabase(db: SQLiteDatabase) {
     await db.withTransactionAsync(async () => {
       await db.execAsync(migrationFour);
       await db.execAsync('PRAGMA user_version = 4');
+    });
+  }
+
+  if (currentVersion < 5) {
+    await db.withTransactionAsync(async () => {
+      const duplicateActiveTrayPeriods =
+        await db.getFirstAsync<DuplicateActiveTrayPeriodsRow>(
+          `SELECT treatment_id, COUNT(*) AS active_period_count
+           FROM tray_periods
+           WHERE ended_at IS NULL
+           GROUP BY treatment_id
+           HAVING COUNT(*) > 1
+           ORDER BY treatment_id
+           LIMIT 1`,
+        );
+
+      if (duplicateActiveTrayPeriods !== null) {
+        throw new DatabaseIntegrityError(
+          `Cannot upgrade the local database because treatment ${duplicateActiveTrayPeriods.treatment_id} has ${duplicateActiveTrayPeriods.active_period_count} active tray periods.`,
+        );
+      }
+
+      await db.execAsync(migrationFive);
+      await db.execAsync('PRAGMA user_version = 5');
     });
   }
 }
