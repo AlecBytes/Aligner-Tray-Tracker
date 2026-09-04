@@ -410,7 +410,9 @@ function compareNumbers(left: number, right: number) {
   return left === right ? 0 : left < right ? -1 : 1;
 }
 
-function canonicalizePayload(payload: BackupSnapshotPayloadV1): BackupSnapshotPayloadV1 {
+export function canonicalizeBackupSnapshotPayloadV1(
+  payload: BackupSnapshotPayloadV1,
+): BackupSnapshotPayloadV1 {
   return {
     treatments: payload.treatments
       .map(({ id, createdAt }) => ({ id, createdAt }))
@@ -480,13 +482,44 @@ function canonicalizePayload(payload: BackupSnapshotPayloadV1): BackupSnapshotPa
   };
 }
 
-function utf8ByteLength(value: string) {
+export function backupSnapshotUtf8ByteLength(value: string) {
   let bytes = 0;
   for (const character of value) {
     const codePoint = character.codePointAt(0) ?? 0;
     bytes += codePoint <= 0x7f ? 1 : codePoint <= 0x7ff ? 2 : codePoint <= 0xffff ? 3 : 4;
   }
   return bytes;
+}
+
+export function canonicalBackupSnapshotEnvelopeJson(envelope: BackupSnapshotEnvelopeV1) {
+  return JSON.stringify({
+    schemaVersion: envelope.schemaVersion,
+    sourceAppVersion: envelope.sourceAppVersion,
+    payload: canonicalizeBackupSnapshotPayloadV1(envelope.payload),
+  });
+}
+
+export function canonicalBackupSnapshotContentJson(envelope: BackupSnapshotEnvelopeV1) {
+  return JSON.stringify({
+    schemaVersion: envelope.schemaVersion,
+    payload: canonicalizeBackupSnapshotPayloadV1(envelope.payload),
+  });
+}
+
+export async function computeBackupSnapshotContentHash(
+  envelope: BackupSnapshotEnvelopeV1,
+) {
+  const contentHash = (
+    await Crypto.digestStringAsync(
+      Crypto.CryptoDigestAlgorithm.SHA256,
+      canonicalBackupSnapshotContentJson(envelope),
+      { encoding: Crypto.CryptoEncoding.HEX },
+    )
+  ).toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(contentHash)) {
+    throw new BackupSnapshotValidationError('Snapshot content hash is invalid.');
+  }
+  return contentHash;
 }
 
 export async function serializeBackupSnapshot(
@@ -582,27 +615,16 @@ export async function serializeBackupSnapshot(
   const envelope = validateBackupSnapshotEnvelope({
     schemaVersion: BACKUP_SNAPSHOT_SCHEMA_VERSION,
     sourceAppVersion: input.sourceAppVersion,
-    payload: canonicalizePayload(readPayload),
+    payload: canonicalizeBackupSnapshotPayloadV1(readPayload),
   });
-  const canonicalData = JSON.stringify({
-    schemaVersion: envelope.schemaVersion,
-    payload: envelope.payload,
-  });
-  const contentHash = (
-    await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, canonicalData, {
-      encoding: Crypto.CryptoEncoding.HEX,
-    })
-  ).toLowerCase();
-  if (!/^[0-9a-f]{64}$/.test(contentHash)) {
-    throw new BackupSnapshotValidationError('Snapshot content hash is invalid.');
-  }
+  const contentHash = await computeBackupSnapshotContentHash(envelope);
 
-  const json = JSON.stringify(envelope);
+  const json = canonicalBackupSnapshotEnvelopeJson(envelope);
   return {
     json,
     schemaVersion: envelope.schemaVersion,
     sourceAppVersion: envelope.sourceAppVersion,
     contentHash,
-    payloadBytes: utf8ByteLength(json),
+    payloadBytes: backupSnapshotUtf8ByteLength(json),
   };
 }

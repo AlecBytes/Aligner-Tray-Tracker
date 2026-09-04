@@ -23,6 +23,7 @@ import {
   updateWearPunchTimestamp,
 } from '@/features/edit-times/edit-times-repository';
 import { reconcileLocalNotifications } from '@/features/notifications/local-notifications';
+import { refreshWatchTrackerSnapshot } from '@/features/siri/aligner-tracker-intents';
 import { useAppTheme } from '@/theme/use-app-theme';
 
 function firstParameter(value: string | string[] | undefined) {
@@ -114,6 +115,7 @@ export function EditEventScreen() {
     try {
       await updateWearPunchTimestamp(db, punch.id, selectedDate.getTime());
       void reconcileLocalNotifications(db);
+      void refreshWatchTrackerSnapshot();
       router.back();
     } catch (saveError) {
       setError(knownCorrectionMessage(saveError));
@@ -135,6 +137,7 @@ export function EditEventScreen() {
     try {
       await deleteWearPunch(db, deletionPlan);
       void reconcileLocalNotifications(db);
+      void refreshWatchTrackerSnapshot();
       router.back();
     } catch (deleteError) {
       setError(knownCorrectionMessage(deleteError));

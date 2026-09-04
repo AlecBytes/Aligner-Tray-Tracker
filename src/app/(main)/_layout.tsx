@@ -34,6 +34,7 @@ export default function MainLayout() {
         <Stack.Screen name="statistics" options={{ title: 'Statistics' }} />
         <Stack.Screen name="statistics/graphs/index" options={{ title: 'Graphs' }} />
         <Stack.Screen name="statistics/graphs/[graph]" options={{ title: 'Graph' }} />
+        <Stack.Screen name="share-progress" options={{ title: 'Share Progress' }} />
         <Stack.Screen name="support" options={{ title: 'Support Aligner Tracker' }} />
         <Stack.Screen name="help" options={{ title: 'Help' }} />
       </Stack>

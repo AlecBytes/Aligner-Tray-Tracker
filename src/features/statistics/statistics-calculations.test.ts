@@ -22,8 +22,10 @@ function plan(
 ): StatisticsPlanVersion {
   return {
     dailyWearGoalMinutes: dailyWearGoalHours * 60,
+    daysPerTray: 7,
     effectiveAt,
     id,
+    totalTrays: 48,
   };
 }
 
@@ -165,6 +167,27 @@ describe('Statistics V1 calculations', () => {
 
     expect(statistics.treatmentOverall.averageInSeconds).toBe(20 * HOUR_IN_SECONDS);
     expect(statistics.recentDays.map((day) => day.goalMet)).toEqual([true, false, false]);
+  });
+
+  it('exposes the active tray and plan effective at the captured read time', () => {
+    const currentPlan = {
+      ...plan(21, at(2, 12), 2),
+      daysPerTray: 10,
+      totalTrays: 52,
+    };
+    const treatment = snapshot(
+      [punch(1, 'IN', at(1))],
+      [period(1, at(1), at(2), 8), period(2, at(2), null, 9)],
+      [plan(22), currentPlan],
+    );
+
+    expect(createStatisticsReadModel(treatment, at(3, 12)).currentTreatment).toEqual({
+      currentTrayNumber: 9,
+      currentTrayStartedAt: at(2),
+      dailyWearGoalMinutes: 21 * 60,
+      daysPerTray: 10,
+      totalTrays: 52,
+    });
   });
 
   it('selects the plan effective at the start of each day and breaks equal times by version id', () => {

@@ -29,6 +29,7 @@ const approvedReactNativeRuntimeImports = new Set([
   'AppState',
   'Linking',
   'Platform',
+  'Share',
   'useColorScheme',
 ]);
 

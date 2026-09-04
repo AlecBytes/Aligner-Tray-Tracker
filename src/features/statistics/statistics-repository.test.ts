@@ -8,8 +8,20 @@ describe('getStatisticsSnapshot', () => {
     const getAllAsync = jest.fn(async (sql: string, _treatmentId: number) => {
       if (sql.includes('FROM treatment_plan_versions')) {
         return [
-          { daily_wear_goal_minutes: 1320, effective_at: 100, id: 1 },
-          { daily_wear_goal_minutes: 1260, effective_at: 300, id: 2 },
+          {
+            daily_wear_goal_minutes: 1320,
+            days_per_tray: 7,
+            effective_at: 100,
+            id: 1,
+            total_trays: 48,
+          },
+          {
+            daily_wear_goal_minutes: 1260,
+            days_per_tray: 10,
+            effective_at: 300,
+            id: 2,
+            total_trays: 52,
+          },
         ];
       }
 
@@ -29,8 +41,20 @@ describe('getStatisticsSnapshot', () => {
 
     await expect(getStatisticsSnapshot(db)).resolves.toEqual({
       planVersions: [
-        { dailyWearGoalMinutes: 1320, effectiveAt: 100, id: 1 },
-        { dailyWearGoalMinutes: 1260, effectiveAt: 300, id: 2 },
+        {
+          dailyWearGoalMinutes: 1320,
+          daysPerTray: 7,
+          effectiveAt: 100,
+          id: 1,
+          totalTrays: 48,
+        },
+        {
+          dailyWearGoalMinutes: 1260,
+          daysPerTray: 10,
+          effectiveAt: 300,
+          id: 2,
+          totalTrays: 52,
+        },
       ],
       punches: [
         { id: 20, status: 'IN', timestamp: 100, trayPeriodId: 10 },
