@@ -47,7 +47,7 @@ Suggested language:
 
 The first version should support **one-time tips only**.
 
-Do not introduce subscriptions or supporter entitlements in V1.
+Do not introduce subscriptions or supporter entitlements in Support V1. App-wide paid access is separately specified in `paid-access.md`; tips never unlock it.
 
 ## Products
 
@@ -201,48 +201,11 @@ Before release, test:
 
 ---
 
-# Future — Monthly Supporter
+# Separate Paid Access
 
-A recurring supporter option may be considered later.
+The earlier possible monthly supporter product is superseded by `paid-access.md`: monthly, annual, and lifetime options unlock all current and future paid features. Themes is the first benefit. Do not create another supporter subscription or attach consumable tips to the `premium` entitlement.
 
-Do not include it in the first Support release.
-
-Possible future product:
-
-```text
-Aligner Tracker Supporter
-$1.99/month
-```
-
-Because recurring subscriptions should provide ongoing value, any future supporter subscription should include a small nonessential ongoing benefit.
-
-Possible benefits:
-
-- supporter theme
-- alternate supporter app icon
-- small supporter acknowledgement
-
-Core utility must remain free.
-
-The following must **not** require supporter status:
-
-- tracking
-- corrections
-- treatment-plan management
-- notifications
-- statistics
-- treatment-plan history
-- export of the user's own data
-
-If subscriptions are introduced, add explicit support for:
-
-- subscription state
-- entitlement handling
-- restore purchases
-- manage subscription
-- cancellation/expiration behavior
-
-These concerns are intentionally deferred from V1.
+Support remains optional, consumable tips only. Clearly distinguish tips from feature purchases. Core utility remains free.
 
 ---
 
@@ -253,7 +216,7 @@ For V1 consumable tips:
 - no restore workflow is required for historical tips
 - no durable entitlement depends on them
 
-If subscriptions or other durable entitlements are added later, the Support screen should then expose an appropriate **Restore Purchases** action.
+The separate paid-access purchase flow exposes **Restore Purchases** for subscriptions and lifetime. If Support later links to that flow, use the shared purchase service; historical consumable tips remain non-restorable.
 
 Do not add restore UI solely for consumable V1 tips.
 

@@ -204,8 +204,8 @@ Optional and nonintrusive.
 
 V1 direction:
 - one-time consumable tips only
-- no subscriptions initially
-- no feature gating
+- no subscriptions within the tip feature
+- tips grant no feature access
 - no durable entitlement
 - no account requirement
 - no solicitation during normal tracking
@@ -274,3 +274,11 @@ When a product decision changes:
 - update `AGENTS.md` only for broad implementation rules
 
 Feature-specific requirements should not accumulate in `AGENTS.md`.
+
+## App-wide Paid Access — confirmed 2026-09-05
+
+Optional paid access launches at $0.99 USD/month, $7.99 USD/year, or $49.99 USD once for lifetime. All plans unlock all current and future paid features: while subscribed for monthly/annual, permanently for lifetime. No free trials or introductory discounts. Core utility stays free and tips grant no access.
+
+Themes is the first paid feature, delivered Colors → Seasonal → Animated. Use one RevenueCat `premium` entitlement and explicit `premium` offering across subscription and lifetime products, independent of cloud authentication and consumable tips. Billing must never block local tracking. This is planned purchase behavior, not evidence of completed integration.
+
+See `docs/features/paid-access.md` for commercial/access behavior and `docs/features/themes.md` for theme behavior. Future feature specs determine their own release scope without excluding paid features from existing lifetime ownership.
