@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-export const DATABASE_VERSION = 5;
+export const DATABASE_VERSION = 6;
 
 type DuplicateActiveTrayPeriodsRow = {
   active_period_count: number;
@@ -101,6 +101,9 @@ const migrationFive = `
     ON tray_periods (treatment_id)
     WHERE ended_at IS NULL;
 `;
+const migrationSix = `
+  ALTER TABLE settings ADD COLUMN selected_theme_key TEXT NOT NULL DEFAULT 'default';
+`;
 
 export async function migrateDatabase(db: SQLiteDatabase) {
   await db.execAsync('PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;');
@@ -165,6 +168,12 @@ export async function migrateDatabase(db: SQLiteDatabase) {
 
       await db.execAsync(migrationFive);
       await db.execAsync('PRAGMA user_version = 5');
+    });
+  }
+  if (currentVersion < 6) {
+    await db.withTransactionAsync(async () => {
+      await db.execAsync(migrationSix);
+      await db.execAsync('PRAGMA user_version = 6');
     });
   }
 }

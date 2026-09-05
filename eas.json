@@ -9,21 +9,27 @@
       "distribution": "internal",
       "env": {
         "APP_VARIANT": "development",
-        "EXPO_PUBLIC_SUPPORT_MODE": "mock"
+        "EXPO_PUBLIC_APP_VARIANT": "development",
+        "EXPO_PUBLIC_SUPPORT_MODE": "mock",
+        "EXPO_PUBLIC_PAID_ACCESS_MODE": "test-store"
       }
     },
     "preview": {
       "distribution": "internal",
       "env": {
         "APP_VARIANT": "preview",
-        "EXPO_PUBLIC_SUPPORT_MODE": "mock"
+        "EXPO_PUBLIC_APP_VARIANT": "preview",
+        "EXPO_PUBLIC_SUPPORT_MODE": "disabled",
+        "EXPO_PUBLIC_PAID_ACCESS_MODE": "apple"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
         "APP_VARIANT": "production",
-        "EXPO_PUBLIC_SUPPORT_MODE": "disabled"
+        "EXPO_PUBLIC_APP_VARIANT": "production",
+        "EXPO_PUBLIC_SUPPORT_MODE": "disabled",
+        "EXPO_PUBLIC_PAID_ACCESS_MODE": "apple"
       }
     }
   },

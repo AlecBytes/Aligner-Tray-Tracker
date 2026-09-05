@@ -11,12 +11,13 @@ import { reconcileLocalNotifications } from '@/features/notifications/local-noti
 import { resetAppData } from '@/features/reset/reset-app-repository';
 import { resetAppWithLocalSession } from '@/features/reset/reset-app';
 import { refreshWatchTrackerSnapshot } from '@/features/siri/aligner-tracker-intents';
-import { useAppTheme } from '@/theme/use-app-theme';
+import { useAppTheme, useAppThemeState } from '@/theme/use-app-theme';
 
 export function MenuScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
   const theme = useAppTheme();
+  const { reloadTheme } = useAppThemeState();
   const resetInProgress = useRef(false);
   const [isResetting, setIsResetting] = useState(false);
   const [resetConfirmationPresented, setResetConfirmationPresented] = useState(false);
@@ -38,6 +39,7 @@ export function MenuScreen() {
         resetLocalData: () => resetAppData(db),
         reconcileNotifications: () => reconcileLocalNotifications(db),
       });
+      await reloadTheme();
       void refreshWatchTrackerSnapshot();
       router.replace('/setup');
     } catch {
@@ -51,6 +53,11 @@ export function MenuScreen() {
     <Host seedColor={theme.primary} style={{ flex: 1 }}>
       <Form>
         <Section>
+          <NavigationRow
+            label="Themes"
+            onPress={() => router.push('/themes' as never)}
+            systemImage="paintpalette"
+          />
           <NavigationRow
             label="Cloud Backup"
             onPress={() => router.push('/account')}

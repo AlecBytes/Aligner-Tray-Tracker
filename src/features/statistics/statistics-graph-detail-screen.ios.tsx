@@ -20,6 +20,7 @@ import {
   tag,
 } from '@expo/ui/swift-ui/modifiers';
 import { useState } from 'react';
+import { useColorScheme } from 'react-native';
 
 import { AppLoadingScreen } from '@/components/app-loading-screen';
 import {
@@ -41,6 +42,7 @@ import type {
 } from '@/features/statistics/statistics-model';
 import { useStatisticsGraph } from '@/features/statistics/use-statistics-graph';
 import { useAppTheme } from '@/theme/use-app-theme';
+import { colors } from '@/theme/tokens';
 
 const SECONDS_PER_HOUR = 60 * 60;
 const SECONDS_PER_DAY = 24 * SECONDS_PER_HOUR;
@@ -147,7 +149,7 @@ function GoalProgressChart({ points }: { points: DailyStatisticsGraphPoint[] }) 
 }
 
 function TrayProgressChart({ points }: { points: TrayPeriodStatisticsGraphPoint[] }) {
-  const theme = useAppTheme();
+  const fixedSeriesColor = colors[useColorScheme() === 'dark' ? 'dark' : 'light'].primary;
 
   return (
     <ScrollView axes="horizontal" showsIndicators>
@@ -155,7 +157,7 @@ function TrayProgressChart({ points }: { points: TrayPeriodStatisticsGraphPoint[
         animate
         barStyle={{ cornerRadius: 4 }}
         data={points.map((point) => ({
-          color: theme.primary,
+          color: fixedSeriesColor,
           x: point.label,
           y: point.durationSeconds / SECONDS_PER_DAY,
         }))}

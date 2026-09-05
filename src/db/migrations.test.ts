@@ -34,8 +34,8 @@ describe('database migrations', () => {
 
     await migrateDatabase(db);
 
-    expect(DATABASE_VERSION).toBe(5);
-    expect(withTransactionAsync).toHaveBeenCalledTimes(4);
+    expect(DATABASE_VERSION).toBe(6);
+    expect(withTransactionAsync).toHaveBeenCalledTimes(5);
     expect(execAsync).toHaveBeenCalledWith(
       expect.stringContaining('ADD COLUMN out_reminder_enabled'),
     );
@@ -61,6 +61,8 @@ describe('database migrations', () => {
       expect.stringContaining('CREATE UNIQUE INDEX IF NOT EXISTS tray_periods_one_active_per_treatment_idx'),
     );
     expect(execAsync).toHaveBeenCalledWith('PRAGMA user_version = 5');
+    expect(execAsync).toHaveBeenCalledWith(expect.stringContaining('selected_theme_key'));
+    expect(execAsync).toHaveBeenCalledWith('PRAGMA user_version = 6');
   });
 
   it('adds the persistent interval, installation metadata, and active-tray defense for version 2 databases', async () => {
@@ -68,7 +70,7 @@ describe('database migrations', () => {
 
     await migrateDatabase(db);
 
-    expect(withTransactionAsync).toHaveBeenCalledTimes(3);
+    expect(withTransactionAsync).toHaveBeenCalledTimes(4);
     expect(execAsync).toHaveBeenCalledWith(
       expect.stringContaining('ADD COLUMN out_persistent_reminder_interval_minutes'),
     );
@@ -86,7 +88,7 @@ describe('database migrations', () => {
 
     await migrateDatabase(db);
 
-    expect(withTransactionAsync).toHaveBeenCalledTimes(2);
+    expect(withTransactionAsync).toHaveBeenCalledTimes(3);
     expect(execAsync).toHaveBeenCalledWith(expect.stringContaining('app_installation'));
     expect(execAsync).toHaveBeenCalledWith('PRAGMA user_version = 4');
     expect(execAsync).toHaveBeenCalledWith(
@@ -95,12 +97,12 @@ describe('database migrations', () => {
     expect(execAsync).toHaveBeenCalledWith('PRAGMA user_version = 5');
   });
 
-  it('adds only the partial unique active-tray index for version 4 databases', async () => {
+  it('adds the active-tray index and theme preference for version 4 databases', async () => {
     const { db, execAsync, getFirstAsync, withTransactionAsync } = createDatabaseMock(4);
 
     await migrateDatabase(db);
 
-    expect(withTransactionAsync).toHaveBeenCalledTimes(1);
+    expect(withTransactionAsync).toHaveBeenCalledTimes(2);
     expect(execAsync).toHaveBeenCalledWith(
       expect.stringContaining('CREATE UNIQUE INDEX IF NOT EXISTS tray_periods_one_active_per_treatment_idx'),
     );
@@ -108,6 +110,14 @@ describe('database migrations', () => {
     expect(execAsync).toHaveBeenCalledWith(expect.stringContaining('WHERE ended_at IS NULL'));
     expect(execAsync).toHaveBeenCalledWith('PRAGMA user_version = 5');
     expect(getFirstAsync).toHaveBeenCalledWith(expect.stringContaining('HAVING COUNT(*) > 1'));
+  });
+
+  it('adds only the theme preference for version 5 databases', async () => {
+    const { db, execAsync, withTransactionAsync } = createDatabaseMock(5);
+    await migrateDatabase(db);
+    expect(withTransactionAsync).toHaveBeenCalledTimes(1);
+    expect(execAsync).toHaveBeenCalledWith(expect.stringContaining('selected_theme_key'));
+    expect(execAsync).toHaveBeenCalledWith('PRAGMA user_version = 6');
   });
 
   it('stops a version 4 upgrade when a treatment already has multiple active trays', async () => {

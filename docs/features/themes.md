@@ -2,7 +2,7 @@
 ## Status and scope
 Phase 1 specification, 2026-09-05. Parent: [#25](https://github.com/AlecBytes/Aligner-Tray-Tracker/issues/25). Implementation: [#34](https://github.com/AlecBytes/Aligner-Tray-Tracker/issues/34).
 
-Ready to start local implementation. RevenueCat configuration is required for integration testing; Apple subscription and lifetime purchase configuration and sandbox verification are required before Phase 1 is complete. This document specifies behavior, not evidence that billing is already configured.
+Local theme and purchase UI plus the RevenueCat service boundary are implemented in #34. RevenueCat configuration is required for integration testing; Apple subscription and lifetime purchase configuration and sandbox verification are required before Phase 1 is complete. This document specifies behavior, not evidence that billing is already configured.
 
 Themes are optional paid cosmetics included in app-wide paid access. See `paid-access.md` for the authoritative pricing, lifetime scope, and shared entitlement contract. Core tracking, corrections, statistics, treatment plans, notifications, and access to personal data remain free. No app account is required.
 
@@ -168,4 +168,3 @@ Checked 2026-09-05:
 
 ## Codex handoff
 Implement #34 using `docs/features/themes.md`, `AGENTS.md`, and relevant existing architecture docs. Complete the local foundation first, then integrate RevenueCat when configuration is available. Preserve native iOS UI and free local tracking. Update the listed docs and report completed versus externally blocked acceptance criteria; do not mark Phase 1 complete based only on mocks.
-

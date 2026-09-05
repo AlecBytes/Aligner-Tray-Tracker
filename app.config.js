@@ -1,5 +1,10 @@
 const isDevelopment = process.env.APP_VARIANT === 'development';
 const appleTeamId = process.env.APPLE_TEAM_ID;
+const paidAccessMode = process.env.EXPO_PUBLIC_PAID_ACCESS_MODE;
+
+if (!isDevelopment && process.env.APP_VARIANT === 'production' && paidAccessMode !== 'apple') {
+  throw new Error('Production builds must use EXPO_PUBLIC_PAID_ACCESS_MODE=apple.');
+}
 
 export default ({ config }) => ({
   ...config,

@@ -36,6 +36,18 @@ function createVersionFourDatabase() {
       FOREIGN KEY (treatment_id) REFERENCES treatments (id) ON DELETE CASCADE
     );
 
+    CREATE TABLE settings (
+      id INTEGER PRIMARY KEY NOT NULL DEFAULT 1 CHECK (id = 1),
+      out_reminder_minutes INTEGER NOT NULL DEFAULT 45,
+      notifications_enabled INTEGER NOT NULL DEFAULT 0,
+      out_reminder_enabled INTEGER NOT NULL DEFAULT 1,
+      tray_change_reminder_enabled INTEGER NOT NULL DEFAULT 1,
+      tray_change_reminder_hour INTEGER NOT NULL DEFAULT 9,
+      tray_change_reminder_minute INTEGER NOT NULL DEFAULT 0,
+      out_persistent_reminder_interval_minutes INTEGER NOT NULL DEFAULT 5
+    );
+    INSERT INTO settings (id) VALUES (1);
+
     INSERT INTO treatments (id, created_at) VALUES (1, 100), (2, 100);
     PRAGMA user_version = 4;
   `);
@@ -77,7 +89,7 @@ describe('active tray migration SQLite behavior', () => {
 
       await migrateDatabase(db);
 
-      expect(sqlite.prepare('PRAGMA user_version').get()).toMatchObject({ user_version: 5 });
+      expect(sqlite.prepare('PRAGMA user_version').get()).toMatchObject({ user_version: 6 });
       expect(() =>
         sqlite.exec(`
           INSERT INTO tray_periods (treatment_id, tray_number, started_at, ended_at)

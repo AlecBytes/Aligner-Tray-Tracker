@@ -106,8 +106,28 @@ The development and preview builds have different iOS bundle identifiers, so the
 EXPO_UNSTABLE_MCP_SERVER=1 npx expo start
 ```
 
-## Planned paid access and themes
+## Paid access and Themes Phase 1
 
 Commercial terms and access behavior are specified in [Paid Access](docs/features/paid-access.md); visual behavior and staged integration are in [Themes](docs/features/themes.md). Launch options are $0.99 USD/month, $7.99 USD/year, and $49.99 USD lifetime for all current and future paid features. Core utility stays free; tips grant no access; no trials or introductory discounts.
 
-Billing setup is release work, not completed by these docs. Configure monthly/annual subscriptions and a lifetime non-consumable against RevenueCat entitlement/offering `premium`. Keep Test Store separate from Apple production. Tasks #39–#43 cover dashboard setup, Apple mapping, policies, sandbox evidence, and final verification; #34 must document actual environment variables, product IDs, native rebuild commands, and restore testing when implemented. Never put secret keys in this repository.
+The local theme registry, native iOS theme and purchase screens, and RevenueCat SDK boundary are implemented. Dashboard configuration and Apple sandbox evidence remain release work in #39–#43. Configure monthly/annual subscriptions and a lifetime non-consumable against RevenueCat entitlement and explicit offering `premium`. The application reads product identifiers and localized prices from that offering.
+
+Paid access uses these public build variables:
+
+| Variable | Values / purpose |
+| --- | --- |
+| `EXPO_PUBLIC_PAID_ACCESS_MODE` | `disabled`, `mock`, `test-store`, or `apple` |
+| `EXPO_PUBLIC_APP_VARIANT` | Runtime-visible `development`, `preview`, or `production` safety check; EAS profiles set this with `APP_VARIANT` |
+| `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY` | Test Store `test_…` or Apple `appl_…` public SDK key matching the selected mode |
+| `EXPO_PUBLIC_TERMS_URL` | Final public Terms of Use URL |
+| `EXPO_PUBLIC_PRIVACY_URL` | Final public Privacy Policy URL |
+
+`npm start` defaults to the deterministic local mock. The EAS development profile selects Test Store; preview and production select Apple. Supply the matching public key and policy URLs through EAS environment configuration. Production rejects mock, Test Store, and mismatched key prefixes. Missing or invalid configuration makes purchase options unavailable without affecting tracking.
+
+Because `react-native-purchases` is a native dependency, rebuild after installing or changing it:
+
+```sh
+eas build --platform ios --profile development
+```
+
+Use the development bundle ID only with a separately configured RevenueCat/Apple app. Apple sandbox verification for the production catalog should use a preview or TestFlight build with `com.alecsbytes.alignertraytracker`. Before release, record real monthly, annual, and lifetime purchase and restore results, including reinstall restoration with the same App Store account. Test Store and mock results must be identified separately and do not complete Apple verification. Never put RevenueCat secret keys or Apple credentials in this repository.
