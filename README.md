@@ -105,3 +105,9 @@ The development and preview builds have different iOS bundle identifiers, so the
 ```sh
 EXPO_UNSTABLE_MCP_SERVER=1 npx expo start
 ```
+
+## Planned paid access and themes
+
+Commercial terms and access behavior are specified in [Paid Access](docs/features/paid-access.md); visual behavior and staged integration are in [Themes](docs/features/themes.md). Launch options are $0.99 USD/month, $7.99 USD/year, and $49.99 USD lifetime for all current and future paid features. Core utility stays free; tips grant no access; no trials or introductory discounts.
+
+Billing setup is release work, not completed by these docs. Configure monthly/annual subscriptions and a lifetime non-consumable against RevenueCat entitlement/offering `premium`. Keep Test Store separate from Apple production. Tasks #39–#43 cover dashboard setup, Apple mapping, policies, sandbox evidence, and final verification; #34 must document actual environment variables, product IDs, native rebuild commands, and restore testing when implemented. Never put secret keys in this repository.
