@@ -56,19 +56,128 @@ final class AlignerTrackerStoreTests: XCTestCase {
       XCTAssertEqual(try punchCount(database), 2)
     }
 
-    for version in [3, 6] {
-      let database = try makeDatabase(
+    let migrationDatabase = try makeDatabase(
+      databaseVersion: 3,
+      initialStatus: "IN"
+    )
+    XCTAssertThrowsError(
+      try AlignerTrackerStore.ensureWearStatus(
+        .outTrays,
+        timestamp: 2_000,
+        databaseURL: migrationDatabase
+      )
+    ) { error in
+      guard case AlignerTrackerStoreError.databaseNeedsMigration = error else {
+        return XCTFail("Expected databaseNeedsMigration, received \(error).")
+      }
+    }
+    XCTAssertEqual(try punchCount(migrationDatabase), 1)
+
+    let newerDatabase = try makeDatabase(
+      databaseVersion: 6,
+      initialStatus: "IN"
+    )
+    XCTAssertThrowsError(
+      try AlignerTrackerStore.ensureWearStatus(
+        .outTrays,
+        timestamp: 2_000,
+        databaseURL: newerDatabase
+      )
+    ) { error in
+      if case AlignerTrackerStoreError.databaseNeedsMigration = error {
+        XCTFail("A newer unsupported schema must not be reported as migration-needed.")
+      }
+    }
+    XCTAssertEqual(try punchCount(newerDatabase), 1)
+  }
+
+  func testIntentBridgeMapsOnlyRecoverableDatabaseStatesToOpenApp() async throws {
+    let missingDatabase = FileManager.default.temporaryDirectory
+      .appendingPathComponent("aligner-intents-missing-\(UUID().uuidString).db")
+    let missingResult = try await AlignerTrackerIntentBridge.ensureWearStatus(
+      "OUT",
+      timestamp: 2_000,
+      databaseURL: missingDatabase
+    )
+    guard case .appOpenRequired = missingResult.outcome else {
+      return XCTFail("Expected a missing database to require opening the app.")
+    }
+
+    let migrationDatabase = try makeDatabase(
+      databaseVersion: 3,
+      initialStatus: "IN"
+    )
+    let migrationResult = try await AlignerTrackerIntentBridge.ensureWearStatus(
+      "OUT",
+      timestamp: 2_000,
+      databaseURL: migrationDatabase
+    )
+    guard case .appOpenRequired = migrationResult.outcome else {
+      return XCTFail("Expected an old database to require opening the app.")
+    }
+    XCTAssertEqual(try punchCount(migrationDatabase), 1)
+
+    let noTreatmentDatabase = try makeDatabase(activePeriodCount: 0, initialStatus: nil)
+    let noTreatmentResult = try await AlignerTrackerIntentBridge.ensureWearStatus(
+      "OUT",
+      timestamp: 2_000,
+      databaseURL: noTreatmentDatabase
+    )
+    guard case .noActiveTreatment = noTreatmentResult.outcome else {
+      return XCTFail("Expected initialized data without a treatment to remain distinct.")
+    }
+
+    for version in [4, 5] {
+      let supportedDatabase = try makeDatabase(
         databaseVersion: version,
         initialStatus: "IN"
       )
-      XCTAssertThrowsError(
-        try AlignerTrackerStore.ensureWearStatus(
-          .outTrays,
-          timestamp: 2_000,
-          databaseURL: database
-        )
+      let supportedResult = try await AlignerTrackerIntentBridge.ensureWearStatus(
+        "OUT",
+        timestamp: 2_000,
+        databaseURL: supportedDatabase
       )
-      XCTAssertEqual(try punchCount(database), 1)
+      guard case .changed = supportedResult.outcome else {
+        return XCTFail("Expected schema version \(version) to remain supported.")
+      }
+      XCTAssertEqual(try punchCount(supportedDatabase), 2)
+    }
+
+    let newerDatabase = try makeDatabase(
+      databaseVersion: 6,
+      initialStatus: "IN"
+    )
+    do {
+      _ = try await AlignerTrackerIntentBridge.ensureWearStatus(
+        "OUT",
+        timestamp: 2_000,
+        databaseURL: newerDatabase
+      )
+      XCTFail("A newer unsupported schema must fail generically.")
+    } catch AlignerTrackerStoreError.databaseNeedsMigration {
+      XCTFail("A newer unsupported schema must not request an app migration.")
+    } catch {
+      // Expected generic failure.
+    }
+    XCTAssertEqual(try punchCount(newerDatabase), 1)
+
+    let corruptDatabase = FileManager.default.temporaryDirectory
+      .appendingPathComponent("aligner-intents-bridge-corrupt-\(UUID().uuidString).db")
+    try Data("not a sqlite database".utf8).write(to: corruptDatabase)
+    addTeardownBlock {
+      try? FileManager.default.removeItem(at: corruptDatabase)
+    }
+    do {
+      _ = try await AlignerTrackerIntentBridge.ensureWearStatus(
+        "OUT",
+        timestamp: 2_000,
+        databaseURL: corruptDatabase
+      )
+      XCTFail("A corrupt database must fail generically.")
+    } catch AlignerTrackerStoreError.databaseNeedsMigration {
+      XCTFail("A corrupt database must not request an app migration.")
+    } catch {
+      // Expected generic failure.
     }
   }
 
@@ -535,6 +644,93 @@ final class AlignerTrackerStoreTests: XCTestCase {
 }
 
 final class AlignerTrackerReminderPolicyTests: XCTestCase {
+  func testSharedNotificationPolicyParityFixtures() throws {
+    let bundle = Bundle(for: type(of: self))
+    let fixtureURL = try XCTUnwrap(
+      bundle.url(forResource: "notification-policy", withExtension: "json")
+        ?? Bundle.main.url(forResource: "notification-policy", withExtension: "json")
+    )
+    let fixtures = try JSONDecoder().decode(
+      NotificationPolicyParityFixtures.self,
+      from: Data(contentsOf: fixtureURL)
+    )
+    XCTAssertEqual(fixtures.timeZone, "UTC")
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = try XCTUnwrap(TimeZone(identifier: fixtures.timeZone))
+
+    for fixture in fixtures.buildCases {
+      let latestPunchStatus = try XCTUnwrap(
+        AlignerWearStatus(rawValue: fixture.snapshot.latestPunch.status),
+        fixture.name
+      )
+      let reminders = AlignerTrackerReminderPolicy.build(
+        snapshot: fixture.snapshot.notificationSnapshot(
+          latestPunchStatus: latestPunchStatus
+        ),
+        now: Date(millisecondsSince1970: fixture.nowMs),
+        calendar: calendar
+      )
+      let kindCounts = Dictionary(grouping: reminders, by: { $0.kind.rawValue })
+        .mapValues(\.count)
+
+      XCTAssertEqual(reminders.count, fixture.expected.totalCount, fixture.name)
+      XCTAssertEqual(
+        kindCounts["out-too-long", default: 0],
+        fixture.expected.kindCounts["out-too-long", default: 0],
+        fixture.name
+      )
+      XCTAssertEqual(
+        kindCounts["tray-change", default: 0],
+        fixture.expected.kindCounts["tray-change", default: 0],
+        fixture.name
+      )
+
+      for sample in fixture.expected.samples {
+        let actual = try XCTUnwrap(
+          reminders.indices.contains(sample.index) ? reminders[sample.index] : nil,
+          fixture.name
+        )
+        XCTAssertEqual(actual.body, sample.body, fixture.name)
+        XCTAssertEqual(actual.fingerprint, sample.fingerprint, fixture.name)
+        XCTAssertEqual(actual.kind.rawValue, sample.kind, fixture.name)
+        XCTAssertEqual(actual.scheduledAt.millisecondsSince1970, sample.scheduledAtMs, fixture.name)
+      }
+    }
+
+    for fixture in fixtures.reconciliationCases {
+      let desired = try fixture.desired.map { reminder -> AlignerReminder in
+        let kind = try XCTUnwrap(AlignerReminderKind(rawValue: reminder.kind), fixture.name)
+        return AlignerReminder(
+          body: reminder.body,
+          fingerprint: reminder.fingerprint,
+          kind: kind,
+          scheduledAt: Date(millisecondsSince1970: reminder.scheduledAtMs)
+        )
+      }
+      let reconciliation = AlignerTrackerReminderPolicy.plan(
+        desired: desired,
+        scheduled: fixture.scheduled.map {
+          AlignerScheduledReminder(
+            fingerprint: $0.fingerprint,
+            identifier: $0.identifier,
+            kind: $0.kind
+          )
+        }
+      )
+
+      XCTAssertEqual(
+        reconciliation.cancelIdentifiers,
+        fixture.expected.cancelIdentifiers,
+        fixture.name
+      )
+      XCTAssertEqual(
+        reconciliation.schedule.map(\.fingerprint),
+        fixture.expected.scheduleFingerprints,
+        fixture.name
+      )
+    }
+  }
+
   func testOutReminderUsesInitialAndPersistentSchedule() {
     let now = Date(timeIntervalSince1970: 1_000)
     let snapshot = makeSnapshot(
@@ -712,4 +908,116 @@ final class AlignerTrackerReminderPolicyTests: XCTestCase {
       trayStartedAt: 1_000_000
     )
   }
+}
+
+private extension Date {
+  init(millisecondsSince1970: Int64) {
+    self.init(timeIntervalSince1970: Double(millisecondsSince1970) / 1_000)
+  }
+
+  var millisecondsSince1970: Int64 {
+    Int64((timeIntervalSince1970 * 1_000).rounded())
+  }
+}
+
+private struct NotificationPolicyParityFixtures: Decodable {
+  let timeZone: String
+  let buildCases: [NotificationBuildFixture]
+  let reconciliationCases: [NotificationReconciliationFixture]
+}
+
+private struct NotificationBuildFixture: Decodable {
+  let name: String
+  let nowMs: Int64
+  let snapshot: NotificationSnapshotFixture
+  let expected: NotificationBuildExpectedFixture
+}
+
+private struct NotificationSnapshotFixture: Decodable {
+  let currentTrayNumber: Int
+  let daysPerTray: Int
+  let latestPunch: NotificationPunchFixture
+  let settings: NotificationSettingsFixture
+  let totalTrays: Int
+  let trayPeriodId: Int64
+  let trayStartedAt: Int64
+
+  func notificationSnapshot(
+    latestPunchStatus: AlignerWearStatus
+  ) -> AlignerNotificationSnapshot {
+    AlignerNotificationSnapshot(
+      currentTrayNumber: currentTrayNumber,
+      daysPerTray: daysPerTray,
+      latestPunch: AlignerWearPunch(
+        id: latestPunch.id,
+        status: latestPunchStatus,
+        timestamp: latestPunch.timestamp
+      ),
+      settings: AlignerNotificationSettings(
+        outReminderEnabled: settings.outReminderEnabled,
+        outReminderMinutes: settings.outReminderMinutes,
+        outPersistentReminderIntervalMinutes: settings.outPersistentReminderIntervalMinutes,
+        trayChangeReminderEnabled: settings.trayChangeReminderEnabled,
+        trayChangeReminderHour: settings.trayChangeReminderHour,
+        trayChangeReminderMinute: settings.trayChangeReminderMinute
+      ),
+      totalTrays: totalTrays,
+      trayPeriodId: trayPeriodId,
+      trayStartedAt: trayStartedAt
+    )
+  }
+}
+
+private struct NotificationPunchFixture: Decodable {
+  let id: Int64
+  let status: String
+  let timestamp: Int64
+}
+
+private struct NotificationSettingsFixture: Decodable {
+  let outReminderEnabled: Bool
+  let outReminderMinutes: Int
+  let outPersistentReminderIntervalMinutes: Int
+  let trayChangeReminderEnabled: Bool
+  let trayChangeReminderHour: Int
+  let trayChangeReminderMinute: Int
+}
+
+private struct NotificationBuildExpectedFixture: Decodable {
+  let totalCount: Int
+  let kindCounts: [String: Int]
+  let samples: [NotificationReminderSampleFixture]
+}
+
+private struct NotificationReminderSampleFixture: Decodable {
+  let index: Int
+  let body: String
+  let fingerprint: String
+  let kind: String
+  let scheduledAtMs: Int64
+}
+
+private struct NotificationReconciliationFixture: Decodable {
+  let name: String
+  let desired: [NotificationReminderFixture]
+  let scheduled: [NotificationScheduledFixture]
+  let expected: NotificationReconciliationExpectedFixture
+}
+
+private struct NotificationReminderFixture: Decodable {
+  let body: String
+  let fingerprint: String
+  let kind: String
+  let scheduledAtMs: Int64
+}
+
+private struct NotificationScheduledFixture: Decodable {
+  let fingerprint: String?
+  let identifier: String
+  let kind: String?
+}
+
+private struct NotificationReconciliationExpectedFixture: Decodable {
+  let cancelIdentifiers: [String]
+  let scheduleFingerprints: [String]
 }

@@ -19,6 +19,7 @@ enum AlignerWearMutation: Sendable {
 }
 
 enum AlignerTrackerStoreError: Error {
+  case databaseNeedsMigration
   case databaseUnavailable
   case invalidTrackerState
   case sqlite(String)
@@ -149,12 +150,7 @@ enum AlignerTrackerStore {
     timestamp: Int64,
     databaseURL: URL? = nil
   ) throws -> AlignerWearMutation {
-    let connection: AlignerSQLiteConnection
-    do {
-      connection = try AlignerSQLiteConnection(databaseURL: databaseURL)
-    } catch AlignerTrackerStoreError.databaseUnavailable {
-      return .noActiveTreatment
-    }
+    let connection = try AlignerSQLiteConnection(databaseURL: databaseURL)
 
     try requireSupportedSchema(connection)
     try connection.execute("BEGIN IMMEDIATE TRANSACTION")
@@ -435,7 +431,10 @@ enum AlignerTrackerStore {
       throw AlignerTrackerStoreError.invalidTrackerState
     }
     let version = Int(sqlite3_column_int64(statement, 0))
-    guard (minimumSupportedDatabaseVersion...maximumSupportedDatabaseVersion).contains(version) else {
+    guard version >= minimumSupportedDatabaseVersion else {
+      throw AlignerTrackerStoreError.databaseNeedsMigration
+    }
+    guard version <= maximumSupportedDatabaseVersion else {
       throw AlignerTrackerStoreError.invalidTrackerState
     }
   }

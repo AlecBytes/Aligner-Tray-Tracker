@@ -99,14 +99,14 @@ actor AlignerTrackerNotificationCoordinator {
 enum AlignerTrackerReminderPolicy {
   static func build(
     snapshot: AlignerNotificationSnapshot?,
-    now: Date
+    now: Date,
+    calendar: Calendar = .current
   ) -> [AlignerReminder] {
     guard let snapshot else {
       return []
     }
 
     var reminders: [AlignerReminder] = []
-    let calendar = Calendar.current
     let trayStart = Date(timeIntervalSince1970: Double(snapshot.trayStartedAt) / 1_000)
     let nextTrayNumber = snapshot.currentTrayNumber + 1
 

@@ -4,6 +4,7 @@ import UIKit
 
 public enum AlignerTrackerIntentOutcome: String, Sendable {
   case alreadyInState = "already-in-state"
+  case appOpenRequired = "app-open-required"
   case changed
   case noActiveTreatment = "no-active-treatment"
 }
@@ -18,15 +19,41 @@ public enum AlignerTrackerIntentBridge {
     _ desiredStatusValue: String,
     timestamp: Int64
   ) async throws -> AlignerTrackerIntentResult {
+    try await ensureWearStatus(
+      desiredStatusValue,
+      timestamp: timestamp,
+      databaseURL: nil
+    )
+  }
+
+  static func ensureWearStatus(
+    _ desiredStatusValue: String,
+    timestamp: Int64,
+    databaseURL: URL?
+  ) async throws -> AlignerTrackerIntentResult {
     guard let desiredStatus = AlignerWearStatus(rawValue: desiredStatusValue) else {
       throw AlignerTrackerStoreError.invalidTrackerState
     }
 
-    let result = try await AlignerTrackerWearStatusService.shared.ensureWearStatus(
-      desiredStatus,
-      timestamp: timestamp,
-      emitChangeEvent: true
-    )
+    let result: AlignerWearStatusServiceResult
+    do {
+      result = try await AlignerTrackerWearStatusService.shared.ensureWearStatus(
+        desiredStatus,
+        timestamp: timestamp,
+        emitChangeEvent: true,
+        databaseURL: databaseURL
+      )
+    } catch AlignerTrackerStoreError.databaseUnavailable {
+      return AlignerTrackerIntentResult(
+        notificationFailed: false,
+        outcome: .appOpenRequired
+      )
+    } catch AlignerTrackerStoreError.databaseNeedsMigration {
+      return AlignerTrackerIntentResult(
+        notificationFailed: false,
+        outcome: .appOpenRequired
+      )
+    }
 
     switch result.mutation {
     case .changed:

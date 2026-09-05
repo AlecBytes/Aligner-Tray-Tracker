@@ -1,0 +1,235 @@
+{
+  "timeZone": "UTC",
+  "buildCases": [
+    {
+      "name": "out-reminders-share-capacity-with-tray-change",
+      "nowMs": 1786874460000,
+      "snapshot": {
+        "currentTrayNumber": 9,
+        "daysPerTray": 7,
+        "latestPunch": {
+          "id": 2,
+          "status": "OUT",
+          "timestamp": 1786874400000
+        },
+        "settings": {
+          "outReminderEnabled": true,
+          "outReminderMinutes": 45,
+          "outPersistentReminderIntervalMinutes": 10,
+          "trayChangeReminderEnabled": true,
+          "trayChangeReminderHour": 9,
+          "trayChangeReminderMinute": 0
+        },
+        "totalTrays": 48,
+        "trayPeriodId": 33,
+        "trayStartedAt": 1786786200000
+      },
+      "expected": {
+        "totalCount": 64,
+        "kindCounts": {
+          "out-too-long": 63,
+          "tray-change": 1
+        },
+        "samples": [
+          {
+            "index": 0,
+            "body": "You are scheduled to change to Tray 10 today.",
+            "fingerprint": "tray-change:1787389200000:10",
+            "kind": "tray-change",
+            "scheduledAtMs": 1787389200000
+          },
+          {
+            "index": 1,
+            "body": "Your trays have been out for 45 minutes.",
+            "fingerprint": "out-too-long:1786877100000:33",
+            "kind": "out-too-long",
+            "scheduledAtMs": 1786877100000
+          },
+          {
+            "index": 2,
+            "body": "Your trays are still out. Put them back in.",
+            "fingerprint": "out-too-long:1786877700000:33",
+            "kind": "out-too-long",
+            "scheduledAtMs": 1786877700000
+          },
+          {
+            "index": 63,
+            "body": "Your trays are still out. Put them back in.",
+            "fingerprint": "out-too-long:1786914300000:33",
+            "kind": "out-too-long",
+            "scheduledAtMs": 1786914300000
+          }
+        ]
+      }
+    },
+    {
+      "name": "overdue-out-session-resumes-persistent-cadence",
+      "nowMs": 1786877160000,
+      "snapshot": {
+        "currentTrayNumber": 48,
+        "daysPerTray": 7,
+        "latestPunch": {
+          "id": 2,
+          "status": "OUT",
+          "timestamp": 1786874400000
+        },
+        "settings": {
+          "outReminderEnabled": true,
+          "outReminderMinutes": 45,
+          "outPersistentReminderIntervalMinutes": 5,
+          "trayChangeReminderEnabled": true,
+          "trayChangeReminderHour": 9,
+          "trayChangeReminderMinute": 0
+        },
+        "totalTrays": 48,
+        "trayPeriodId": 33,
+        "trayStartedAt": 1786786200000
+      },
+      "expected": {
+        "totalCount": 64,
+        "kindCounts": {
+          "out-too-long": 64,
+          "tray-change": 0
+        },
+        "samples": [
+          {
+            "index": 0,
+            "body": "Your trays are still out. Put them back in.",
+            "fingerprint": "out-too-long:1786877400000:33",
+            "kind": "out-too-long",
+            "scheduledAtMs": 1786877400000
+          },
+          {
+            "index": 63,
+            "body": "Your trays are still out. Put them back in.",
+            "fingerprint": "out-too-long:1786896300000:33",
+            "kind": "out-too-long",
+            "scheduledAtMs": 1786896300000
+          }
+        ]
+      }
+    },
+    {
+      "name": "disabled-settings-create-no-reminders",
+      "nowMs": 1786786200000,
+      "snapshot": {
+        "currentTrayNumber": 9,
+        "daysPerTray": 7,
+        "latestPunch": {
+          "id": 1,
+          "status": "IN",
+          "timestamp": 1786786200000
+        },
+        "settings": {
+          "outReminderEnabled": false,
+          "outReminderMinutes": 45,
+          "outPersistentReminderIntervalMinutes": 5,
+          "trayChangeReminderEnabled": false,
+          "trayChangeReminderHour": 9,
+          "trayChangeReminderMinute": 0
+        },
+        "totalTrays": 48,
+        "trayPeriodId": 33,
+        "trayStartedAt": 1786786200000
+      },
+      "expected": {
+        "totalCount": 0,
+        "kindCounts": {
+          "out-too-long": 0,
+          "tray-change": 0
+        },
+        "samples": []
+      }
+    },
+    {
+      "name": "in-state-creates-only-configured-tray-change",
+      "nowMs": 1786786200000,
+      "snapshot": {
+        "currentTrayNumber": 12,
+        "daysPerTray": 10,
+        "latestPunch": {
+          "id": 1,
+          "status": "IN",
+          "timestamp": 1786786200000
+        },
+        "settings": {
+          "outReminderEnabled": true,
+          "outReminderMinutes": 45,
+          "outPersistentReminderIntervalMinutes": 5,
+          "trayChangeReminderEnabled": true,
+          "trayChangeReminderHour": 18,
+          "trayChangeReminderMinute": 30
+        },
+        "totalTrays": 48,
+        "trayPeriodId": 33,
+        "trayStartedAt": 1786786200000
+      },
+      "expected": {
+        "totalCount": 1,
+        "kindCounts": {
+          "out-too-long": 0,
+          "tray-change": 1
+        },
+        "samples": [
+          {
+            "index": 0,
+            "body": "You are scheduled to change to Tray 13 today.",
+            "fingerprint": "tray-change:1787682600000:13",
+            "kind": "tray-change",
+            "scheduledAtMs": 1787682600000
+          }
+        ]
+      }
+    }
+  ],
+  "reconciliationCases": [
+    {
+      "name": "deduplicates-owned-reminders-and-preserves-unrelated-requests",
+      "desired": [
+        {
+          "body": "Tray change",
+          "fingerprint": "tray-change:2000:10",
+          "kind": "tray-change",
+          "scheduledAtMs": 2000
+        },
+        {
+          "body": "Out reminder",
+          "fingerprint": "out-too-long:3000:33",
+          "kind": "out-too-long",
+          "scheduledAtMs": 3000
+        }
+      ],
+      "scheduled": [
+        {
+          "fingerprint": "tray-change:2000:10",
+          "identifier": "keep-first",
+          "kind": "tray-change"
+        },
+        {
+          "fingerprint": "tray-change:2000:10",
+          "identifier": "duplicate-first",
+          "kind": "tray-change"
+        },
+        {
+          "fingerprint": "stale-out",
+          "identifier": "stale",
+          "kind": "out-too-long"
+        },
+        {
+          "fingerprint": "unrelated",
+          "identifier": "other-app",
+          "kind": "marketing"
+        }
+      ],
+      "expected": {
+        "cancelIdentifiers": [
+          "duplicate-first",
+          "stale"
+        ],
+        "scheduleFingerprints": [
+          "out-too-long:3000:33"
+        ]
+      }
+    }
+  ]
+}

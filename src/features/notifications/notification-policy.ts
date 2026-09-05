@@ -29,17 +29,23 @@ export type ReminderReconciliation = {
   schedule: ReminderRequest[];
 };
 
-function addLocalCalendarDays(timestamp: number, days: number) {
-  const date = new Date(timestamp);
-  date.setDate(date.getDate() + days);
-  return date.getTime();
-}
+export type ReminderCalendar = {
+  addDays: (timestamp: number, days: number) => number;
+  setTime: (timestamp: number, hour: number, minute: number) => number;
+};
 
-function setLocalTime(timestamp: number, hour: number, minute: number) {
-  const date = new Date(timestamp);
-  date.setHours(hour, minute, 0, 0);
-  return date.getTime();
-}
+const localReminderCalendar: ReminderCalendar = {
+  addDays(timestamp, days) {
+    const date = new Date(timestamp);
+    date.setDate(date.getDate() + days);
+    return date.getTime();
+  },
+  setTime(timestamp, hour, minute) {
+    const date = new Date(timestamp);
+    date.setHours(hour, minute, 0, 0);
+    return date.getTime();
+  },
+};
 
 function reminderFingerprint(kind: ReminderKind, scheduledAt: number, subject: number) {
   return `${kind}:${scheduledAt}:${subject}`;
@@ -49,17 +55,15 @@ export function buildReminderRequests(
   snapshot: TrackerSnapshot | null,
   settings: Settings,
   now = Date.now(),
+  calendar: ReminderCalendar = localReminderCalendar,
 ): ReminderRequest[] {
   if (snapshot === null) {
     return [];
   }
 
   const reminders: ReminderRequest[] = [];
-  const trayChangeDueDate = addLocalCalendarDays(
-    snapshot.trayStartedAt,
-    snapshot.daysPerTray,
-  );
-  const trayChangeAt = setLocalTime(
+  const trayChangeDueDate = calendar.addDays(snapshot.trayStartedAt, snapshot.daysPerTray);
+  const trayChangeAt = calendar.setTime(
     trayChangeDueDate,
     settings.trayChangeReminderHour,
     settings.trayChangeReminderMinute,
