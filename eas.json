@@ -11,7 +11,8 @@
         "APP_VARIANT": "development",
         "EXPO_PUBLIC_APP_VARIANT": "development",
         "EXPO_PUBLIC_SUPPORT_MODE": "mock",
-        "EXPO_PUBLIC_PAID_ACCESS_MODE": "test-store"
+        "EXPO_PUBLIC_PAID_ACCESS_MODE": "test-store",
+        "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY": "test_biVNuNEpgMcBaWxsUrKvilcdDvi"
       }
     },
     "preview": {

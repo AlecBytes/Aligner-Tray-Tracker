@@ -33,13 +33,13 @@ The purchase screen:
 - Disables duplicate purchase/restore submissions while pending.
 - Treats cancellation as normal; shows useful retryable errors for failure.
 - Shows “Purchase options are unavailable. Try again later.” when configuration/products/network are unavailable. Never invent a price or substitute a mock purchase in production.
-- Unlocks only when returned customer information grants the app-wide `premium` entitlement; a successful transaction response alone is insufficient.
+- Unlocks only when returned customer information grants the app-wide `aligner_tray_tracker_pro` entitlement; a successful transaction response alone is insufficient.
 - For a pending/deferred transaction, explains that approval is pending and waits for entitlement updates.
 
 Themes also exposes Restore Purchases and Manage Subscription. Use the platform subscription-management destination. Restoration must be user initiated. If no eligible subscription or lifetime purchase is found, say so without claiming a failure. Follow `paid-access.md` for lifetime ownership and existing-subscriber purchase behavior.
 
 ## Catalog and semantic colors
-Use stable keys: `default`, `purple`, `teal`, `green`, `orange`, `pink`. All except `default` require entitlement `premium`.
+Use stable keys: `default`, `purple`, `teal`, `green`, `orange`, `pink`. All except `default` require entitlement `aligner_tray_tracker_pro`.
 
 Extend the existing token foundation; do not add a competing theming library. The following are exact initial values for app-owned primary styling. Values may be adjusted only to resolve a demonstrated accessibility/rendering issue, with this table updated in the same change.
 
@@ -83,7 +83,7 @@ Theme preference and purchase identity/access caches are not added to cloud trea
 ## Entitlement and offline policy
 Use a small purchase-service boundary exposing availability, customer access, offering retrieval, purchase, restore, and subscription management. Screens do not interpret raw receipts or product IDs.
 
-Use RevenueCat customer information for `premium`; do not grant access based on a local boolean, tip, offering availability, or selected key.
+Use RevenueCat customer information for `aligner_tray_tracker_pro`; do not grant access based on a local boolean, tip, offering availability, or selected key.
 
 | Situation | Effective behavior |
 |---|---|
@@ -112,8 +112,8 @@ Codex can build the registry, local preference, effective-theme resolver, native
 ### Before RevenueCat integration testing
 Alec configures:
 1. Create/reuse an Aligner Tracker RevenueCat project.
-2. Create entitlement `premium`.
-3. Create monthly, annual, and lifetime Test Store products, attach them to `premium`, and add their packages to offering `premium`.
+2. Create entitlement `aligner_tray_tracker_pro`.
+3. Create monthly, annual, and lifetime Test Store products, attach them to `aligner_tray_tracker_pro`, and add their packages to offering `premium`.
 4. Supply the Test Store public SDK key through the existing environment/config convention.
 
 Use explicit offering `premium` rather than the current/default offering, so later tip offerings cannot accidentally populate the purchase screen. Product identifiers and prices belong to store configuration; the app consumes configured subscription and lifetime packages. Keep secret Apple credentials and RevenueCat secret API keys out of app bundles.

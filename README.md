@@ -110,7 +110,7 @@ EXPO_UNSTABLE_MCP_SERVER=1 npx expo start
 
 Commercial terms and access behavior are specified in [Paid Access](docs/features/paid-access.md); visual behavior and staged integration are in [Themes](docs/features/themes.md). Launch options are $0.99 USD/month, $7.99 USD/year, and $49.99 USD lifetime for all current and future paid features. Core utility stays free; tips grant no access; no trials or introductory discounts.
 
-The local theme registry, native iOS theme and purchase screens, and RevenueCat SDK boundary are implemented. Dashboard configuration and Apple sandbox evidence remain release work in #39–#43. Configure monthly/annual subscriptions and a lifetime non-consumable against RevenueCat entitlement and explicit offering `premium`. The application reads product identifiers and localized prices from that offering.
+The local theme registry, native iOS theme and purchase screens, and RevenueCat SDK boundary are implemented. Dashboard configuration and Apple sandbox evidence remain release work in #39–#43. Configure monthly/annual subscriptions and a lifetime non-consumable against RevenueCat entitlement `aligner_tray_tracker_pro` and explicit offering `premium`. The application reads product identifiers and localized prices from that offering.
 
 Paid access uses these public build variables:
 
@@ -122,7 +122,7 @@ Paid access uses these public build variables:
 | `EXPO_PUBLIC_TERMS_URL` | Final public Terms of Use URL |
 | `EXPO_PUBLIC_PRIVACY_URL` | Final public Privacy Policy URL |
 
-`npm start` defaults to the deterministic local mock. The EAS development profile selects Test Store; preview and production select Apple. Supply the matching public key and policy URLs through EAS environment configuration. Production rejects mock, Test Store, and mismatched key prefixes. Missing or invalid configuration makes purchase options unavailable without affecting tracking.
+`npm start` and the EAS development profile default to Test Store with `EXPO_PUBLIC_PAID_ACCESS_MODE=test-store` and public SDK key `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY=test_biVNuNEpgMcBaWxsUrKvilcdDvi`. Local startup permits explicit shell environment overrides; use `EXPO_PUBLIC_PAID_ACCESS_MODE=mock npm start` only for deterministic mock testing. Preview and production select Apple; supply their matching Apple public key and policy URLs through EAS environment configuration. Production rejects mock, Test Store, and mismatched key prefixes. Missing or invalid configuration makes purchase options unavailable without affecting tracking.
 
 Because `react-native-purchases` is a native dependency, rebuild after installing or changing it:
 

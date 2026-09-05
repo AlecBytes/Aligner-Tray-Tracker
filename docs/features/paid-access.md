@@ -16,10 +16,10 @@ Core tracking, corrections, statistics, treatment plans/history, notifications, 
 
 ## Purchase contract
 
-- Use RevenueCat entitlement `premium` and explicit offering `premium`, replacing the earlier planned `themes` identifiers. This is an internal identifier, not a decision about marketing names.
+- Use RevenueCat entitlement `aligner_tray_tracker_pro` and explicit offering `premium`, replacing the earlier planned `themes` identifiers. This is an internal identifier, not a decision about marketing names.
 - Map monthly and annual auto-renewable subscriptions and one lifetime non-consumable purchase to the same entitlement. Configure the subscriptions in one Apple subscription group at the same service level; lifetime is a separate non-consumable product.
 - Include monthly, annual, and lifetime packages in the offering. Render localized prices and product-specific terms from store data; never hard-code currency, prices, or billing periods in UI logic. Annual shows the full yearly charge, not only a monthly equivalent; lifetime clearly says one-time payment with no renewal.
-- Before integration, inspect existing dashboard configuration. If `themes` products/entitlements already have purchasers, preserve their access when mapping to `premium`; do not delete or detach purchased products blindly. No parallel themes-only entitlement is needed for a fresh setup.
+- Before integration, inspect existing dashboard configuration. If `themes` products/entitlements already have purchasers, preserve their access when mapping to `aligner_tray_tracker_pro`; do not delete or detach purchased products blindly. No parallel themes-only entitlement is needed for a fresh setup.
 - No app account required. Retain SDK-managed anonymous identity and account-free restore behavior from `themes.md`; optional cloud sign-in/sign-out must not alter purchase identity.
 - Restore Purchases recovers both subscriptions and lifetime. An empty result says no eligible purchases were found, not no active subscription.
 - Once lifetime access is confirmed, show its status and suppress redundant paid-access purchase buttons. If an existing subscriber buys lifetime, explain that their subscription must be cancelled separately and provide Manage Subscription; never imply the one-time purchase automatically cancels recurring billing.

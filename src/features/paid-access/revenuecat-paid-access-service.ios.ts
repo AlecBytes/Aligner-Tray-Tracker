@@ -4,7 +4,7 @@ import { NO_PAID_ACCESS, resolvePremiumAccess } from './paid-access-service';
 
 const packageCache = new Map<string, PurchasesPackage>();
 function accessFrom(info: CustomerInfo): PaidAccessSnapshot {
-  const entitlement = info.entitlements.active.premium;
+  const entitlement = info.entitlements.active.aligner_tray_tracker_pro;
   if (!entitlement?.isActive) return NO_PAID_ACCESS;
   return resolvePremiumAccess({ isActive: entitlement.isActive, expirationAt: entitlement.expirationDateMillis, isLifetimeProduct: entitlement.expirationDateMillis === null && !info.activeSubscriptions.includes(entitlement.productIdentifier) });
 }

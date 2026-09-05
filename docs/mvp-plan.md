@@ -713,6 +713,6 @@ Aligner Tracker should remain a small, focused tool even as useful capabilities 
 
 Optional paid access launches at $0.99 USD/month, $7.99 USD/year, or $49.99 USD once for lifetime. All plans unlock all current and future paid features: while subscribed for monthly/annual, permanently for lifetime. No free trials or introductory discounts. Core utility stays free and tips grant no access.
 
-Themes is the first paid feature, delivered Colors → Seasonal → Animated. Use one RevenueCat `premium` entitlement and explicit `premium` offering across subscription and lifetime products, independent of cloud authentication and consumable tips. Billing must never block local tracking. This is planned purchase behavior, not evidence of completed integration.
+Themes is the first paid feature, delivered Colors → Seasonal → Animated. Use one RevenueCat `aligner_tray_tracker_pro` entitlement and explicit `premium` offering across subscription and lifetime products, independent of cloud authentication and consumable tips. Billing must never block local tracking. This is planned purchase behavior, not evidence of completed integration.
 
 See `docs/features/paid-access.md` for commercial/access behavior and `docs/features/themes.md` for theme behavior. Future feature specs determine their own release scope without excluding paid features from existing lifetime ownership.

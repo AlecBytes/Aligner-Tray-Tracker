@@ -203,7 +203,7 @@ Before release, test:
 
 # Separate Paid Access
 
-The earlier possible monthly supporter product is superseded by `paid-access.md`: monthly, annual, and lifetime options unlock all current and future paid features. Themes is the first benefit. Do not create another supporter subscription or attach consumable tips to the `premium` entitlement.
+The earlier possible monthly supporter product is superseded by `paid-access.md`: monthly, annual, and lifetime options unlock all current and future paid features. Themes is the first benefit. Do not create another supporter subscription or attach consumable tips to the `aligner_tray_tracker_pro` entitlement.
 
 Support remains optional, consumable tips only. Clearly distinguish tips from feature purchases. Core utility remains free.
 
