@@ -81,6 +81,21 @@ eas build --platform ios --profile development
 
 Open the resulting EAS build/install link on the registered iPhone and install **Aligner Tracker (Dev)**. Then use `npm start` whenever you want to run that build with Metro.
 
+#### Connecting an iPhone from WSL
+
+If the app shows **“Failed to load app. The request timed out”**, the iPhone may be unable to reach Metro over the local network. A development build needs the running development server to load the app.
+
+Stop any existing Metro server with **Ctrl+C**, then run from the repository root:
+
+```sh
+nvm use
+npm start -- --dev-client --tunnel
+```
+
+Accept the `@expo/ngrok` installation prompt if one appears. Wait for the tunnel to be ready, then scan the **new QR code** with the iPhone camera to open **Aligner Tracker (Dev)**. Keep the terminal running while testing; an older launcher entry may point to an unreachable server address.
+
+This tunnel workflow has been verified with WSL and a physical iPhone. It requires internet access and can load more slowly than a direct LAN connection. See [Expo's development-build tunnel documentation](https://docs.expo.dev/develop/development-builds/development-workflows/#tunnel-urls).
+
 ### Install a standalone preview build
 
 Use this when a version is ready for normal day-to-day testing without Metro or the development computer.
