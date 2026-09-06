@@ -14,10 +14,10 @@ Reviewed default branch main at b3e90fc33647bbd97e2e735582a4607e63d237ad:
 - Support is a separate consumable-tip feature. Implementing Themes does not require completing or enabling real tips.
 - All app-owned iOS visuals must use Expo UI / SwiftUI, including the purchase screen. Retain the iOS UI purity gate.
 
-This corrects the earlier issue assumption of free Purple and paid Blue: Default stays free; Purple replaces Blue in the five paid alternatives.
+Palette update, 2026-09-06: Default now uses purple in both appearances. Blue replaces Purple in the premium list. Previously saved Purple selections fall back to the purple Default palette. Pink is hot pink, Teal shifts toward blue, and Orange is brighter. This supersedes the original blue Default baseline above.
 
 ## Phase 1 behavior
-Menu → Themes opens a native, scrollable list. Show Default first, followed by Purple, Teal, Green, Orange, Pink. Each row includes its name, a color swatch, and a selected or locked indicator with accessible text.
+Menu → Themes opens a native, scrollable list. Show Default first, followed by Blue, Teal, Green, Orange, Pink. Each row includes its name, a color swatch, and a selected or locked indicator with accessible text.
 
 Follow system light/dark appearance; do not add an appearance-mode setting. Preview means swatches and a small static sample within the Themes/purchase screen, not temporarily applying a locked theme across the app.
 
@@ -39,18 +39,18 @@ The purchase screen:
 Themes also exposes Restore Purchases and Manage Subscription. Use the platform subscription-management destination. Restoration must be user initiated. If no eligible subscription or lifetime purchase is found, say so without claiming a failure. Follow `paid-access.md` for lifetime ownership and existing-subscriber purchase behavior.
 
 ## Catalog and semantic colors
-Use stable keys: `default`, `purple`, `teal`, `green`, `orange`, `pink`. All except `default` require entitlement `aligner_tray_tracker_pro`.
+Use stable keys: `default`, `blue`, `teal`, `green`, `orange`, `pink`. All except `default` require entitlement `aligner_tray_tracker_pro`.
 
-Extend the existing token foundation; do not add a competing theming library. The following are exact initial values for app-owned primary styling. Values may be adjusted only to resolve a demonstrated accessibility/rendering issue, with this table updated in the same change.
+Extend the existing token foundation; do not add a competing theming library. The following are exact initial values for app-owned primary styling. Keep this table updated when palette values change.
 
 | Key | Light primary | Light pressed | Light onPrimary | Dark primary | Dark pressed | Dark onPrimary |
 |---|---|---|---|---|---|---|
-| default | #1463FF | #0E4FCC | #FFFFFF | #73A5FF | #558DEA | #071126 |
-| purple | #7E22CE | #6B21A8 | #FFFFFF | #C084FC | #A855F7 | #171020 |
-| teal | #0F766E | #115E59 | #FFFFFF | #5EEAD4 | #2DD4BF | #071B18 |
+| default | #7E22CE | #6B21A8 | #FFFFFF | #C084FC | #A855F7 | #171020 |
+| blue | #1463FF | #0E4FCC | #FFFFFF | #73A5FF | #558DEA | #071126 |
+| teal | #00859A | #006D80 | #FFFFFF | #45D6E8 | #20BACE | #071A20 |
 | green | #15803D | #166534 | #FFFFFF | #86EFAC | #4ADE80 | #0B1C12 |
-| orange | #C2410C | #9A3412 | #FFFFFF | #FDBA74 | #FB923C | #211207 |
-| pink | #BE185D | #9D174D | #FFFFFF | #F9A8D4 | #F472B6 | #24101B |
+| orange | #FF9500 | #E58300 | #211207 | #FFAD33 | #FF9500 | #211207 |
+| pink | #FF1493 | #E6007E | #24101B | #FF4DB3 | #FF1493 | #24101B |
 
 All themes share the current neutral tokens:
 
@@ -65,7 +65,7 @@ All themes share the current neutral tokens:
 
 Prefer native semantic labels, backgrounds, materials, disabled states, and role-based colors when controls supply them. Custom primary-filled controls use the matching onPrimary. Native controls retain native pressed/disabled behavior; primaryPressed is only for existing custom styling that needs it. Do not add decorative secondary-accent tokens without a current use.
 
-Apply selected accents consistently to app-owned actions/tints and navigation infrastructure where supported. Preserve native defaults for the Default theme, including existing control tints. Errors, destructive actions, warnings, success, IN/OUT meaning, and graph-series identity must not become arbitrary theme accents. Do not recolor everything indiscriminately.
+Apply selected accents consistently to app-owned actions/tints and navigation infrastructure where supported. Apply the purple accent to Default control tints as well. Errors, destructive actions, warnings, success, IN/OUT meaning, and graph-series identity must not become arbitrary theme accents. Do not recolor everything indiscriminately.
 
 Scope covers iPhone app-owned screens, including setup, tracker, menu, forms, history/statistics, and purchase UI. It does not recolor the icon, launch screen, Apple purchase sheet, Watch app, widgets, or exported/shared images. Android/web billing and parity are deferred.
 
