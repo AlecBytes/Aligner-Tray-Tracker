@@ -146,3 +146,24 @@ eas build --platform ios --profile development
 ```
 
 Use the development bundle ID only with a separately configured RevenueCat/Apple app. Apple sandbox verification for the production catalog should use a preview or TestFlight build with `com.alecsbytes.alignertraytracker`. Before release, record real monthly, annual, and lifetime purchase and restore results, including reinstall restoration with the same App Store account. Test Store and mock results must be identified separately and do not complete Apple verification. Never put RevenueCat secret keys or Apple credentials in this repository.
+
+### Test Store catalog correction — 2026-09-05
+
+A live read using the configured public Test Store SDK key returned only offering
+`default`, containing `$rc_monthly` → `monthly`, `$rc_annual` → `yearly`,
+and `$rc_lifetime` → `lifetime`. Reading only `premium` caused the unavailable
+purchase-options message. Test Store mode now explicitly selects `default`;
+Apple mode continues to require `premium`. This is a development catalog
+exception to the planned offering convention, not a fallback to whichever
+offering is current. Both environments still require `aligner_tray_tracker_pro`.
+
+Restart Metro with `npm start -- --clear` and reload the iOS development client.
+Open Menu → Themes, tap a locked color, and complete a Test Store purchase.
+Confirm the chosen theme applies, then try the other colors and Restore Purchases.
+To test theme UI without the network, use
+`EXPO_PUBLIC_PAID_ACCESS_MODE=mock npm start -- --clear`; mock access resets
+when the JavaScript session restarts and does not verify billing.
+
+The catalog read verifies product availability only. Product-to-entitlement
+attachment and native purchase/restore still require device verification (#39);
+Apple setup and real sandbox verification remain #40 and #42.

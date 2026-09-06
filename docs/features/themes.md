@@ -168,3 +168,11 @@ Checked 2026-09-05:
 
 ## Codex handoff
 Implement #34 using `docs/features/themes.md`, `AGENTS.md`, and relevant existing architecture docs. Complete the local foundation first, then integrate RevenueCat when configuration is available. Preserve native iOS UI and free local tracking. Update the listed docs and report completed versus externally blocked acceptance criteria; do not mark Phase 1 complete based only on mocks.
+
+### Test Store catalog correction — 2026-09-05
+
+The configured Test Store exposes offering `default`, with monthly, annual,
+and lifetime packages. Development Test Store mode explicitly uses `default`;
+Apple mode retains `premium`. Both require `aligner_tray_tracker_pro`.
+This supersedes the Test Store offering name above. See README for the verified
+catalog, test commands, and remaining device verification.

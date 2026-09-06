@@ -47,3 +47,11 @@ Policy URLs and actual store product identifiers remain setup inputs. This decis
 
 - [RevenueCat entitlements](https://www.revenuecat.com/docs/getting-started/entitlements)
 - [Apple purchase types](https://developer.apple.com/help/app-store-connect/reference/in-app-purchases-and-subscriptions/in-app-purchase-types/)
+
+### Test Store catalog correction — 2026-09-05
+
+The configured Test Store exposes offering `default`, with monthly, annual,
+and lifetime packages. Development Test Store mode explicitly uses `default`;
+Apple mode retains `premium`. Both require `aligner_tray_tracker_pro`.
+This supersedes the Test Store offering name above. See README for the verified
+catalog, test commands, and remaining device verification.

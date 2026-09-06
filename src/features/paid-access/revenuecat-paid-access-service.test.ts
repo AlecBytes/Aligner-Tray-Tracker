@@ -48,3 +48,16 @@ it('keeps the premium offering and uses the new entitlement for purchase, restor
   unsubscribe();
   expect(Purchases.removeCustomerInfoUpdateListener).toHaveBeenCalledWith(callback);
 });
+
+it('loads the existing Test Store catalog explicitly without changing the Apple offering', async () => {
+  jest.mocked(Purchases.getOfferings).mockResolvedValue({
+    all: { default: { availablePackages: packages } },
+    current: { availablePackages: packages },
+  } as unknown as Awaited<ReturnType<typeof Purchases.getOfferings>>);
+  const testStore = createRevenueCatPaidAccessService('test_public', 'default');
+  expect((await testStore.loadPackages()).map((item) => item.kind)).toEqual(['monthly', 'annual', 'lifetime']);
+  jest.mocked(Purchases.purchasePackage).mockResolvedValue({ customerInfo: customer() } as Awaited<ReturnType<typeof Purchases.purchasePackage>>);
+  expect((await testStore.purchase('LIFETIME')).access.hasPremiumAccess).toBe(true);
+  const apple = createRevenueCatPaidAccessService('appl_public');
+  expect(await apple.loadPackages()).toEqual([]);
+});
