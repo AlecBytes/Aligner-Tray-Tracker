@@ -15,6 +15,7 @@ function createSettingsDatabase() {
     tray_change_reminder_enabled: DEFAULT_NOTIFICATION_SETTINGS.trayChangeReminderEnabled ? 1 : 0,
     tray_change_reminder_hour: DEFAULT_NOTIFICATION_SETTINGS.trayChangeReminderHour,
     tray_change_reminder_minute: DEFAULT_NOTIFICATION_SETTINGS.trayChangeReminderMinute,
+    tray_change_overdue_reminder_enabled: 0,
   };
   const getFirstAsync = jest.fn(async () => ({ ...row }));
   const runAsync = jest.fn(async (_sql: string, ...parameters: number[]) => {
@@ -25,6 +26,7 @@ function createSettingsDatabase() {
       row.tray_change_reminder_enabled,
       row.tray_change_reminder_hour,
       row.tray_change_reminder_minute,
+      row.tray_change_overdue_reminder_enabled,
     ] = parameters;
     return { changes: 1, lastInsertRowId: 0 };
   });
@@ -51,7 +53,8 @@ describe('notification settings persistence', () => {
       outReminderEnabled: false,
       outReminderMinutes: 75,
       outPersistentReminderIntervalMinutes: 10,
-      trayChangeReminderEnabled: true,
+      trayChangeReminderEnabled: false,
+      trayChangeOverdueReminderEnabled: true,
       trayChangeReminderHour: 18,
       trayChangeReminderMinute: 30,
     };
@@ -63,9 +66,10 @@ describe('notification settings persistence', () => {
       0,
       75,
       10,
-      1,
+      0,
       18,
       30,
+      1,
     );
     await expect(getNotificationSettings(database.db)).resolves.toEqual(settings);
   });

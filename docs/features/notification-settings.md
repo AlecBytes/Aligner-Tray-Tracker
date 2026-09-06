@@ -6,9 +6,8 @@ Give users direct control over the two useful local reminders while preserving t
 
 This feature supersedes the earlier MVP assumption that the OUT reminder is permanently fixed at 45 minutes and that there is no notification-settings UI.
 
-**Planned expansion:** Daily overdue tray-change reminders are specified below but
-are not yet implemented. This documentation update does not change app behavior.
-The expansion replaces the earlier exclusion of repeated overdue-tray reminders.
+Daily overdue tray-change reminders are an optional extension of the due-date
+reminder. This supersedes the earlier exclusion of repeated overdue-tray reminders.
 
 ## Entry Point
 
@@ -73,7 +72,7 @@ Controls:
 
 - Enabled / disabled
 - Reminder time of day
-- `Remind me daily when overdue` (planned)
+- `Remind me daily when overdue`
 
 Default:
 
@@ -119,7 +118,7 @@ Persist at least:
 - OUT persistent reminder interval minutes
 - tray-change reminder enabled
 - tray-change reminder local time
-- tray-change daily overdue reminder enabled (planned)
+- tray-change daily overdue reminder enabled
 
 Use the existing settings/storage pattern if one exists.
 
@@ -127,15 +126,14 @@ If the schema needs to change, add a proper SQLite migration rather than recreat
 
 Existing users should receive defaults that preserve current behavior where practical.
 
-For the planned expansion, add `trayChangeOverdueReminderEnabled` to the settings
+The overdue reminder preference adds `trayChangeOverdueReminderEnabled` to the settings
 type and `tray_change_overdue_reminder_enabled` to SQLite using the existing
-boolean storage convention, constrained to 0 or 1 and defaulting to 0. Apply a
-migration without recreating the database; preserve all existing preferences.
-Update settings repositories, defaults, and native Swift settings reads and schema
-compatibility together.
+boolean storage convention, constrained to 0 or 1 and defaulting to 0. Migration 7
+preserves existing preferences. Native Swift accepts schema versions 4–7 and reads
+false on older schemas without running migrations.
 
 Include the preference in new backups. When reading older backups that omit it,
-default it to false; a present value must be a boolean. See the planned settings
+default it to false; a present value must be a boolean. See the settings
 extension in [Cloud Backup & Restore](cloud-backup-restore.md).
 
 ## OUT Reminder Scheduling
@@ -204,7 +202,7 @@ notification nor overdue notifications.
 
 Do not automatically advance the tray.
 
-### Daily Overdue Reminders (Planned)
+### Daily Overdue Reminders
 
 Schedule these only when both tray-change reminders and daily overdue reminders
 are enabled. Preserve the due-date notification above.
@@ -230,7 +228,9 @@ with the correct overdue count. Today's reminder is eligible if its time has not
 passed; otherwise begin tomorrow. Do not deliver missed notifications immediately.
 
 Use calendar-day arithmetic across month/year boundaries and daylight-saving
-transitions. On reconciliation, recalculate the due date and reminder times using
+transitions. A nonexistent overdue reminder time advances through the gap while
+preserving minutes (for example, 2:30 AM becomes 3:30 AM); a repeated time uses its
+first occurrence. On reconciliation, recalculate the due date and reminder times using
 the current local timezone. Already scheduled requests retain their schedule
 until reconciliation runs again.
 
@@ -278,8 +278,8 @@ Reconcile on app startup/resume to replenish pending reminders. Tray changes and
 relevant treatment-plan edits must cancel obsolete requests and rebuild from the
 current tray and effective plan. Do not add polling or continuous background work.
 
-For the planned expansion, update both the TypeScript policy and native Swift
-policy, along with their shared parity fixtures. Preserve the native coordinator
+Keep the TypeScript and native Swift policies in agreement, along with their
+shared parity fixtures. Preserve the native coordinator
 as the iOS scheduling path and the existing Expo notification path elsewhere.
 
 ## Duplicate Prevention
@@ -292,7 +292,7 @@ Use the existing notification service/module and preserve clear identifiers for:
 
 - current OUT reminder
 - current tray-change reminder
-- each daily overdue tray-change reminder (planned)
+- each daily overdue tray-change reminder
 
 Cancel/recreate as needed rather than stacking duplicates.
 
@@ -355,7 +355,7 @@ Add focused tests for:
 
 Use the existing testing framework.
 
-### Planned Expansion Acceptance Checks
+### Daily Overdue Reminder Acceptance Checks
 
 - Default-off migration preserves existing settings; the new preference persists.
 - Disabling the parent disables the subordinate control and cancels both tray
@@ -376,10 +376,15 @@ Use the existing testing framework.
 - Shared fixtures verify Swift/TypeScript parity, and notification failures leave
   committed tracker data intact.
 
-For subsequent implementation, run `npm run validate` and the native policy/parity
-checks. On native devices, verify delivery with the app closed, cancellation,
-replenishment on resume, and existing sound and permission behavior. Documentation
-changes alone do not establish that these implementation checks pass.
+Run `npm run validate` and the native policy/parity checks for implementation
+changes. Native delivery verification requires a rebuilt app because the Swift
+scheduler changed.
+
+Outstanding native verification: run the module XCTest suite in a generated iOS
+project and verify iOS/Android delivery with the app closed, cancellation,
+replenishment on resume, saved controls, and existing sound and permission behavior.
+These checks require native build tools and devices unavailable on the Linux
+implementation host.
 
 ## Out of Scope
 

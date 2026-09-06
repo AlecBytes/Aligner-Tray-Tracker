@@ -155,15 +155,16 @@ The compact JSON envelope is:
 - `wear_punches`: `id`, `tray_period_id`, `status`, `timestamp`
 - `settings`: `out_reminder_enabled`, `out_reminder_minutes`, `out_persistent_reminder_interval_minutes`, `tray_change_reminder_enabled`, `tray_change_reminder_hour`, `tray_change_reminder_minute`, represented by the singleton `notificationSettings` object without its fixed row ID
 
-**Planned settings extension — daily overdue tray-change reminders:** Once the
-[notification expansion](notification-settings.md#daily-overdue-reminders-planned)
-is implemented, also include `settings.tray_change_overdue_reminder_enabled` as
+**Daily overdue tray-change reminder compatibility:** For
+[daily overdue reminders](notification-settings.md#daily-overdue-reminders), also include `settings.tray_change_overdue_reminder_enabled` as
 the boolean `notificationSettings.trayChangeOverdueReminderEnabled` in newly
 created backups. Accept older snapshots that omit this property, restoring false;
-reject a present non-boolean value. Update serialization, validation, restore
-mapping, and compatibility tests together. This is a planned local settings
-contract change, not a change to cloud infrastructure or scheduled-notification
-backup exclusions.
+reject a present non-boolean value. Keep schema version 1. Validation and canonical
+serialization preserve omission in older snapshots so their original bytes and
+content hashes still verify; only the restore mapping defaults the preference to
+false. New snapshots always include the boolean. Updated apps read older backups;
+older app versions are not expected to read this extended settings shape.
+Scheduled-notification identifiers and delivery state remain excluded.
 
 Punch corrections have no separate audit table. The final corrected, added, or remaining `wear_punches` rows are the authoritative state included in the snapshot.
 

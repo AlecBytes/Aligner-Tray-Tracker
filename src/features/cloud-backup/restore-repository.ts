@@ -139,7 +139,8 @@ export async function importBackupSnapshot(
            out_persistent_reminder_interval_minutes = ?,
            tray_change_reminder_enabled = ?,
            tray_change_reminder_hour = ?,
-           tray_change_reminder_minute = ?
+           tray_change_reminder_minute = ?,
+           tray_change_overdue_reminder_enabled = ?
          WHERE id = 1`,
         settings.outReminderEnabled ? 1 : 0,
         settings.outReminderMinutes,
@@ -147,6 +148,7 @@ export async function importBackupSnapshot(
         settings.trayChangeReminderEnabled ? 1 : 0,
         settings.trayChangeReminderHour,
         settings.trayChangeReminderMinute,
+        settings.trayChangeOverdueReminderEnabled === true ? 1 : 0,
       );
       if (settingsResult.changes !== 1) {
         throw new CloudRestoreOperationError('import');

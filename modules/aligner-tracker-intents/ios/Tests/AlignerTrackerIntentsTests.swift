@@ -41,8 +41,21 @@ final class AlignerTrackerStoreTests: XCTestCase {
     }
   }
 
+  func testOverdueNotificationPreferenceAcrossSupportedSchemas() throws {
+    for version in [4, 5, 6, 7] {
+      let database = try makeDatabase(databaseVersion: version, initialStatus: "IN")
+      let original = try XCTUnwrap(AlignerTrackerStore.loadNotificationSnapshot(databaseURL: database))
+      XCTAssertFalse(original.settings.trayChangeOverdueReminderEnabled)
+      if version == 7 {
+        try execute("UPDATE settings SET tray_change_overdue_reminder_enabled = 1", database: database)
+        let enabled = try XCTUnwrap(AlignerTrackerStore.loadNotificationSnapshot(databaseURL: database))
+        XCTAssertTrue(enabled.settings.trayChangeOverdueReminderEnabled)
+      }
+    }
+  }
+
   func testDatabaseSchemaCompatibilityIsBounded() throws {
-    for version in [4, 5, 6] {
+    for version in [4, 5, 6, 7] {
       let database = try makeDatabase(
         databaseVersion: version,
         initialStatus: "IN"
@@ -74,7 +87,7 @@ final class AlignerTrackerStoreTests: XCTestCase {
     XCTAssertEqual(try punchCount(migrationDatabase), 1)
 
     let newerDatabase = try makeDatabase(
-      databaseVersion: 7,
+      databaseVersion: 8,
       initialStatus: "IN"
     )
     XCTAssertThrowsError(
@@ -127,7 +140,7 @@ final class AlignerTrackerStoreTests: XCTestCase {
       return XCTFail("Expected initialized data without a treatment to remain distinct.")
     }
 
-    for version in [4, 5, 6] {
+    for version in [4, 5, 6, 7] {
       let supportedDatabase = try makeDatabase(
         databaseVersion: version,
         initialStatus: "IN"
@@ -144,7 +157,7 @@ final class AlignerTrackerStoreTests: XCTestCase {
     }
 
     let newerDatabase = try makeDatabase(
-      databaseVersion: 7,
+      databaseVersion: 8,
       initialStatus: "IN"
     )
     do {
@@ -493,7 +506,7 @@ final class AlignerTrackerStoreTests: XCTestCase {
 
   private func makeDatabase(
     activePeriodCount: Int = 1,
-    databaseVersion: Int = 6,
+    databaseVersion: Int = 7,
     initialStatus: String?,
     includePlan: Bool = true
   ) throws -> URL {
@@ -560,6 +573,12 @@ final class AlignerTrackerStoreTests: XCTestCase {
       )
     }
 
+    if databaseVersion >= 7 {
+      try execute("""
+        ALTER TABLE settings ADD COLUMN tray_change_overdue_reminder_enabled INTEGER NOT NULL DEFAULT 0
+          CHECK (tray_change_overdue_reminder_enabled IN (0, 1));
+        """, database: database)
+    }
     if databaseVersion >= 6 {
       try execute(
         "ALTER TABLE settings ADD COLUMN selected_theme_key TEXT NOT NULL DEFAULT 'default';",
@@ -666,6 +685,7 @@ final class AlignerTrackerReminderPolicyTests: XCTestCase {
     calendar.timeZone = try XCTUnwrap(TimeZone(identifier: fixtures.timeZone))
 
     for fixture in fixtures.buildCases {
+      calendar.timeZone = try XCTUnwrap(TimeZone(identifier: fixture.timeZone ?? fixtures.timeZone))
       let latestPunchStatus = try XCTUnwrap(
         AlignerWearStatus(rawValue: fixture.snapshot.latestPunch.status),
         fixture.name
@@ -691,6 +711,14 @@ final class AlignerTrackerReminderPolicyTests: XCTestCase {
         fixture.expected.kindCounts["tray-change", default: 0],
         fixture.name
       )
+
+      XCTAssertEqual(
+        kindCounts["tray-change-overdue", default: 0],
+        fixture.expected.kindCounts["tray-change-overdue", default: 0],
+        fixture.name
+      )
+      XCTAssertTrue(reminders.allSatisfy { $0.scheduledAt.millisecondsSince1970 > fixture.nowMs })
+      XCTAssertEqual(Set(reminders.map(\.fingerprint)).count, reminders.count)
 
       for sample in fixture.expected.samples {
         let actual = try XCTUnwrap(
@@ -908,7 +936,8 @@ final class AlignerTrackerReminderPolicyTests: XCTestCase {
         outPersistentReminderIntervalMinutes: 5,
         trayChangeReminderEnabled: trayChangeEnabled,
         trayChangeReminderHour: 9,
-        trayChangeReminderMinute: 0
+        trayChangeReminderMinute: 0,
+        trayChangeOverdueReminderEnabled: false
       ),
       totalTrays: 48,
       trayPeriodId: 1,
@@ -934,6 +963,7 @@ private struct NotificationPolicyParityFixtures: Decodable {
 }
 
 private struct NotificationBuildFixture: Decodable {
+  let timeZone: String?
   let name: String
   let nowMs: Int64
   let snapshot: NotificationSnapshotFixture
@@ -966,7 +996,8 @@ private struct NotificationSnapshotFixture: Decodable {
         outPersistentReminderIntervalMinutes: settings.outPersistentReminderIntervalMinutes,
         trayChangeReminderEnabled: settings.trayChangeReminderEnabled,
         trayChangeReminderHour: settings.trayChangeReminderHour,
-        trayChangeReminderMinute: settings.trayChangeReminderMinute
+        trayChangeReminderMinute: settings.trayChangeReminderMinute,
+        trayChangeOverdueReminderEnabled: settings.trayChangeOverdueReminderEnabled
       ),
       totalTrays: totalTrays,
       trayPeriodId: trayPeriodId,
@@ -988,6 +1019,7 @@ private struct NotificationSettingsFixture: Decodable {
   let trayChangeReminderEnabled: Bool
   let trayChangeReminderHour: Int
   let trayChangeReminderMinute: Int
+  let trayChangeOverdueReminderEnabled: Bool
 }
 
 private struct NotificationBuildExpectedFixture: Decodable {

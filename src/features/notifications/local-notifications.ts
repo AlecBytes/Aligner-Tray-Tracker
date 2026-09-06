@@ -1,6 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { Platform } from 'react-native';
 
+import { loadExpoNotificationsModule } from '@/features/notifications/expo-notifications-module';
 import {
   buildReminderRequests,
   planReminderReconciliation,
@@ -22,6 +23,7 @@ const REMINDER_CHANNEL_ID = 'treatment-reminders';
 const REMINDER_IDENTIFIERS = {
   'out-too-long': 'aligner-tracker-out-too-long',
   'tray-change': 'aligner-tracker-tray-change',
+  'tray-change-overdue': 'aligner-tracker-tray-change-overdue',
 } as const;
 
 function reminderIdentifier(kind: keyof typeof REMINDER_IDENTIFIERS, fingerprint: string) {
@@ -42,7 +44,7 @@ let notificationWork = Promise.resolve();
 let notificationsModule: Promise<NotificationsModule> | null = null;
 
 async function getNotificationsModule() {
-  notificationsModule ??= import('expo-notifications').then((notifications) => {
+  notificationsModule ??= loadExpoNotificationsModule().then((notifications) => {
     try {
       notifications.setNotificationHandler({
         handleNotification: async () => ({

@@ -89,7 +89,7 @@ describe('active tray migration SQLite behavior', () => {
 
       await migrateDatabase(db);
 
-      expect(sqlite.prepare('PRAGMA user_version').get()).toMatchObject({ user_version: 6 });
+      expect(sqlite.prepare('PRAGMA user_version').get()).toMatchObject({ user_version: 7 });
       expect(() =>
         sqlite.exec(`
           INSERT INTO tray_periods (treatment_id, tray_number, started_at, ended_at)
@@ -148,6 +148,48 @@ describe('active tray migration SQLite behavior', () => {
           )
           .get(),
       ).toBeUndefined();
+    } finally {
+      sqlite.close();
+    }
+  });
+});
+
+describe('overdue preference migration', () => {
+  it('adds a constrained default-off preference to version 6 without changing saved data', async () => {
+    const { db, sqlite } = createVersionFourDatabase();
+    try {
+      sqlite.exec(`
+        ALTER TABLE settings ADD COLUMN selected_theme_key TEXT NOT NULL DEFAULT 'default';
+        UPDATE settings SET out_reminder_minutes = 75, tray_change_reminder_hour = 18,
+          tray_change_reminder_minute = 30, selected_theme_key = 'saved-theme';
+        PRAGMA user_version = 6;
+      `);
+      const before = sqlite.prepare('SELECT * FROM settings').get() as object;
+      await migrateDatabase(db);
+      expect(sqlite.prepare('SELECT * FROM settings').get()).toEqual({
+        ...before, tray_change_overdue_reminder_enabled: 0,
+      });
+      expect(sqlite.prepare('PRAGMA user_version').get()).toEqual({ user_version: 7 });
+      sqlite.exec('UPDATE settings SET tray_change_overdue_reminder_enabled = 1');
+      await migrateDatabase(db);
+      expect(sqlite.prepare('SELECT tray_change_overdue_reminder_enabled AS enabled FROM settings').get())
+        .toEqual({ enabled: 1 });
+      for (const invalid of ['2', '-1', 'NULL']) {
+        expect(() => sqlite.exec(`UPDATE settings SET tray_change_overdue_reminder_enabled = ${invalid}`)).toThrow();
+      }
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it('creates the default-off preference on a fresh installation', async () => {
+    const { db, sqlite } = createVersionFourDatabase();
+    try {
+      sqlite.exec('DROP TABLE tray_periods; DROP TABLE treatments; DROP TABLE settings; PRAGMA user_version = 0;');
+      await migrateDatabase(db);
+      expect(sqlite.prepare('SELECT tray_change_overdue_reminder_enabled AS enabled FROM settings').get())
+        .toEqual({ enabled: 0 });
+      expect(sqlite.prepare('PRAGMA user_version').get()).toEqual({ user_version: 7 });
     } finally {
       sqlite.close();
     }

@@ -4,10 +4,12 @@ import UserNotifications
 private let alignerReminderFingerprintKey = "alignerReminderFingerprint"
 private let alignerReminderKindKey = "alignerReminderKind"
 private let alignerMaximumPendingReminders = 64
+private let alignerMaximumPendingOverdueReminders = 14
 
 enum AlignerReminderKind: String, Sendable {
   case outTooLong = "out-too-long"
   case trayChange = "tray-change"
+  case trayChangeOverdue = "tray-change-overdue"
 }
 
 struct AlignerReminder: Sendable {
@@ -70,10 +72,20 @@ actor AlignerTrackerNotificationCoordinator {
         alignerReminderKindKey: reminder.kind.rawValue,
       ]
 
-      let triggerComponents = Calendar.current.dateComponents(
+      var triggerCalendar = Calendar.current
+      if reminder.kind == .trayChangeOverdue {
+        // Pin this one-off request to the calculated instant, including the first
+        // repeated hour. The next reconciliation rebuilds it for any new timezone.
+        triggerCalendar = Calendar(identifier: .gregorian)
+        triggerCalendar.timeZone = TimeZone(secondsFromGMT: 0)!
+      }
+      var triggerComponents = triggerCalendar.dateComponents(
         [.year, .month, .day, .hour, .minute, .second],
         from: reminder.scheduledAt
       )
+      if reminder.kind == .trayChangeOverdue {
+        triggerComponents.timeZone = triggerCalendar.timeZone
+      }
       let request = UNNotificationRequest(
         identifier: identifier(for: reminder),
         content: content,
@@ -90,6 +102,8 @@ actor AlignerTrackerNotificationCoordinator {
     switch reminder.kind {
     case .trayChange:
       return "aligner-tracker-tray-change"
+    case .trayChangeOverdue:
+      return "aligner-tracker-tray-change-overdue-\(reminder.fingerprint)"
     case .outTooLong:
       return "aligner-tracker-out-too-long-\(reminder.fingerprint)"
     }
@@ -136,6 +150,44 @@ enum AlignerTrackerReminderPolicy {
           scheduledAt: trayChangeAt
         )
       )
+    }
+
+    if snapshot.settings.trayChangeReminderEnabled,
+       snapshot.settings.trayChangeOverdueReminderEnabled,
+       nextTrayNumber <= snapshot.totalTrays,
+       let dueDay = calendar.date(byAdding: .day, value: snapshot.daysPerTray, to: trayStart) {
+      let elapsedDays = calendar.dateComponents(
+        [.day], from: calendar.startOfDay(for: dueDay), to: calendar.startOfDay(for: now)
+      ).day ?? 0
+      var firstDay = max(1, elapsedDays)
+      func overdueTime(_ days: Int) -> Date? {
+        guard let day = calendar.date(byAdding: .day, value: days, to: dueDay) else {
+          return nil
+        }
+        return calendar.date(
+          bySettingHour: snapshot.settings.trayChangeReminderHour,
+          minute: snapshot.settings.trayChangeReminderMinute,
+          second: 0,
+          of: day,
+          matchingPolicy: .nextTimePreservingSmallerComponents,
+          repeatedTimePolicy: .first
+        )
+      }
+      if let firstTime = overdueTime(firstDay), firstTime <= now {
+        firstDay += 1
+      }
+      for index in 0..<alignerMaximumPendingOverdueReminders {
+        let days = firstDay + index
+        guard let scheduledAt = overdueTime(days) else { continue }
+        let timestamp = Int64((scheduledAt.timeIntervalSince1970 * 1_000).rounded())
+        let unit = days == 1 ? "day" : "days"
+        reminders.append(AlignerReminder(
+          body: "Your change to Tray \(nextTrayNumber) is \(days) \(unit) overdue.",
+          fingerprint: "tray-change-overdue:\(timestamp):\(snapshot.trayPeriodId):\(nextTrayNumber):\(days)",
+          kind: .trayChangeOverdue,
+          scheduledAt: scheduledAt
+        ))
+      }
     }
 
     if snapshot.settings.outReminderEnabled,

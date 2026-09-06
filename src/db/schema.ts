@@ -37,6 +37,7 @@ export type Settings = {
   outReminderMinutes: number;
   outPersistentReminderIntervalMinutes: number;
   trayChangeReminderEnabled: boolean;
+  trayChangeOverdueReminderEnabled: boolean;
   trayChangeReminderHour: number;
   trayChangeReminderMinute: number;
 };

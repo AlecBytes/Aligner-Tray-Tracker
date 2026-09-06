@@ -18,7 +18,8 @@
           "outPersistentReminderIntervalMinutes": 10,
           "trayChangeReminderEnabled": true,
           "trayChangeReminderHour": 9,
-          "trayChangeReminderMinute": 0
+          "trayChangeReminderMinute": 0,
+          "trayChangeOverdueReminderEnabled": false
         },
         "totalTrays": 48,
         "trayPeriodId": 33,
@@ -28,7 +29,8 @@
         "totalCount": 64,
         "kindCounts": {
           "out-too-long": 63,
-          "tray-change": 1
+          "tray-change": 1,
+          "tray-change-overdue": 0
         },
         "samples": [
           {
@@ -79,7 +81,8 @@
           "outPersistentReminderIntervalMinutes": 5,
           "trayChangeReminderEnabled": true,
           "trayChangeReminderHour": 9,
-          "trayChangeReminderMinute": 0
+          "trayChangeReminderMinute": 0,
+          "trayChangeOverdueReminderEnabled": false
         },
         "totalTrays": 48,
         "trayPeriodId": 33,
@@ -89,7 +92,8 @@
         "totalCount": 64,
         "kindCounts": {
           "out-too-long": 64,
-          "tray-change": 0
+          "tray-change": 0,
+          "tray-change-overdue": 0
         },
         "samples": [
           {
@@ -126,7 +130,8 @@
           "outPersistentReminderIntervalMinutes": 5,
           "trayChangeReminderEnabled": false,
           "trayChangeReminderHour": 9,
-          "trayChangeReminderMinute": 0
+          "trayChangeReminderMinute": 0,
+          "trayChangeOverdueReminderEnabled": false
         },
         "totalTrays": 48,
         "trayPeriodId": 33,
@@ -136,7 +141,8 @@
         "totalCount": 0,
         "kindCounts": {
           "out-too-long": 0,
-          "tray-change": 0
+          "tray-change": 0,
+          "tray-change-overdue": 0
         },
         "samples": []
       }
@@ -158,7 +164,8 @@
           "outPersistentReminderIntervalMinutes": 5,
           "trayChangeReminderEnabled": true,
           "trayChangeReminderHour": 18,
-          "trayChangeReminderMinute": 30
+          "trayChangeReminderMinute": 30,
+          "trayChangeOverdueReminderEnabled": false
         },
         "totalTrays": 48,
         "trayPeriodId": 33,
@@ -168,7 +175,8 @@
         "totalCount": 1,
         "kindCounts": {
           "out-too-long": 0,
-          "tray-change": 1
+          "tray-change": 1,
+          "tray-change-overdue": 0
         },
         "samples": [
           {
@@ -180,6 +188,603 @@
           }
         ]
       }
+    },
+    {
+      "name": "overdue-opt-in-preserves-due-date",
+      "nowMs": 1788681600000,
+      "snapshot": {
+        "currentTrayNumber": 7,
+        "daysPerTray": 7,
+        "latestPunch": {
+          "id": 2,
+          "status": "IN",
+          "timestamp": 1788080400000
+        },
+        "settings": {
+          "outReminderEnabled": true,
+          "outReminderMinutes": 45,
+          "outPersistentReminderIntervalMinutes": 5,
+          "trayChangeReminderEnabled": true,
+          "trayChangeReminderHour": 9,
+          "trayChangeReminderMinute": 0,
+          "trayChangeOverdueReminderEnabled": true
+        },
+        "totalTrays": 20,
+        "trayPeriodId": 33,
+        "trayStartedAt": 1788080400000
+      },
+      "expected": {
+        "totalCount": 15,
+        "kindCounts": {
+          "out-too-long": 0,
+          "tray-change": 1,
+          "tray-change-overdue": 14
+        },
+        "samples": [
+          {
+            "index": 0,
+            "body": "You are scheduled to change to Tray 8 today.",
+            "fingerprint": "tray-change:1788685200000:8",
+            "kind": "tray-change",
+            "scheduledAtMs": 1788685200000
+          },
+          {
+            "index": 1,
+            "body": "Your change to Tray 8 is 1 day overdue.",
+            "fingerprint": "tray-change-overdue:1788771600000:33:8:1",
+            "kind": "tray-change-overdue",
+            "scheduledAtMs": 1788771600000
+          },
+          {
+            "index": 2,
+            "body": "Your change to Tray 8 is 2 days overdue.",
+            "fingerprint": "tray-change-overdue:1788858000000:33:8:2",
+            "kind": "tray-change-overdue",
+            "scheduledAtMs": 1788858000000
+          },
+          {
+            "index": 14,
+            "body": "Your change to Tray 8 is 14 days overdue.",
+            "fingerprint": "tray-change-overdue:1789894800000:33:8:14",
+            "kind": "tray-change-overdue",
+            "scheduledAtMs": 1789894800000
+          }
+        ]
+      }
+    },
+    {
+      "name": "late-enable-before-todays-time",
+      "nowMs": 1789030740000,
+      "snapshot": {
+        "currentTrayNumber": 7,
+        "daysPerTray": 7,
+        "latestPunch": {
+          "id": 2,
+          "status": "IN",
+          "timestamp": 1788080400000
+        },
+        "settings": {
+          "outReminderEnabled": true,
+          "outReminderMinutes": 45,
+          "outPersistentReminderIntervalMinutes": 5,
+          "trayChangeReminderEnabled": true,
+          "trayChangeReminderHour": 9,
+          "trayChangeReminderMinute": 0,
+          "trayChangeOverdueReminderEnabled": true
+        },
+        "totalTrays": 20,
+        "trayPeriodId": 33,
+        "trayStartedAt": 1788080400000
+      },
+      "expected": {
+        "totalCount": 14,
+        "kindCounts": {
+          "out-too-long": 0,
+          "tray-change": 0,
+          "tray-change-overdue": 14
+        },
+        "samples": [
+          {
+            "index": 0,
+            "body": "Your change to Tray 8 is 4 days overdue.",
+            "fingerprint": "tray-change-overdue:1789030800000:33:8:4",
+            "kind": "tray-change-overdue",
+            "scheduledAtMs": 1789030800000
+          },
+          {
+            "index": 13,
+            "body": "Your change to Tray 8 is 17 days overdue.",
+            "fingerprint": "tray-change-overdue:1790154000000:33:8:17",
+            "kind": "tray-change-overdue",
+            "scheduledAtMs": 1790154000000
+          }
+        ]
+      }
+    },
+    {
+      "name": "at-todays-time-skips-catch-up",
+      "nowMs": 1789030800000,
+      "snapshot": {
+        "currentTrayNumber": 7,
+        "daysPerTray": 7,
+        "latestPunch": {
+          "id": 2,
+          "status": "IN",
+          "timestamp": 1788080400000
+        },
+        "settings": {
+          "outReminderEnabled": true,
+          "outReminderMinutes": 45,
+          "outPersistentReminderIntervalMinutes": 5,
+          "trayChangeReminderEnabled": true,
+          "trayChangeReminderHour": 9,
+          "trayChangeReminderMinute": 0,
+          "trayChangeOverdueReminderEnabled": true
+        },
+        "totalTrays": 20,
+        "trayPeriodId": 33,
+        "trayStartedAt": 1788080400000
+      },
+      "expected": {
+        "totalCount": 14,
+        "kindCounts": {
+          "out-too-long": 0,
+          "tray-change": 0,
+          "tray-change-overdue": 14
+        },
+        "samples": [
+          {
+            "index": 0,
+            "body": "Your change to Tray 8 is 5 days overdue.",
+            "fingerprint": "tray-change-overdue:1789117200000:33:8:5",
+            "kind": "tray-change-overdue",
+            "scheduledAtMs": 1789117200000
+          }
+        ]
+      }
+    },
+    {
+      "name": "after-todays-time-skips-catch-up",
+      "nowMs": 1789030860000,
+      "snapshot": {
+        "currentTrayNumber": 7,
+        "daysPerTray": 7,
+        "latestPunch": {
+          "id": 2,
+          "status": "IN",
+          "timestamp": 1788080400000
+        },
+        "settings": {
+          "outReminderEnabled": true,
+          "outReminderMinutes": 45,
+          "outPersistentReminderIntervalMinutes": 5,
+          "trayChangeReminderEnabled": true,
+          "trayChangeReminderHour": 9,
+          "trayChangeReminderMinute": 0,
+          "trayChangeOverdueReminderEnabled": true
+        },
+        "totalTrays": 20,
+        "trayPeriodId": 33,
+        "trayStartedAt": 1788080400000
+      },
+      "expected": {
+        "totalCount": 14,
+        "kindCounts": {
+          "out-too-long": 0,
+          "tray-change": 0,
+          "tray-change-overdue": 14
+        },
+        "samples": [
+          {
+            "index": 0,
+            "body": "Your change to Tray 8 is 5 days overdue.",
+            "fingerprint": "tray-change-overdue:1789117200000:33:8:5",
+            "kind": "tray-change-overdue",
+            "scheduledAtMs": 1789117200000
+          }
+        ]
+      }
+    },
+    {
+      "name": "replenishes-after-original-batch-exhausted",
+      "nowMs": 1790841600000,
+      "snapshot": {
+        "currentTrayNumber": 7,
+        "daysPerTray": 7,
+        "latestPunch": {
+          "id": 2,
+          "status": "IN",
+          "timestamp": 1788080400000
+        },
+        "settings": {
+          "outReminderEnabled": true,
+          "outReminderMinutes": 45,
+          "outPersistentReminderIntervalMinutes": 5,
+          "trayChangeReminderEnabled": true,
+          "trayChangeReminderHour": 9,
+          "trayChangeReminderMinute": 0,
+          "trayChangeOverdueReminderEnabled": true
+        },
+        "totalTrays": 20,
+        "trayPeriodId": 33,
+        "trayStartedAt": 1788080400000
+      },
+      "expected": {
+        "totalCount": 14,
+        "kindCounts": {
+          "out-too-long": 0,
+          "tray-change": 0,
+          "tray-change-overdue": 14
+        },
+        "samples": [
+          {
+            "index": 0,
+            "body": "Your change to Tray 8 is 25 days overdue.",
+            "fingerprint": "tray-change-overdue:1790845200000:33:8:25",
+            "kind": "tray-change-overdue",
+            "scheduledAtMs": 1790845200000
+          },
+          {
+            "index": 13,
+            "body": "Your change to Tray 8 is 38 days overdue.",
+            "fingerprint": "tray-change-overdue:1791968400000:33:8:38",
+            "kind": "tray-change-overdue",
+            "scheduledAtMs": 1791968400000
+          }
+        ]
+      }
+    },
+    {
+      "name": "overdue-reserves-fourteen-slots-alongside-due-date",
+      "nowMs": 1788681600000,
+      "snapshot": {
+        "currentTrayNumber": 7,
+        "daysPerTray": 7,
+        "latestPunch": {
+          "id": 2,
+          "status": "OUT",
+          "timestamp": 1788681600000
+        },
+        "settings": {
+          "outReminderEnabled": true,
+          "outReminderMinutes": 45,
+          "outPersistentReminderIntervalMinutes": 5,
+          "trayChangeReminderEnabled": true,
+          "trayChangeReminderHour": 9,
+          "trayChangeReminderMinute": 0,
+          "trayChangeOverdueReminderEnabled": true
+        },
+        "totalTrays": 20,
+        "trayPeriodId": 33,
+        "trayStartedAt": 1788080400000
+      },
+      "expected": {
+        "totalCount": 64,
+        "kindCounts": {
+          "out-too-long": 49,
+          "tray-change": 1,
+          "tray-change-overdue": 14
+        },
+        "samples": [
+          {
+            "index": 1,
+            "body": "Your change to Tray 8 is 1 day overdue.",
+            "fingerprint": "tray-change-overdue:1788771600000:33:8:1",
+            "kind": "tray-change-overdue",
+            "scheduledAtMs": 1788771600000
+          },
+          {
+            "index": 15,
+            "body": "Your trays have been out for 45 minutes.",
+            "kind": "out-too-long",
+            "fingerprint": "out-too-long:1788684300000:33",
+            "scheduledAtMs": 1788684300000
+          }
+        ]
+      }
+    },
+    {
+      "name": "parent-off-suppresses-saved-overdue-preference",
+      "nowMs": 1788681600000,
+      "snapshot": {
+        "currentTrayNumber": 7,
+        "daysPerTray": 7,
+        "latestPunch": {
+          "id": 2,
+          "status": "IN",
+          "timestamp": 1788080400000
+        },
+        "settings": {
+          "outReminderEnabled": true,
+          "outReminderMinutes": 45,
+          "outPersistentReminderIntervalMinutes": 5,
+          "trayChangeReminderEnabled": false,
+          "trayChangeReminderHour": 9,
+          "trayChangeReminderMinute": 0,
+          "trayChangeOverdueReminderEnabled": true
+        },
+        "totalTrays": 20,
+        "trayPeriodId": 33,
+        "trayStartedAt": 1788080400000
+      },
+      "expected": {
+        "totalCount": 0,
+        "kindCounts": {
+          "out-too-long": 0,
+          "tray-change": 0,
+          "tray-change-overdue": 0
+        },
+        "samples": []
+      }
+    },
+    {
+      "name": "final-tray-suppresses-both-tray-reminders",
+      "nowMs": 1788681600000,
+      "snapshot": {
+        "currentTrayNumber": 20,
+        "daysPerTray": 7,
+        "latestPunch": {
+          "id": 2,
+          "status": "IN",
+          "timestamp": 1788080400000
+        },
+        "settings": {
+          "outReminderEnabled": true,
+          "outReminderMinutes": 45,
+          "outPersistentReminderIntervalMinutes": 5,
+          "trayChangeReminderEnabled": true,
+          "trayChangeReminderHour": 9,
+          "trayChangeReminderMinute": 0,
+          "trayChangeOverdueReminderEnabled": true
+        },
+        "totalTrays": 20,
+        "trayPeriodId": 33,
+        "trayStartedAt": 1788080400000
+      },
+      "expected": {
+        "totalCount": 0,
+        "kindCounts": {
+          "out-too-long": 0,
+          "tray-change": 0,
+          "tray-change-overdue": 0
+        },
+        "samples": []
+      }
+    },
+    {
+      "name": "new-year-calendar-count",
+      "nowMs": 1798790400000,
+      "snapshot": {
+        "currentTrayNumber": 7,
+        "daysPerTray": 7,
+        "latestPunch": {
+          "id": 2,
+          "status": "IN",
+          "timestamp": 1788080400000
+        },
+        "settings": {
+          "outReminderEnabled": true,
+          "outReminderMinutes": 45,
+          "outPersistentReminderIntervalMinutes": 5,
+          "trayChangeReminderEnabled": true,
+          "trayChangeReminderHour": 9,
+          "trayChangeReminderMinute": 0,
+          "trayChangeOverdueReminderEnabled": true
+        },
+        "totalTrays": 20,
+        "trayPeriodId": 33,
+        "trayStartedAt": 1798102800000
+      },
+      "expected": {
+        "totalCount": 14,
+        "kindCounts": {
+          "out-too-long": 0,
+          "tray-change": 0,
+          "tray-change-overdue": 14
+        },
+        "samples": [
+          {
+            "index": 0,
+            "body": "Your change to Tray 8 is 1 day overdue.",
+            "fingerprint": "tray-change-overdue:1798794000000:33:8:1",
+            "kind": "tray-change-overdue",
+            "scheduledAtMs": 1798794000000
+          },
+          {
+            "index": 13,
+            "body": "Your change to Tray 8 is 14 days overdue.",
+            "fingerprint": "tray-change-overdue:1799917200000:33:8:14",
+            "kind": "tray-change-overdue",
+            "scheduledAtMs": 1799917200000
+          }
+        ]
+      }
+    },
+    {
+      "name": "spring-gap-preserves-minutes",
+      "nowMs": 1772949600000,
+      "snapshot": {
+        "currentTrayNumber": 7,
+        "daysPerTray": 7,
+        "latestPunch": {
+          "id": 2,
+          "status": "IN",
+          "timestamp": 1788080400000
+        },
+        "settings": {
+          "outReminderEnabled": true,
+          "outReminderMinutes": 45,
+          "outPersistentReminderIntervalMinutes": 5,
+          "trayChangeReminderEnabled": true,
+          "trayChangeReminderHour": 2,
+          "trayChangeReminderMinute": 30,
+          "trayChangeOverdueReminderEnabled": true
+        },
+        "totalTrays": 20,
+        "trayPeriodId": 33,
+        "trayStartedAt": 1772287200000
+      },
+      "expected": {
+        "totalCount": 14,
+        "kindCounts": {
+          "out-too-long": 0,
+          "tray-change": 0,
+          "tray-change-overdue": 14
+        },
+        "samples": [
+          {
+            "index": 0,
+            "body": "Your change to Tray 8 is 1 day overdue.",
+            "fingerprint": "tray-change-overdue:1772955000000:33:8:1",
+            "kind": "tray-change-overdue",
+            "scheduledAtMs": 1772955000000
+          },
+          {
+            "index": 1,
+            "body": "Your change to Tray 8 is 2 days overdue.",
+            "fingerprint": "tray-change-overdue:1773037800000:33:8:2",
+            "kind": "tray-change-overdue",
+            "scheduledAtMs": 1773037800000
+          }
+        ]
+      },
+      "timeZone": "America/New_York"
+    },
+    {
+      "name": "autumn-repeat-uses-first-occurrence",
+      "nowMs": 1793509200000,
+      "snapshot": {
+        "currentTrayNumber": 7,
+        "daysPerTray": 7,
+        "latestPunch": {
+          "id": 2,
+          "status": "IN",
+          "timestamp": 1788080400000
+        },
+        "settings": {
+          "outReminderEnabled": true,
+          "outReminderMinutes": 45,
+          "outPersistentReminderIntervalMinutes": 5,
+          "trayChangeReminderEnabled": true,
+          "trayChangeReminderHour": 1,
+          "trayChangeReminderMinute": 30,
+          "trayChangeOverdueReminderEnabled": true
+        },
+        "totalTrays": 20,
+        "trayPeriodId": 33,
+        "trayStartedAt": 1792846800000
+      },
+      "expected": {
+        "totalCount": 14,
+        "kindCounts": {
+          "out-too-long": 0,
+          "tray-change": 0,
+          "tray-change-overdue": 14
+        },
+        "samples": [
+          {
+            "index": 0,
+            "body": "Your change to Tray 8 is 1 day overdue.",
+            "fingerprint": "tray-change-overdue:1793511000000:33:8:1",
+            "kind": "tray-change-overdue",
+            "scheduledAtMs": 1793511000000
+          },
+          {
+            "index": 1,
+            "body": "Your change to Tray 8 is 2 days overdue.",
+            "fingerprint": "tray-change-overdue:1793601000000:33:8:2",
+            "kind": "tray-change-overdue",
+            "scheduledAtMs": 1793601000000
+          }
+        ]
+      },
+      "timeZone": "America/New_York"
+    },
+    {
+      "name": "autumn-between-occurrences-does-not-repeat-today",
+      "nowMs": 1793512800000,
+      "snapshot": {
+        "currentTrayNumber": 7,
+        "daysPerTray": 7,
+        "latestPunch": {
+          "id": 2,
+          "status": "IN",
+          "timestamp": 1788080400000
+        },
+        "settings": {
+          "outReminderEnabled": true,
+          "outReminderMinutes": 45,
+          "outPersistentReminderIntervalMinutes": 5,
+          "trayChangeReminderEnabled": true,
+          "trayChangeReminderHour": 1,
+          "trayChangeReminderMinute": 30,
+          "trayChangeOverdueReminderEnabled": true
+        },
+        "totalTrays": 20,
+        "trayPeriodId": 33,
+        "trayStartedAt": 1792846800000
+      },
+      "expected": {
+        "totalCount": 14,
+        "kindCounts": {
+          "out-too-long": 0,
+          "tray-change": 0,
+          "tray-change-overdue": 14
+        },
+        "samples": [
+          {
+            "index": 0,
+            "body": "Your change to Tray 8 is 2 days overdue.",
+            "fingerprint": "tray-change-overdue:1793601000000:33:8:2",
+            "kind": "tray-change-overdue",
+            "scheduledAtMs": 1793601000000
+          }
+        ]
+      },
+      "timeZone": "America/New_York"
+    },
+    {
+      "name": "timezone-recalculation-los-angeles",
+      "nowMs": 1789048800000,
+      "snapshot": {
+        "currentTrayNumber": 7,
+        "daysPerTray": 7,
+        "latestPunch": {
+          "id": 2,
+          "status": "IN",
+          "timestamp": 1788080400000
+        },
+        "settings": {
+          "outReminderEnabled": true,
+          "outReminderMinutes": 45,
+          "outPersistentReminderIntervalMinutes": 5,
+          "trayChangeReminderEnabled": true,
+          "trayChangeReminderHour": 9,
+          "trayChangeReminderMinute": 0,
+          "trayChangeOverdueReminderEnabled": true
+        },
+        "totalTrays": 20,
+        "trayPeriodId": 33,
+        "trayStartedAt": 1788080400000
+      },
+      "expected": {
+        "totalCount": 14,
+        "kindCounts": {
+          "out-too-long": 0,
+          "tray-change": 0,
+          "tray-change-overdue": 14
+        },
+        "samples": [
+          {
+            "index": 0,
+            "body": "Your change to Tray 8 is 4 days overdue.",
+            "fingerprint": "tray-change-overdue:1789056000000:33:8:4",
+            "kind": "tray-change-overdue",
+            "scheduledAtMs": 1789056000000
+          }
+        ]
+      },
+      "timeZone": "America/Los_Angeles"
     }
   ],
   "reconciliationCases": [
@@ -229,6 +834,63 @@
         "scheduleFingerprints": [
           "out-too-long:3000:33"
         ]
+      }
+    },
+    {
+      "name": "overdue-keeps-one-cancels-duplicates-and-stale-content",
+      "desired": [
+        {
+          "body": "Your change to Tray 8 is 1 day overdue.",
+          "fingerprint": "tray-change-overdue:1788771600000:33:8:1",
+          "kind": "tray-change-overdue",
+          "scheduledAtMs": 1788771600000
+        }
+      ],
+      "scheduled": [
+        {
+          "identifier": "keep",
+          "kind": "tray-change-overdue",
+          "fingerprint": "tray-change-overdue:1788771600000:33:8:1"
+        },
+        {
+          "identifier": "duplicate",
+          "kind": "tray-change-overdue",
+          "fingerprint": "tray-change-overdue:1788771600000:33:8:1"
+        },
+        {
+          "identifier": "stale",
+          "kind": "tray-change-overdue",
+          "fingerprint": "tray-change-overdue:old"
+        },
+        {
+          "identifier": "unrelated",
+          "kind": "other",
+          "fingerprint": "other"
+        }
+      ],
+      "expected": {
+        "cancelIdentifiers": [
+          "duplicate",
+          "stale"
+        ],
+        "scheduleFingerprints": []
+      }
+    },
+    {
+      "name": "overdue-cancels-when-no-longer-desired",
+      "desired": [],
+      "scheduled": [
+        {
+          "identifier": "old-overdue",
+          "kind": "tray-change-overdue",
+          "fingerprint": "tray-change-overdue:1788771600000:33:8:1"
+        }
+      ],
+      "expected": {
+        "cancelIdentifiers": [
+          "old-overdue"
+        ],
+        "scheduleFingerprints": []
       }
     }
   ]

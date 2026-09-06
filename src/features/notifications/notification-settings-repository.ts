@@ -9,6 +9,7 @@ type SettingsRow = {
   tray_change_reminder_enabled: number;
   tray_change_reminder_hour: number;
   tray_change_reminder_minute: number;
+  tray_change_overdue_reminder_enabled: number;
 };
 
 function mapSettings(row: SettingsRow): Settings {
@@ -20,6 +21,7 @@ function mapSettings(row: SettingsRow): Settings {
     trayChangeReminderEnabled: row.tray_change_reminder_enabled === 1,
     trayChangeReminderHour: row.tray_change_reminder_hour,
     trayChangeReminderMinute: row.tray_change_reminder_minute,
+    trayChangeOverdueReminderEnabled: row.tray_change_overdue_reminder_enabled === 1,
   };
 }
 
@@ -31,7 +33,8 @@ export async function getNotificationSettings(db: SQLiteDatabase): Promise<Setti
        out_persistent_reminder_interval_minutes,
        tray_change_reminder_enabled,
        tray_change_reminder_hour,
-       tray_change_reminder_minute
+       tray_change_reminder_minute,
+       tray_change_overdue_reminder_enabled
      FROM settings
      WHERE id = 1`,
   );
@@ -51,7 +54,8 @@ export async function updateNotificationSettings(db: SQLiteDatabase, settings: S
          out_persistent_reminder_interval_minutes = ?,
          tray_change_reminder_enabled = ?,
          tray_change_reminder_hour = ?,
-         tray_change_reminder_minute = ?
+         tray_change_reminder_minute = ?,
+         tray_change_overdue_reminder_enabled = ?
      WHERE id = 1`,
     settings.outReminderEnabled ? 1 : 0,
     settings.outReminderMinutes,
@@ -59,6 +63,7 @@ export async function updateNotificationSettings(db: SQLiteDatabase, settings: S
     settings.trayChangeReminderEnabled ? 1 : 0,
     settings.trayChangeReminderHour,
     settings.trayChangeReminderMinute,
+    settings.trayChangeOverdueReminderEnabled ? 1 : 0,
   );
 
   if (result.changes !== 1) {

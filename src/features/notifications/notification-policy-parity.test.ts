@@ -10,6 +10,35 @@ import type { TrackerSnapshot } from '@/features/tracker/tracker-model';
 
 import parityFixtures from '../../../modules/aligner-tracker-intents/ios/Tests/Fixtures/notification-policy.json';
 
+// A separate Node process exercises real local Date behavior in each zone;
+// changing TZ inside Jest's environment does not reliably change its timezone.
+const { execFileSync } = jest.requireActual('node:child_process') as {
+  execFileSync: (file: string, args: string[], options: {
+    env: Record<string, string | undefined>; input: string; encoding: 'utf8'; timeout: number;
+  }) => string;
+};
+const { readFileSync } = jest.requireActual('node:fs') as { readFileSync: (path: string, encoding: 'utf8') => string };
+const ts = jest.requireActual('typescript') as typeof import('typescript');
+const policyCode = ts.transpileModule(
+  readFileSync('src/features/notifications/notification-policy.ts', 'utf8'),
+  { compilerOptions: { module: ts.ModuleKind.CommonJS } },
+).outputText;
+
+function buildInTimeZone(snapshot: TrackerSnapshot, settings: Settings, now: number, timeZone: string): ReminderRequest[] {
+  const script = `
+    const input = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
+    const policy = {};
+    new Function('exports', input.code)(policy);
+    process.stdout.write(JSON.stringify(policy.buildReminderRequests(input.snapshot, input.settings, input.now)));
+  `;
+  return JSON.parse(execFileSync(process.execPath, ['-e', script], {
+    env: { ...process.env, TZ: timeZone },
+    input: JSON.stringify({ code: policyCode, snapshot, settings, now }),
+    encoding: 'utf8',
+    timeout: 5000,
+  }));
+}
+
 type FixtureReminder = {
   body: string;
   fingerprint: string;
@@ -32,6 +61,9 @@ type FixtureSnapshot = {
 };
 
 const utcReminderCalendar: ReminderCalendar = {
+  daysBetween(from, to) {
+    return Math.floor(to / 86400000) - Math.floor(from / 86400000);
+  },
   addDays(timestamp, days) {
     const date = new Date(timestamp);
     date.setUTCDate(date.getUTCDate() + days);
@@ -73,7 +105,9 @@ describe('notification policy parity fixtures', () => {
   for (const fixture of parityFixtures.buildCases) {
     it(fixture.name, () => {
       const snapshot = fixture.snapshot as FixtureSnapshot;
-      const reminders = buildReminderRequests(
+      const reminders = 'timeZone' in fixture ? buildInTimeZone(
+        trackerSnapshot(snapshot), snapshot.settings, fixture.nowMs, fixture.timeZone!,
+      ) : buildReminderRequests(
         trackerSnapshot(snapshot),
         snapshot.settings,
         fixture.nowMs,
@@ -81,10 +115,12 @@ describe('notification policy parity fixtures', () => {
       );
       const kindCounts = reminders.reduce<Record<ReminderKind, number>>(
         (counts, current) => ({ ...counts, [current.kind]: counts[current.kind] + 1 }),
-        { 'out-too-long': 0, 'tray-change': 0 },
+        { 'out-too-long': 0, 'tray-change': 0, 'tray-change-overdue': 0 },
       );
 
       expect(reminders).toHaveLength(fixture.expected.totalCount);
+      expect(reminders.every((request) => request.scheduledAt > fixture.nowMs)).toBe(true);
+      expect(new Set(reminders.map((request) => request.fingerprint)).size).toBe(reminders.length);
       expect(kindCounts).toEqual(fixture.expected.kindCounts);
       for (const sample of fixture.expected.samples) {
         expect(reminders[sample.index]).toEqual({
@@ -97,6 +133,18 @@ describe('notification policy parity fixtures', () => {
       }
     });
   }
+
+  it('replaces pending overdue content after a timezone change', () => {
+    const fixture = parityFixtures.buildCases.find((item) => item.name === 'late-enable-before-todays-time')!;
+    const snapshot = fixture.snapshot as FixtureSnapshot;
+    const before = buildInTimeZone(trackerSnapshot(snapshot), snapshot.settings, fixture.nowMs, 'UTC');
+    const after = buildInTimeZone(trackerSnapshot(snapshot), snapshot.settings, fixture.nowMs, 'America/Los_Angeles');
+    const result = planReminderReconciliation(after, before.map((item) => ({
+      ...item, identifier: item.fingerprint,
+    })));
+    expect(result.cancelIdentifiers).toHaveLength(14);
+    expect(result.schedule).toEqual(after);
+  });
 
   for (const fixture of parityFixtures.reconciliationCases) {
     it(fixture.name, () => {

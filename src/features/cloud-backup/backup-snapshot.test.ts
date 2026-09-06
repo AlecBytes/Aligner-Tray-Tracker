@@ -51,6 +51,7 @@ type SnapshotFixture = {
     tray_change_reminder_enabled: number;
     tray_change_reminder_hour: number;
     tray_change_reminder_minute: number;
+    tray_change_overdue_reminder_enabled: number;
     notifications_enabled?: number;
     auth_token?: string;
   } | null;
@@ -134,6 +135,7 @@ const BASE_FIXTURE: SnapshotFixture = {
     tray_change_reminder_enabled: 0,
     tray_change_reminder_hour: 18,
     tray_change_reminder_minute: 30,
+    tray_change_overdue_reminder_enabled: 1,
   },
 };
 
@@ -302,6 +304,7 @@ describe('backup snapshot serialization', () => {
           trayChangeReminderEnabled: false,
           trayChangeReminderHour: 18,
           trayChangeReminderMinute: 30,
+          trayChangeOverdueReminderEnabled: true,
         },
       },
     });
@@ -378,6 +381,7 @@ describe('backup snapshot serialization', () => {
       tray_change_reminder_enabled: 1,
       tray_change_reminder_hour: 9,
       tray_change_reminder_minute: 0,
+      tray_change_overdue_reminder_enabled: 0,
     };
 
     const snapshot = await serializeBackupSnapshot(createSnapshotDatabase(fixture).db, {
@@ -396,6 +400,7 @@ describe('backup snapshot serialization', () => {
         trayChangeReminderEnabled: true,
         trayChangeReminderHour: 9,
         trayChangeReminderMinute: 0,
+        trayChangeOverdueReminderEnabled: false,
       },
     });
   });
@@ -586,6 +591,7 @@ function createMatureTreatmentFixture(): SnapshotFixture {
       tray_change_reminder_enabled: 1,
       tray_change_reminder_hour: 8,
       tray_change_reminder_minute: 30,
+    tray_change_overdue_reminder_enabled: 1,
     },
   };
 }

@@ -12,6 +12,7 @@ describe('notification settings model', () => {
       outReminderMinutes: 45,
       outPersistentReminderIntervalMinutes: 5,
       trayChangeReminderEnabled: true,
+      trayChangeOverdueReminderEnabled: false,
       trayChangeReminderHour: 9,
       trayChangeReminderMinute: 0,
     });

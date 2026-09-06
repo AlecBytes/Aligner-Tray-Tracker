@@ -40,6 +40,7 @@ export type BackupNotificationSettingsV1 = {
   trayChangeReminderEnabled: boolean;
   trayChangeReminderHour: number;
   trayChangeReminderMinute: number;
+  trayChangeOverdueReminderEnabled?: boolean;
 };
 
 export type BackupSnapshotPayloadV1 = {
@@ -108,6 +109,7 @@ type NotificationSettingsRow = {
   tray_change_reminder_enabled: number;
   tray_change_reminder_hour: number;
   tray_change_reminder_minute: number;
+  tray_change_overdue_reminder_enabled: number;
 };
 
 function validationError(path: string, expectation: string): never {
@@ -264,9 +266,13 @@ function validateNotificationSettings(
   path: string,
 ): BackupNotificationSettingsV1 {
   const record = requireRecord(value, path);
+  const hasOverduePreference = Object.prototype.hasOwnProperty.call(
+    record, 'trayChangeOverdueReminderEnabled',
+  );
   requireExactKeys(
     record,
     [
+      ...(hasOverduePreference ? ['trayChangeOverdueReminderEnabled'] : []),
       'outReminderEnabled',
       'outReminderMinutes',
       'outPersistentReminderIntervalMinutes',
@@ -301,6 +307,13 @@ function validateNotificationSettings(
       23,
       `${path}.trayChangeReminderHour`,
     ),
+    // Preserve omission until after canonical-byte and hash verification.
+    ...(hasOverduePreference ? {
+      trayChangeOverdueReminderEnabled: requireBoolean(
+        record.trayChangeOverdueReminderEnabled,
+        `${path}.trayChangeOverdueReminderEnabled`,
+      ),
+    } : {}),
     trayChangeReminderMinute: requireIntegerInRange(
       record.trayChangeReminderMinute,
       0,
@@ -478,6 +491,9 @@ export function canonicalizeBackupSnapshotPayloadV1(
       trayChangeReminderEnabled: payload.notificationSettings.trayChangeReminderEnabled,
       trayChangeReminderHour: payload.notificationSettings.trayChangeReminderHour,
       trayChangeReminderMinute: payload.notificationSettings.trayChangeReminderMinute,
+      ...(payload.notificationSettings.trayChangeOverdueReminderEnabled === undefined ? {} : {
+        trayChangeOverdueReminderEnabled: payload.notificationSettings.trayChangeOverdueReminderEnabled,
+      }),
     },
   };
 }
@@ -563,7 +579,8 @@ export async function serializeBackupSnapshot(
          out_persistent_reminder_interval_minutes,
          tray_change_reminder_enabled,
          tray_change_reminder_hour,
-         tray_change_reminder_minute
+         tray_change_reminder_minute,
+         tray_change_overdue_reminder_enabled
        FROM settings
        WHERE id = 1`,
     );
@@ -604,6 +621,7 @@ export async function serializeBackupSnapshot(
         trayChangeReminderEnabled: settings.tray_change_reminder_enabled === 1,
         trayChangeReminderHour: settings.tray_change_reminder_hour,
         trayChangeReminderMinute: settings.tray_change_reminder_minute,
+        trayChangeOverdueReminderEnabled: settings.tray_change_overdue_reminder_enabled === 1,
       },
     };
   });

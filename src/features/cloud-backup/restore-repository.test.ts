@@ -71,7 +71,7 @@ function createRestoreDatabase(options: { failTable?: keyof RestoreState; tracke
     appInstallation: 'installation-kept',
     plans: [],
     punches: [],
-    settings: [1, 45, 5, 1, 9, 0, 1],
+    settings: [1, 45, 5, 1, 9, 0, 1, 1],
     treatments: [],
     trayPeriods: [],
   };
@@ -148,7 +148,7 @@ function createRestoreDatabase(options: { failTable?: keyof RestoreState; tracke
   const runAsync = jest.fn(async (sql: string, ...parameters: unknown[]) => {
     if (!sql.includes('UPDATE settings')) throw new Error(`Unexpected runAsync query: ${sql}`);
     if (options.failTable === 'settings') throw new Error('Injected settings failure');
-    state.settings = [...parameters.map(Number), state.settings[6]];
+    state.settings = [...parameters.map(Number), state.settings[7]];
     return { changes: 1, lastInsertRowId: 0 };
   });
 
@@ -192,12 +192,20 @@ describe('atomic backup restore repository', () => {
     expect(database.state.plans[0]?.[0]).toBe(11);
     expect(database.state.trayPeriods[0]?.[0]).toBe(21);
     expect(database.state.punches.map((row) => row[0])).toEqual([31, 32]);
-    expect(database.state.settings).toEqual([0, 60, 10, 1, 18, 30, 1]);
+    expect(database.state.settings).toEqual([0, 60, 10, 1, 18, 30, 0, 1]);
     expect(database.state.appInstallation).toBe('installation-kept');
     expect(database.finalized).toHaveLength(4);
   });
 
-  it.each(['plans', 'trayPeriods', 'punches', 'settings'] as const)(
+  it.each([true, false])('restores an explicit overdue preference of %s', async (enabled) => {
+    const database = createRestoreDatabase();
+    const value = snapshot();
+    value.payload.notificationSettings.trayChangeOverdueReminderEnabled = enabled;
+    await importBackupSnapshot(database.db, value, 500);
+    expect(database.state.settings[6]).toBe(enabled ? 1 : 0);
+  });
+
+  it.each(['plans' , 'trayPeriods', 'punches', 'settings'] as const)(
     'rolls back after a %s write failure',
     async (failTable) => {
       const database = createRestoreDatabase({ failTable });

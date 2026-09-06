@@ -339,3 +339,46 @@ describe('planReminderReconciliation', () => {
     ]);
   });
 });
+
+describe('overdue reminder lifecycle', () => {
+  const settings = { ...DEFAULT_NOTIFICATION_SETTINGS, trayChangeOverdueReminderEnabled: true };
+
+  it.each([
+    ['tray change', { trayPeriodId: 34, currentTrayNumber: 10 }],
+    ['plan edit', { daysPerTray: 8 }],
+    ['final tray', { currentTrayNumber: 48 }],
+  ] as const)('cancels obsolete overdue requests after %s', (_name, changes) => {
+    const tracker = snapshot();
+    const before = buildReminderRequests(tracker, settings, tracker.trayStartedAt)
+      .filter((request) => request.kind === 'tray-change-overdue');
+    const after = buildReminderRequests(snapshot(changes), settings, tracker.trayStartedAt);
+    const result = planReminderReconciliation(after, before.map((request) => ({
+      ...request, identifier: request.fingerprint,
+    })));
+    expect(result.cancelIdentifiers).toEqual(before.map((request) => request.fingerprint));
+  });
+
+  it('cancels only the overdue series when its toggle is turned off', () => {
+    const tracker = snapshot();
+    const before = buildReminderRequests(tracker, settings, tracker.trayStartedAt);
+    const after = buildReminderRequests(tracker, DEFAULT_NOTIFICATION_SETTINGS, tracker.trayStartedAt);
+    const result = planReminderReconciliation(after, before.map((request) => ({
+      ...request, identifier: request.fingerprint,
+    })));
+    expect(result.cancelIdentifiers).toHaveLength(14);
+    expect(result.schedule).toEqual([]);
+    expect(after[0].kind).toBe('tray-change');
+  });
+
+  it('replenishes only consumed overdue slots on resume', () => {
+    const tracker = snapshot();
+    const before = buildReminderRequests(tracker, settings, tracker.trayStartedAt)
+      .filter((request) => request.kind === 'tray-change-overdue');
+    const now = before[0].scheduledAt;
+    const pending = before.slice(1).map((request) => ({ ...request, identifier: request.fingerprint }));
+    const result = planReminderReconciliation(buildReminderRequests(tracker, settings, now), pending);
+    expect(result.cancelIdentifiers).toEqual([]);
+    expect(result.schedule).toHaveLength(1);
+    expect(result.schedule[0].body).toBe('Your change to Tray 10 is 15 days overdue.');
+  });
+});

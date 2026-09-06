@@ -88,6 +88,36 @@ async function recoveryPointFor(
 }
 
 describe('downloaded restore snapshot validation', () => {
+  it('preserves original legacy bytes and checksum without inserting the new preference', async () => {
+    const value = envelope();
+    const text = JSON.stringify(value);
+    const { createHash } = jest.requireActual('node:crypto') as { createHash: (algorithm: string) => { update: (value: string) => { digest: (encoding: string) => string } } };
+    const point = await recoveryPointFor(value, text);
+    point.contentHash = createHash('sha256')
+      .update(JSON.stringify({ schemaVersion: 1, payload: value.payload })).digest('hex');
+    const validated = await validateDownloadedBackupSnapshot(encode(text), point);
+    expect(canonicalBackupSnapshotEnvelopeJson(validated)).toBe(text);
+    expect(validated.payload.notificationSettings).not.toHaveProperty('trayChangeOverdueReminderEnabled');
+  });
+
+  it.each([true, false])('verifies a new backup with overdue preference %s', async (enabled) => {
+    const value = envelope();
+    value.payload.notificationSettings.trayChangeOverdueReminderEnabled = enabled;
+    const text = canonicalBackupSnapshotEnvelopeJson(value);
+    await expect(validateDownloadedBackupSnapshot(encode(text), await recoveryPointFor(value, text)))
+      .resolves.toEqual(value);
+  });
+
+  it.each([null, 0, 1, 'true'])('rejects a present non-boolean overdue preference: %s', async (invalid) => {
+    const value = envelope();
+    const text = JSON.stringify({ ...value, payload: { ...value.payload, notificationSettings: {
+      ...value.payload.notificationSettings, trayChangeOverdueReminderEnabled: invalid,
+    } } });
+    const point = await recoveryPointFor(value, text);
+    await expect(validateDownloadedBackupSnapshot(encode(text), point))
+      .rejects.toMatchObject({ kind: 'invalidSnapshot' });
+  });
+
   it('accepts a canonical, matching, operational V1 snapshot', async () => {
     const value = envelope();
     const text = canonicalBackupSnapshotEnvelopeJson(value);

@@ -3,12 +3,13 @@ import type { TrackerSnapshot } from '@/features/tracker/tracker-model';
 
 const MILLISECONDS_PER_MINUTE = 60 * 1000;
 export const MAX_PENDING_REMINDERS = 64;
+export const MAX_PENDING_OVERDUE_REMINDERS = 14;
 
 export const REMINDER_KIND_DATA_KEY = 'alignerReminderKind';
 export const REMINDER_FINGERPRINT_DATA_KEY = 'alignerReminderFingerprint';
 export const REMINDER_SOUND = 'default' as const;
 
-export type ReminderKind = 'out-too-long' | 'tray-change';
+export type ReminderKind = 'out-too-long' | 'tray-change' | 'tray-change-overdue';
 
 export type ReminderRequest = {
   body: string;
@@ -32,6 +33,7 @@ export type ReminderReconciliation = {
 export type ReminderCalendar = {
   addDays: (timestamp: number, days: number) => number;
   setTime: (timestamp: number, hour: number, minute: number) => number;
+  daysBetween: (from: number, to: number) => number;
 };
 
 const localReminderCalendar: ReminderCalendar = {
@@ -44,6 +46,16 @@ const localReminderCalendar: ReminderCalendar = {
     const date = new Date(timestamp);
     date.setHours(hour, minute, 0, 0);
     return date.getTime();
+  },
+  daysBetween(from, to) {
+    // Compare calendar dates on a UTC axis, avoiding 23/25-hour local days.
+    const ordinal = (timestamp: number) => {
+      const local = new Date(timestamp);
+      const utc = new Date(0);
+      utc.setUTCFullYear(local.getFullYear(), local.getMonth(), local.getDate());
+      return utc.getTime() / (24 * 60 * MILLISECONDS_PER_MINUTE);
+    };
+    return ordinal(to) - ordinal(from);
   },
 };
 
@@ -86,6 +98,33 @@ export function buildReminderRequests(
       scheduledAt: trayChangeAt,
       sound: REMINDER_SOUND,
     });
+  }
+
+  if (
+    settings.trayChangeReminderEnabled &&
+    settings.trayChangeOverdueReminderEnabled &&
+    nextTrayNumber <= snapshot.totalTrays
+  ) {
+    let daysOverdue = Math.max(1, calendar.daysBetween(trayChangeDueDate, now));
+    const overdueTime = (days: number) => calendar.setTime(
+      calendar.addDays(trayChangeDueDate, days),
+      settings.trayChangeReminderHour,
+      settings.trayChangeReminderMinute,
+    );
+    if (overdueTime(daysOverdue) <= now) {
+      daysOverdue += 1;
+    }
+    for (let index = 0; index < MAX_PENDING_OVERDUE_REMINDERS; index += 1) {
+      const days = daysOverdue + index;
+      const scheduledAt = overdueTime(days);
+      reminders.push({
+        body: `Your change to Tray ${nextTrayNumber} is ${days} ${days === 1 ? 'day' : 'days'} overdue.`,
+        fingerprint: `tray-change-overdue:${scheduledAt}:${snapshot.trayPeriodId}:${nextTrayNumber}:${days}`,
+        kind: 'tray-change-overdue',
+        scheduledAt,
+        sound: REMINDER_SOUND,
+      });
+    }
   }
 
   const latestPunch = snapshot.punches.reduce(
@@ -134,7 +173,7 @@ export function buildReminderRequests(
 }
 
 function isReminderKind(value: unknown): value is ReminderKind {
-  return value === 'out-too-long' || value === 'tray-change';
+  return value === 'out-too-long' || value === 'tray-change' || value === 'tray-change-overdue';
 }
 
 export function planReminderReconciliation(

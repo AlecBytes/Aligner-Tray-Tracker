@@ -138,7 +138,7 @@ export function NotificationSettingsScreen() {
     setSaveMessage(null);
   }
 
-  function updateSwitch(field: 'outReminderEnabled' | 'trayChangeReminderEnabled', value: boolean) {
+  function updateSwitch(field: 'outReminderEnabled' | 'trayChangeReminderEnabled' | 'trayChangeOverdueReminderEnabled', value: boolean) {
     setSettings((current) => (current === null ? current : { ...current, [field]: value }));
     clearFeedback();
   }
@@ -320,6 +320,12 @@ export function NotificationSettingsScreen() {
             }}
             selection={trayChangeReminderTime}
             title="Reminder time"
+          />
+          <Toggle
+            isOn={settings.trayChangeOverdueReminderEnabled}
+            label="Remind me daily when overdue"
+            modifiers={[disabled(isSaving || !settings.trayChangeReminderEnabled)]}
+            onIsOnChange={(value) => updateSwitch('trayChangeOverdueReminderEnabled', value)}
           />
         </Section>
 

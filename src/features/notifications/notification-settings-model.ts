@@ -5,6 +5,7 @@ export const DEFAULT_NOTIFICATION_SETTINGS: Settings = {
   outReminderMinutes: 45,
   outPersistentReminderIntervalMinutes: 5,
   trayChangeReminderEnabled: true,
+  trayChangeOverdueReminderEnabled: false,
   trayChangeReminderHour: 9,
   trayChangeReminderMinute: 0,
 };

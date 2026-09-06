@@ -33,6 +33,7 @@ struct AlignerNotificationSettings: Sendable {
   let trayChangeReminderEnabled: Bool
   let trayChangeReminderHour: Int
   let trayChangeReminderMinute: Int
+  let trayChangeOverdueReminderEnabled: Bool
 }
 
 struct AlignerNotificationSnapshot: Sendable {
@@ -143,7 +144,7 @@ private final class AlignerSQLiteConnection {
 
 enum AlignerTrackerStore {
   private static let minimumSupportedDatabaseVersion = 4
-  private static let maximumSupportedDatabaseVersion = 6
+  private static let maximumSupportedDatabaseVersion = 7
 
   static func ensureWearStatus(
     _ desiredStatus: AlignerWearStatus,
@@ -645,6 +646,14 @@ enum AlignerTrackerStore {
   private static func loadNotificationSettings(
     _ connection: AlignerSQLiteConnection
   ) throws -> AlignerNotificationSettings {
+    // Intents may run before the app has migrated an older supported database.
+    let versionStatement = try connection.prepare("PRAGMA user_version")
+    defer { sqlite3_finalize(versionStatement) }
+    guard sqlite3_step(versionStatement) == SQLITE_ROW else {
+      throw AlignerTrackerStoreError.invalidTrackerState
+    }
+    let overdueColumn = sqlite3_column_int(versionStatement, 0) >= 7
+      ? "tray_change_overdue_reminder_enabled" : "0"
     let statement = try connection.prepare(
       """
       SELECT
@@ -653,7 +662,8 @@ enum AlignerTrackerStore {
         out_persistent_reminder_interval_minutes,
         tray_change_reminder_enabled,
         tray_change_reminder_hour,
-        tray_change_reminder_minute
+        tray_change_reminder_minute,
+        \(overdueColumn)
       FROM settings
       WHERE id = 1
       """
@@ -668,7 +678,8 @@ enum AlignerTrackerStore {
       outPersistentReminderIntervalMinutes: Int(sqlite3_column_int64(statement, 2)),
       trayChangeReminderEnabled: sqlite3_column_int(statement, 3) == 1,
       trayChangeReminderHour: Int(sqlite3_column_int64(statement, 4)),
-      trayChangeReminderMinute: Int(sqlite3_column_int64(statement, 5))
+      trayChangeReminderMinute: Int(sqlite3_column_int64(statement, 5)),
+      trayChangeOverdueReminderEnabled: sqlite3_column_int(statement, 6) == 1
     )
   }
 }
