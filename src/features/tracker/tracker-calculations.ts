@@ -48,7 +48,7 @@ export function calculateTrayDay(trayStartedAt: number, now: number) {
 }
 
 export function calculateDaysRemaining(daysPerTray: number, trayDay: number) {
-  return Math.max(0, daysPerTray - trayDay);
+  return daysPerTray - trayDay;
 }
 
 export type DailyWearTotals = {

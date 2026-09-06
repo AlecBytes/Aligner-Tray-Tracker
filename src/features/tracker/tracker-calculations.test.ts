@@ -56,10 +56,28 @@ describe('tray day calculations', () => {
     expect(calculateTrayDay(trayStartedAt, nextLocalDate)).toBe(2);
   });
 
-  it('clamps days remaining at zero', () => {
+  it('continues days remaining below zero when the tray is overdue', () => {
     expect(calculateDaysRemaining(7, 1)).toBe(6);
+    expect(calculateDaysRemaining(7, 6)).toBe(1);
     expect(calculateDaysRemaining(7, 7)).toBe(0);
-    expect(calculateDaysRemaining(7, 10)).toBe(0);
+    expect(calculateDaysRemaining(7, 8)).toBe(-1);
+    expect(calculateDaysRemaining(7, 9)).toBe(-2);
+    expect(calculateDaysRemaining(7, 10)).toBe(-3);
+  });
+
+  it('preserves overdue values in the read model across local midnight', () => {
+    const trayStartedAt = new Date(2026, 7, 1, 9).getTime();
+    const snapshot = createSnapshot([{ id: 1, status: 'IN', timestamp: trayStartedAt }]);
+
+    expect(
+      createTrackerReadModel(snapshot, new Date(2026, 7, 7, 23, 59).getTime()),
+    ).toMatchObject({ trayDay: 7, daysRemaining: 0 });
+    expect(
+      createTrackerReadModel(snapshot, new Date(2026, 7, 8, 0, 0).getTime()),
+    ).toMatchObject({ trayDay: 8, daysRemaining: -1 });
+    expect(
+      createTrackerReadModel(snapshot, new Date(2026, 7, 10, 12).getTime()),
+    ).toMatchObject({ trayDay: 10, daysRemaining: -3 });
   });
 });
 

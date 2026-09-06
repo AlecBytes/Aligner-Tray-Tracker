@@ -173,7 +173,7 @@ export function TrackerScreen() {
   const isIn = tracker.currentStatus === 'IN';
   const currentOutDuration = formatDuration(tracker.currentOutSeconds);
   const daysRemainingLabel = `${tracker.daysRemaining} ${
-    tracker.daysRemaining === 1 ? 'day' : 'days'
+    Math.abs(tracker.daysRemaining) === 1 ? 'day' : 'days'
   } left`;
 
   async function toggleTracker() {
@@ -328,7 +328,9 @@ export function TrackerScreen() {
           {tracker.currentTrayNumber} / {tracker.totalTrays}
         </AppText>
         <AppText variant="heading">Day {tracker.trayDay}</AppText>
-        <AppText muted>{daysRemainingLabel}</AppText>
+        <AppText muted style={tracker.daysRemaining < 0 ? { color: theme.error } : undefined}>
+          {daysRemainingLabel}
+        </AppText>
       </View>
 
       {error ? (

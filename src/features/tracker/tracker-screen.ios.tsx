@@ -242,7 +242,7 @@ export function TrackerScreen() {
   const isIn = tracker.currentStatus === 'IN';
   const currentOutDuration = formatDuration(tracker.currentOutSeconds);
   const daysRemainingLabel = `${tracker.daysRemaining} ${
-    tracker.daysRemaining === 1 ? 'day' : 'days'
+    Math.abs(tracker.daysRemaining) === 1 ? 'day' : 'days'
   } left`;
 
   async function toggleTracker() {
@@ -426,7 +426,12 @@ export function TrackerScreen() {
           <Text modifiers={[font({ textStyle: 'headline', weight: 'semibold' })]}>
             Day {tracker.trayDay}
           </Text>
-          <Text modifiers={[foregroundStyle({ type: 'hierarchical', style: 'secondary' })]}>
+          <Text
+            modifiers={[
+              tracker.daysRemaining < 0
+                ? foregroundStyle('red')
+                : foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+            ]}>
             {daysRemainingLabel}
           </Text>
         </VStack>
