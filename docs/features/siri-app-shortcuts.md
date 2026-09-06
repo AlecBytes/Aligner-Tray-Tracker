@@ -442,10 +442,11 @@ write transaction.
 
 The native store is coupled to the SQLite schema even though migrations are owned by
 TypeScript. It must accept only an explicitly reviewed `PRAGMA user_version` range.
-The current implementation accepts versions 4 through 5; version 5 is the current
-`DATABASE_VERSION`.
+The current implementation accepts versions 4 through 6; version 6 is the current
+`DATABASE_VERSION`. Version 6 adds only the theme preference in settings and leaves
+the native tracker queries compatible.
 
-Whenever a migration changes tables, columns, constraints, or query semantics used by
+Whenever a migration increments `DATABASE_VERSION`, even for columns unused by
 the native module, the same change must:
 
 - update the native supported-version range and queries;

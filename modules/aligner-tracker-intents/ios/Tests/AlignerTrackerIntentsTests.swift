@@ -42,7 +42,7 @@ final class AlignerTrackerStoreTests: XCTestCase {
   }
 
   func testDatabaseSchemaCompatibilityIsBounded() throws {
-    for version in [4, 5] {
+    for version in [4, 5, 6] {
       let database = try makeDatabase(
         databaseVersion: version,
         initialStatus: "IN"
@@ -74,7 +74,7 @@ final class AlignerTrackerStoreTests: XCTestCase {
     XCTAssertEqual(try punchCount(migrationDatabase), 1)
 
     let newerDatabase = try makeDatabase(
-      databaseVersion: 6,
+      databaseVersion: 7,
       initialStatus: "IN"
     )
     XCTAssertThrowsError(
@@ -127,7 +127,7 @@ final class AlignerTrackerStoreTests: XCTestCase {
       return XCTFail("Expected initialized data without a treatment to remain distinct.")
     }
 
-    for version in [4, 5] {
+    for version in [4, 5, 6] {
       let supportedDatabase = try makeDatabase(
         databaseVersion: version,
         initialStatus: "IN"
@@ -144,7 +144,7 @@ final class AlignerTrackerStoreTests: XCTestCase {
     }
 
     let newerDatabase = try makeDatabase(
-      databaseVersion: 6,
+      databaseVersion: 7,
       initialStatus: "IN"
     )
     do {
@@ -493,7 +493,7 @@ final class AlignerTrackerStoreTests: XCTestCase {
 
   private func makeDatabase(
     activePeriodCount: Int = 1,
-    databaseVersion: Int = 5,
+    databaseVersion: Int = 6,
     initialStatus: String?,
     includePlan: Bool = true
   ) throws -> URL {
@@ -556,6 +556,13 @@ final class AlignerTrackerStoreTests: XCTestCase {
           ON tray_periods (treatment_id)
           WHERE ended_at IS NULL;
         """,
+        database: database
+      )
+    }
+
+    if databaseVersion >= 6 {
+      try execute(
+        "ALTER TABLE settings ADD COLUMN selected_theme_key TEXT NOT NULL DEFAULT 'default';",
         database: database
       )
     }

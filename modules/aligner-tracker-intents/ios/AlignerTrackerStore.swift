@@ -143,7 +143,7 @@ private final class AlignerSQLiteConnection {
 
 enum AlignerTrackerStore {
   private static let minimumSupportedDatabaseVersion = 4
-  private static let maximumSupportedDatabaseVersion = 5
+  private static let maximumSupportedDatabaseVersion = 6
 
   static func ensureWearStatus(
     _ desiredStatus: AlignerWearStatus,
