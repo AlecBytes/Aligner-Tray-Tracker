@@ -358,6 +358,14 @@ Settings include:
 - enabled / disabled
 - reminder time
 
+Planned expansion: add a default-off `Remind me daily when overdue` option under
+the tray-change reminder, sharing its local reminder time. Starting the calendar
+day after the due date, each notification states how many calendar days overdue
+the change is. Schedule the next 14 future overdue notifications and replenish
+on startup/resume and relevant tracker/settings changes; delivery stops when that
+batch is exhausted until reconciliation runs again. This expansion is documented
+but not yet implemented.
+
 Notification changes should reconcile scheduled notifications without polling or duplicates.
 
 See `docs/features/notification-settings.md`.

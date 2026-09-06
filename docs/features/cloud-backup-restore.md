@@ -155,6 +155,16 @@ The compact JSON envelope is:
 - `wear_punches`: `id`, `tray_period_id`, `status`, `timestamp`
 - `settings`: `out_reminder_enabled`, `out_reminder_minutes`, `out_persistent_reminder_interval_minutes`, `tray_change_reminder_enabled`, `tray_change_reminder_hour`, `tray_change_reminder_minute`, represented by the singleton `notificationSettings` object without its fixed row ID
 
+**Planned settings extension — daily overdue tray-change reminders:** Once the
+[notification expansion](notification-settings.md#daily-overdue-reminders-planned)
+is implemented, also include `settings.tray_change_overdue_reminder_enabled` as
+the boolean `notificationSettings.trayChangeOverdueReminderEnabled` in newly
+created backups. Accept older snapshots that omit this property, restoring false;
+reject a present non-boolean value. Update serialization, validation, restore
+mapping, and compatibility tests together. This is a planned local settings
+contract change, not a change to cloud infrastructure or scheduled-notification
+backup exclusions.
+
 Punch corrections have no separate audit table. The final corrected, added, or remaining `wear_punches` rows are the authoritative state included in the snapshot.
 
 Records are canonicalized in ascending order by stable semantic keys: treatments by ID; plan versions by treatment, effective time, and ID; tray periods by treatment, start time, and ID; and punches by tray period, timestamp, and ID. Object properties also use a fixed order, so the same state produces byte-identical JSON when the source app version is unchanged.

@@ -6,6 +6,10 @@ Give users direct control over the two useful local reminders while preserving t
 
 This feature supersedes the earlier MVP assumption that the OUT reminder is permanently fixed at 45 minutes and that there is no notification-settings UI.
 
+**Planned expansion:** Daily overdue tray-change reminders are specified below but
+are not yet implemented. This documentation update does not change app behavior.
+The expansion replaces the earlier exclusion of repeated overdue-tray reminders.
+
 ## Entry Point
 
 Add a menu item:
@@ -59,6 +63,8 @@ Tray Change Reminder
 
 Reminder time
 [ 9:00 AM ]
+
+[ ] Remind me daily when overdue
 ```
 
 ### Tray Change Reminder
@@ -67,17 +73,23 @@ Controls:
 
 - Enabled / disabled
 - Reminder time of day
+- `Remind me daily when overdue` (planned)
 
 Default:
 
 - Enabled
 - 9:00 AM local time
+- Daily overdue reminders off for new and existing users
 
 The reminder fires once on the calculated due date for the current tray.
 
 Do not automatically change trays.
 
-Do not repeat the tray-change notification every day when a tray is overdue.
+When daily overdue reminders are enabled, remind once per local calendar day
+after the due date at the existing reminder time. There is no separate overdue
+reminder time. Disable the subordinate control when the parent tray-change
+reminder is disabled, retaining its saved preference for when the parent is
+enabled again. Use native `@expo/ui/swift-ui` controls on iOS.
 
 ## Device Permission State
 
@@ -107,12 +119,24 @@ Persist at least:
 - OUT persistent reminder interval minutes
 - tray-change reminder enabled
 - tray-change reminder local time
+- tray-change daily overdue reminder enabled (planned)
 
 Use the existing settings/storage pattern if one exists.
 
 If the schema needs to change, add a proper SQLite migration rather than recreating the database.
 
 Existing users should receive defaults that preserve current behavior where practical.
+
+For the planned expansion, add `trayChangeOverdueReminderEnabled` to the settings
+type and `tray_change_overdue_reminder_enabled` to SQLite using the existing
+boolean storage convention, constrained to 0 or 1 and defaulting to 0. Apply a
+migration without recreating the database; preserve all existing preferences.
+Update settings repositories, defaults, and native Swift settings reads and schema
+compatibility together.
+
+Include the preference in new backups. When reading older backups that omit it,
+default it to false; a present value must be a boolean. See the planned settings
+extension in [Cloud Backup & Restore](cloud-backup-restore.md).
 
 ## OUT Reminder Scheduling
 
@@ -175,22 +199,70 @@ Message:
 
 Where `N` is the expected next tray number when one exists.
 
+If there is no next tray within the treatment plan, schedule neither the due-date
+notification nor overdue notifications.
+
 Do not automatically advance the tray.
+
+### Daily Overdue Reminders (Planned)
+
+Schedule these only when both tray-change reminders and daily overdue reminders
+are enabled. Preserve the due-date notification above.
+
+The first overdue notification is on the next local calendar day after the due
+date, at the configured reminder time:
+
+`Your change to Tray N is 1 day overdue.`
+
+On subsequent days:
+
+`Your change to Tray N is D days overdue.`
+
+`D` is the number of local calendar days between the scheduled change date and
+the notification's scheduled date, not the number of completed 24-hour periods.
+For example, a September 6 due date produces “1 day overdue” on September 7 and
+“2 days overdue” on September 8. Never issue a zero-day overdue notification.
+
+Build the next 14 future overdue notifications, each with its own calculated
+message. This is 14 upcoming occurrences, not a cutoff at 14 days overdue. If
+enabled several days late, begin at the next configured time strictly after now
+with the correct overdue count. Today's reminder is eligible if its time has not
+passed; otherwise begin tomorrow. Do not deliver missed notifications immediately.
+
+Use calendar-day arithmetic across month/year boundaries and daylight-saving
+transitions. On reconciliation, recalculate the due date and reminder times using
+the current local timezone. Already scheduled requests retain their schedule
+until reconciliation runs again.
+
+Reserve slots for the due-date reminder, when still future, and the next 14
+overdue reminders before allocating persistent OUT reminders. Keep the existing
+64-request budget: 14 overdue reminders plus one due-date reminder leave 49 slots
+for OUT reminders. When overdue reminders are off, preserve existing allocation.
+
+Replenish the batch on startup, resume, and the reconciliation events below. If
+the batch is exhausted without another reconciliation, daily reminders stop until
+reconciliation runs again. This is bounded local scheduling, with no network,
+polling, or continuous background work.
 
 ## Changing the Tray Reminder Setting
 
 When the tray-change reminder is disabled:
 
-- cancel any pending tray-change reminder
+- cancel all pending due-date and overdue tray-change reminders
+- retain the saved daily overdue preference
 
-When it is enabled or its reminder time changes:
+When it is enabled, its reminder time changes, or the daily overdue option changes:
 
-- cancel the previous pending reminder
+- reconcile obsolete pending due-date and overdue reminders
 - recalculate the current tray's due date
 - if the resulting due date/time is in the future, schedule it
 - if the resulting due date/time has already passed, do not send an immediate catch-up notification
+- if daily overdue reminders are enabled, build the next 14 future overdue notifications
+- if daily overdue reminders are disabled, cancel that series while preserving any eligible due-date reminder
 
-The next tray change will establish the next normal reminder.
+With daily overdue reminders off, the next tray change establishes the next normal
+reminder after a missed due-date notification. With them on, future overdue
+reminders continue for the unchanged tray within the scheduled batch.
 
 ## Reconciliation Events
 
@@ -202,7 +274,13 @@ Notification scheduling should be reconciled when any event changes the facts us
 - treatment-plan edit
 - notification-setting edit
 
-A lightweight reconciliation on app startup/resume is acceptable if useful for reliability, but do not add polling or continuous background work.
+Reconcile on app startup/resume to replenish pending reminders. Tray changes and
+relevant treatment-plan edits must cancel obsolete requests and rebuild from the
+current tray and effective plan. Do not add polling or continuous background work.
+
+For the planned expansion, update both the TypeScript policy and native Swift
+policy, along with their shared parity fixtures. Preserve the native coordinator
+as the iOS scheduling path and the existing Expo notification path elsewhere.
 
 ## Duplicate Prevention
 
@@ -214,12 +292,18 @@ Use the existing notification service/module and preserve clear identifiers for:
 
 - current OUT reminder
 - current tray-change reminder
+- each daily overdue tray-change reminder (planned)
 
 Cancel/recreate as needed rather than stacking duplicates.
 
+Overdue fingerprints must distinguish the tray period, scheduled date/time, and
+overdue count, and change when the target tray or message changes. Reconciliation
+must replace stale content, retain matching requests, and leave unrelated
+notifications alone.
+
 ## Sound Behavior
 
-Both the OUT reminder and tray-change reminder should use the device's normal
+The OUT reminder and all due-date and overdue tray-change reminders should use the device's normal
 notification sound. On Android, schedule them on the treatment-reminders
 notification channel with its sound set to the system default. Device silent or
 focus modes and user-configured notification/channel settings may still suppress
@@ -271,6 +355,32 @@ Add focused tests for:
 
 Use the existing testing framework.
 
+### Planned Expansion Acceptance Checks
+
+- Default-off migration preserves existing settings; the new preference persists.
+- Disabling the parent disables the subordinate control and cancels both tray
+  reminder types while retaining the daily preference; disabling only the daily
+  option preserves the eligible due-date reminder.
+- New backups include the preference; older backups without it restore false;
+  invalid present values are rejected.
+- The due-date notification remains unchanged; the first overdue notification is
+  the next calendar day, with correct singular/plural copy and next-tray number.
+- Enabling several days late uses the correct count and the next future reminder
+  time, including before, exactly at, and after today's configured time.
+- Calendar counts and schedules remain correct across month/year boundaries and
+  daylight-saving transitions; timezone reconciliation replaces stale requests.
+- Exactly 14 future overdue occurrences are scheduled and replenished, including
+  when already more than 14 days overdue; the combined queue stays within 64.
+- Tray changes, relevant plan edits, disabling reminders, and reaching the final
+  tray cancel obsolete requests without duplicates or immediate catch-up delivery.
+- Shared fixtures verify Swift/TypeScript parity, and notification failures leave
+  committed tracker data intact.
+
+For subsequent implementation, run `npm run validate` and the native policy/parity
+checks. On native devices, verify delivery with the app closed, cancellation,
+replenishment on resume, and existing sound and permission behavior. Documentation
+changes alone do not establish that these implementation checks pass.
+
 ## Out of Scope
 
 Do not add:
@@ -279,7 +389,8 @@ Do not add:
 - server notification infrastructure
 - cloud sync
 - account-based notification preferences
-- repeated overdue-tray reminders
+- a separate overdue reminder time or configurable repeat frequency
+- unbounded overdue delivery without replenishing the local schedule
 - notification analytics
 - marketing notifications
 - statistics
