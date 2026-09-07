@@ -14,7 +14,7 @@ Reviewed default branch main at b3e90fc33647bbd97e2e735582a4607e63d237ad:
 - Support is a separate consumable-tip feature. Implementing Themes does not require completing or enabling real tips.
 - All app-owned iOS visuals must use Expo UI / SwiftUI, including the purchase screen. Retain the iOS UI purity gate.
 
-Palette update, 2026-09-06: Default now uses purple in both appearances. Blue replaces Purple in the premium list. Previously saved Purple selections fall back to the purple Default palette. Pink is hot pink, Teal shifts toward blue, and Orange is brighter. This supersedes the original blue Default baseline above.
+Palette update, 2026-09-06: Default uses royal purple inspired by the iOS app icon in both appearances. Blue uses cobalt blue, and Green uses parakeet green, with brighter variants for dark appearance. Blue replaces Purple in the premium list. Previously saved Purple selections fall back to the purple Default palette. Pink is hot pink, Teal shifts toward blue, and Orange is brighter. This supersedes the original blue Default baseline above.
 
 ## Phase 1 behavior
 Menu → Themes opens a native, scrollable list. Show Default first, followed by Blue, Teal, Green, Orange, Pink. Each row includes its name, a color swatch, and a selected or locked indicator with accessible text.
@@ -45,10 +45,10 @@ Extend the existing token foundation; do not add a competing theming library. Th
 
 | Key | Light primary | Light pressed | Light onPrimary | Dark primary | Dark pressed | Dark onPrimary |
 |---|---|---|---|---|---|---|
-| default | #7E22CE | #6B21A8 | #FFFFFF | #C084FC | #A855F7 | #171020 |
-| blue | #1463FF | #0E4FCC | #FFFFFF | #73A5FF | #558DEA | #071126 |
+| default | #580FBD | #430A96 | #FFFFFF | #9955FF | #8040E6 | #171020 |
+| blue | #0047AB | #003887 | #FFFFFF | #4D85FF | #336DE6 | #071126 |
 | teal | #00859A | #006D80 | #FFFFFF | #45D6E8 | #20BACE | #071A20 |
-| green | #15803D | #166534 | #FFFFFF | #86EFAC | #4ADE80 | #0B1C12 |
+| green | #4CBB17 | #3E9B12 | #0B1C12 | #6CDB32 | #55BD20 | #0B1C12 |
 | orange | #FF9500 | #E58300 | #211207 | #FFAD33 | #FF9500 | #211207 |
 | pink | #FF1493 | #E6007E | #24101B | #FF4DB3 | #FF1493 | #24101B |
 
