@@ -14,6 +14,13 @@ All plans provide the same feature scope. No free trials or introductory discoun
 
 Core tracking, corrections, statistics, treatment plans/history, notifications, and access/export of personal data remain free. This decision does not reclassify existing free features or authorize implementation of future features. Consumable tips support development but grant no access and must never be attached to the paid entitlement.
 
+Current/planned paid benefits include:
+
+- Themes, delivered Colors → Seasonal → Animated.
+- Premium Support, providing priority email support and more personalized troubleshooting while standard support remains available to free users.
+
+Premium Support uses the same paid entitlement and must not create a separate subscription, purchase, account requirement, or support-specific entitlement. See `premium-support.md` for its exact behavior.
+
 ## Purchase contract
 
 - Use RevenueCat entitlement `aligner_tray_tracker_pro` and explicit offering `premium`, replacing the earlier planned `themes` identifiers. This is an internal identifier, not a decision about marketing names.
