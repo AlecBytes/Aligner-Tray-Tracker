@@ -2,10 +2,6 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { withUserMutationTransaction } from '@/db/mutation-transaction';
 
-jest.mock('react-native', () => ({
-  Platform: { OS: 'ios' },
-}));
-
 describe('withUserMutationTransaction', () => {
   it('keeps root reads outside a failed exclusive transaction', async () => {
     let committedValue = 'before';

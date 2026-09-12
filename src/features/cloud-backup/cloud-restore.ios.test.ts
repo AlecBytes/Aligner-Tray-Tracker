@@ -19,11 +19,16 @@ import { validateDownloadedBackupSnapshot } from '@/features/cloud-backup/restor
 import { reconcileLocalNotifications } from '@/features/notifications/local-notifications';
 
 jest.mock('@/features/cloud-backup/cloud-backup-client.ios', () => {
-  const actual = jest.requireActual('@/features/cloud-backup/cloud-backup-client.ios');
   return {
-    ...actual,
     getConfiguredCloudBackupClient: jest.fn(),
     getVerifiedCloudBackupUser: jest.fn(),
+    isCloudBackupAccessError: (error: unknown) =>
+      typeof error === 'object' &&
+      error !== null &&
+      'kind' in error &&
+      (error.kind === 'configuration' ||
+        error.kind === 'network' ||
+        error.kind === 'sessionExpired'),
     throwCloudBackupNetworkError: jest.fn(),
   };
 });

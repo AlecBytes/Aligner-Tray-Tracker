@@ -1,7 +1,27 @@
 name: Create Production Builds
 
+defaults:
+  tools:
+    node: 22.13.0
+
 jobs:
+  validate:
+    name: Validate repository
+    steps:
+      - uses: eas/checkout
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Check Expo dependency compatibility
+        run: npx expo install --check
+      - name: Run Expo Doctor
+        run: npx expo-doctor
+      - name: Run validation suite
+        run: npm run validate
+
   build_ios:
-    type: build # This job type creates a production build for iOS
+    name: Build production iOS app
+    needs: [validate]
+    type: build
     params:
       platform: ios
+      profile: production
