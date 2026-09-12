@@ -115,6 +115,12 @@ computer:
 
 ## Build and release to production
 
+Version 1.0 excludes paid features, Cloud Backup, Apple Watch, and Siri/App
+Shortcuts. Production omits the Watch target and Siri declaration plugins and
+disables companion activation in the native module. Phone notifications retain
+their existing native implementation. Development and preview retain these
+future features for testing.
+
 A production EAS build creates the signed App Store binary. It does not publish
 the app or submit it for App Review. The resulting build must first be uploaded
 to App Store Connect, tested through TestFlight, and then selected for App

@@ -17,7 +17,7 @@ Reviewed September 11, 2026. Target: iPhone, iOS 16.4+, version 1.0.
 
 The app has enough functionality for an initial release. Focus remaining work on reliability, support/privacy, and proving the signed build on physical devices. Additional tracker features are not the missing ingredient.
 
-Confirmed 1.0 scope: ship the existing local tracker, corrections, treatment plans/history, statistics/graphs, notifications, Share Progress, and Help as a free, local-only app. Paid features and Cloud Backup are deferred and disabled in production. Defer Apple Watch unless its conditional launch gate below is completed. Keep Siri only after its existing device-verification gate passes.
+Confirmed 1.0 scope: ship the existing local tracker, corrections, treatment plans/history, statistics/graphs, notifications, Share Progress, and Help as a free, local-only iPhone app. Paid features, Cloud Backup, Apple Watch, and Siri/App Shortcuts are deferred to future updates and disabled in production.
 
 The future commercial decision in [Paid Access](features/paid-access.md) remains unchanged, but it does not apply to version 1.0. Production configuration explicitly disables RevenueCat, paid-theme and Premium Support entry points, Cloud Backup entry points, direct paid/cloud routes, and cloud initialization. Development and preview builds retain those foundations for continued work.
 
@@ -133,13 +133,19 @@ If cloud ships:
 
 Production uses `EXPO_PUBLIC_CLOUD_BACKUP_MODE=disabled`, removes cloud/restore entry points, guards direct routes, and skips cloud initialization. Preserve the implementation for later work.
 
-### Siri / App Shortcuts — keep only if its existing release gate passes
+### Siri / App Shortcuts — deferred from 1.0
+
+Production omits the app-target App Intent declarations and skips shortcut
+registration. The shared native module remains for phone notifications.
+The following verification applies before a future Siri release.
 
 Run the full [Siri verification matrix](features/siri-app-shortcuts.md): discovery after install/update; foreground/background/terminated/locked behavior; repeated and concurrent desired-state commands; schema compatibility; notification parity; and refresh of the normal tracker. If deferred, exclude shortcut registration from the release build and remove promotional claims. Retain any native notification functionality required by the phone app.
 
-### Apple Watch — recommend an update
+### Apple Watch — deferred from 1.0
 
-The Watch target is already included through `@bacons/apple-targets`; hiding phone UI does not remove it from an archive. If deferred, explicitly exclude the Watch target from production generation and verify the archive.
+Production omits the `@bacons/apple-targets` plugin and disables native
+WatchConnectivity activation. Verify the replacement archive contains no Watch
+app. Development and preview retain the target for a future update.
 
 If included, verify Watch signing/provisioning, artwork and applicable store assets; test paired hardware, unreachable phone, timeouts, stale state, reconnection, rapid/retried requests, app lifecycle and consistent phone/watch totals. Follow [the Watch specification](features/apple-watch.md). Do not report success before the iPhone confirms persistence.
 
@@ -158,7 +164,7 @@ Avoid delaying release for analytics, engagement mechanics, new chart libraries,
 
 ## Execution order and submission
 
-1. **Preserve the confirmed feature boundary.** Paid access and cloud are excluded from 1.0. Record whether Siri and Watch are included and apply production exclusions for anything else deferred. Suggested owners: product owner + developer.
+1. **Preserve the confirmed feature boundary.** Paid access, cloud, Siri, and Watch are excluded from 1.0. Verify the production archive and visible entry points match that scope. Suggested owners: product owner + developer.
 2. **Close engineering blockers.** Recovery, full validation, native build/tests, production config checks and any included-feature gaps. Suggested owner: developer.
 3. **Complete store setup in parallel.** Verify Developer Program membership, app record, bundle ID, distribution credentials/capabilities, EAS production environment, and hosted privacy/support pages. No purchase catalog or cloud service configuration is required for 1.0. Suggested owner: account holder.
 4. **Build the signed candidate.** Follow the [production release workflow](development.md#build-and-release-to-production) using the validated commit and explicit production profile, then submit that exact artifact to TestFlight. Existing `eas.json` has auto-increment but an empty submission profile; configure the App Store Connect app ID and submission credentials. Verify all included targets have correct signing.

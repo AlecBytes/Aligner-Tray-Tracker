@@ -151,7 +151,8 @@ final class AlignerTrackerWatchConnectivityCoordinator: NSObject, WCSessionDeleg
   }
 
   func activate() {
-    guard WCSession.isSupported() else {
+    guard Bundle.main.object(forInfoDictionaryKey: "AlignerTrackerCompanionFeaturesEnabled") as? Bool == true,
+          WCSession.isSupported() else {
       return
     }
     let session = WCSession.default

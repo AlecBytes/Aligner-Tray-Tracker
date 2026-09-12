@@ -1,5 +1,12 @@
 # Apple Watch Companion
 
+## Release scope
+
+Apple Watch is deferred from app version 1.0 to a future update. Production
+omits the Apple-targets config plugin and disables native WatchConnectivity
+activation. Development and preview builds retain the companion for testing.
+The V1 requirements below describe the first Watch release, not app version 1.0.
+
 ## Purpose
 
 Provide the fastest practical way to perform Aligner Tracker's most frequent action: marking aligners IN or OUT.

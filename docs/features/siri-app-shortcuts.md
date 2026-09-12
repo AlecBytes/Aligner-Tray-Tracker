@@ -1,5 +1,13 @@
 # Siri / App Shortcuts
 
+## Release scope
+
+Siri and App Shortcuts are deferred from app version 1.0 to a future update.
+Production omits the plugin generating app-target App Intent declarations and
+disables shortcut registration. The shared native module remains available for
+phone notification reconciliation. Development and preview retain shortcuts.
+The V1 requirements below describe the first Siri release, not app version 1.0.
+
 ## Purpose
 
 Allow the user to record the two most common Aligner Tracker actions without opening or interacting with the app:

@@ -19,7 +19,7 @@ derives wear time from timestamped IN/OUT events.
 The core iPhone tracker, treatment setup, tray history, event corrections,
 statistics, notifications, help, and sharing flows are implemented. The app is
 being prepared for its initial release. Version 1.0 is a free, local-only
-release; paid features and Cloud Backup are explicitly excluded. Physical-device
+release; paid features, Cloud Backup, Apple Watch, and Siri are deferred to future updates. Physical-device
 release verification is still in progress.
 
 The repository contains future cloud foundations, including Sign in with Apple,

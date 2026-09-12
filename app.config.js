@@ -1,4 +1,5 @@
 const isDevelopment = process.env.APP_VARIANT === 'development';
+const companionFeaturesEnabled = process.env.APP_VARIANT !== 'production';
 const appleTeamId = process.env.APPLE_TEAM_ID;
 const paidAccessMode = process.env.EXPO_PUBLIC_PAID_ACCESS_MODE;
 const cloudBackupEnabled = process.env.EXPO_PUBLIC_CLOUD_BACKUP_MODE !== 'disabled';
@@ -15,13 +16,12 @@ export default ({ config }) => ({
       const pluginName = Array.isArray(plugin) ? plugin[0] : plugin;
       return cloudBackupEnabled || pluginName !== 'expo-apple-authentication';
     }),
-    './modules/aligner-tracker-intents/app.plugin.js',
-    [
+    ...(companionFeaturesEnabled ? ['./modules/aligner-tracker-intents/app.plugin.js', [
       '@bacons/apple-targets',
       {
         ...(appleTeamId ? { appleTeamId } : {}),
       },
-    ],
+    ]] : []),
   ],
   ios: {
     ...config.ios,
@@ -31,5 +31,9 @@ export default ({ config }) => ({
       : 'com.alecsbytes.alignertraytracker',
     deploymentTarget: '16.4',
     usesAppleSignIn: cloudBackupEnabled,
+    infoPlist: {
+      ...config.ios?.infoPlist,
+      AlignerTrackerCompanionFeaturesEnabled: companionFeaturesEnabled,
+    },
   },
 });

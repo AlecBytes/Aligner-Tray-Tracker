@@ -80,6 +80,9 @@ public final class AlignerTrackerIntentsAppDelegateSubscriber: ExpoAppDelegateSu
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
+    guard Bundle.main.object(forInfoDictionaryKey: "AlignerTrackerCompanionFeaturesEnabled") as? Bool == true else {
+      return false
+    }
     AlignerTrackerWatchConnectivityCoordinator.shared.activate()
     let updaterClass = NSClassFromString("AlignerTrackerAppShortcutsUpdater") as? NSObject.Type
     let updateSelector = NSSelectorFromString("updateAppShortcutParameters")
@@ -90,6 +93,9 @@ public final class AlignerTrackerIntentsAppDelegateSubscriber: ExpoAppDelegateSu
   }
 
   public func applicationDidBecomeActive(_ application: UIApplication) {
+    guard Bundle.main.object(forInfoDictionaryKey: "AlignerTrackerCompanionFeaturesEnabled") as? Bool == true else {
+      return
+    }
     _ = AlignerTrackerWatchConnectivityCoordinator.shared.publishLatestSnapshot()
   }
 }
