@@ -79,7 +79,7 @@ Done when: all applicable automated checks pass and a validation failure prevent
 ### 3. Finish support, privacy and release copy
 
 - Verify that `support@alecbytes.com` is monitored and that standard email support and copy-address fallback work on-device.
-- Publish a public support page and privacy policy. Add an easily accessible in-app privacy link in Help/settings, including for free users. Verify `EXPO_PUBLIC_PRIVACY_URL` and `EXPO_PUBLIC_TERMS_URL` in the actual candidate when paid access ships.
+- Publish a public support page and privacy policy using the [minimum App Store website specification](app-store-website-spec.md). Add an easily accessible in-app privacy link in Help/settings, including for free users. Verify `EXPO_PUBLIC_PRIVACY_URL` and `EXPO_PUBLIC_TERMS_URL` in the actual candidate when paid access ships.
 - Describe the actual shipped data flow: local treatment history, optional cloud uploads if included, RevenueCat purchase-related data, and user-initiated support/sharing. Do not equate local-first with collecting no data without reviewing SDK behavior.
 - Complete App Store privacy disclosures using the shipping binary and enabled services; inspect the archive's privacy manifests and required-reason API declarations, including dependencies. [Apple privacy details](https://developer.apple.com/app-store/app-privacy-details/)
 - Present the app as recording a user's prescribed treatment. Avoid claims that it diagnoses, guarantees results, or determines clinical treatment; explain that prescription changes come from the user's clinician. Review screenshots and Help for consistent behavior and limitations.
