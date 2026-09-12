@@ -208,6 +208,13 @@ review. Wait for Apple to process the build, assign it to the appropriate
 TestFlight testers, and run the release verification matrix against that exact
 candidate.
 
+#### Current release checkpoint — September 12, 2026
+
+The production candidate has completed processing and has been installed on a
+physical iPhone through an internal TestFlight group. Continue testing that
+exact build before public release. Internal TestFlight availability is separate
+from public App Store review and does not release the app to customers.
+
 ### Submit for App Review
 
 In App Store Connect:

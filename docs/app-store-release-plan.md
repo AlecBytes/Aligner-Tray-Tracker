@@ -2,6 +2,15 @@
 
 Reviewed September 11, 2026. Target: iPhone, iOS 16.4+, version 1.0.
 
+## Current release status — September 12, 2026
+
+- The production release candidate has been processed in App Store Connect and is available for internal TestFlight testing.
+- Internal TestFlight installation was verified on a physical iPhone.
+- This confirms the candidate can be distributed through TestFlight; it does not by itself publish the app to the App Store or complete public App Review.
+- Remaining release work is physical-device verification, store metadata/privacy/support completion, and confirming the public App Store version's review and release status in App Store Connect.
+
+The next evidence to record is the result of the device verification matrix against this exact TestFlight build. Keep the build number, device, iOS version, commit, and test date with that evidence.
+
 ## Repository work completed September 11, 2026
 
 - Added an Expo Router root error boundary with app-owned SwiftUI recovery UI on iOS. It offers a retry, does not reset local data, and does not expose internal error details.
@@ -31,7 +40,7 @@ The future commercial decision in [Paid Access](features/paid-access.md) remains
 | Paid access | RevenueCat iOS adapter, access lifecycle tests, paywall, themes and Premium Support | Integration exists for future work; excluded from production 1.0 |
 | Cloud | Apple sign-in, manual snapshots, empty-install restore | Partial future implementation; excluded from production 1.0 |
 | Siri / Watch | Local Swift module, App Intents, XCTest source, Watch target and connectivity code | Real implementations, not just roadmap ideas; native build/device evidence still needed |
-| Release configuration | Bundle ID, EAS project, production profile and remote build numbering | Foundation exists; signing, store record and uploaded artifact not checked |
+| Release configuration | Bundle ID, EAS project, production profile, remote build numbering and processed TestFlight candidate | Internal TestFlight installation verified on a physical iPhone; public release status and final device evidence remain |
 | Recovery / automation | Root error boundary and validated EAS pre-build gate | Repository work complete; release-device verification remains |
 | Support / policies | `support@alecbytes.com` in app config | Address is configured; delivery and public support/privacy pages still require verification |
 
@@ -167,8 +176,8 @@ Avoid delaying release for analytics, engagement mechanics, new chart libraries,
 1. **Preserve the confirmed feature boundary.** Paid access, cloud, Siri, and Watch are excluded from 1.0. Verify the production archive and visible entry points match that scope. Suggested owners: product owner + developer.
 2. **Close engineering blockers.** Recovery, full validation, native build/tests, production config checks and any included-feature gaps. Suggested owner: developer.
 3. **Complete store setup in parallel.** Verify Developer Program membership, app record, bundle ID, distribution credentials/capabilities, EAS production environment, and hosted privacy/support pages. No purchase catalog or cloud service configuration is required for 1.0. Suggested owner: account holder.
-4. **Build the signed candidate.** Follow the [production release workflow](development.md#build-and-release-to-production) using the validated commit and explicit production profile, then submit that exact artifact to TestFlight. Existing `eas.json` has auto-increment but an empty submission profile; configure the App Store Connect app ID and submission credentials. Verify all included targets have correct signing.
-5. **Run the device matrix.** Allow several days of real use. Record evidence; rebuild/retest affected areas after fixes. Suggested owner: developer + testers.
+4. **Build and distribute the signed candidate.** Follow the [production release workflow](development.md#build-and-release-to-production) using the validated commit and explicit production profile, then submit that exact artifact to TestFlight. This milestone is complete for the current candidate: it is available to internal testers and has been installed on a physical iPhone. Keep the build number tied to the validation evidence.
+5. **Run the device matrix.** Allow several days of real use on the internal TestFlight candidate. Record evidence; rebuild/retest affected areas after fixes. Suggested owner: developer + testers.
 6. **Prepare the store listing.** Final name/subtitle/description/keywords, category, current age-rating questionnaire, copyright, support/privacy URLs, accurate device screenshots and final icon. Verify the existing assets in the archive; do not assume unused starter files are shipped artwork. Decide iPhone/iPad availability explicitly and test any supported iPad presentation. Complete export-compliance answers based on the actual binary, territories/pricing, and EU trader status if distributing there.
 7. **Submit for App Review.** Attach the chosen build and provide concise review notes explaining the offline, account-free setup and how to reach every included feature. Version 1.0 has no IAPs or cloud account to review. Select manual release to control launch timing.
 8. **Release after approval.** Verify the public listing, fresh store install and purchase restoration; monitor App Store Connect crash feedback, support and service failures. Keep a tested patch path and the candidate's source/evidence. Avoid adding a telemetry SDK solely to satisfy this step.
@@ -188,4 +197,4 @@ EAS Submit uploads the build; it does not finish the listing or submit it for Ap
 - [ ] Policies/support links, disclosures and store metadata match the binary.
 - [ ] Signed TestFlight candidate has no unresolved launch blockers and is the build selected for review.
 
-There is no defensible calendar release date until device results and external purchase/store setup are known. The shortest path is to finish this checklist with a deliberately bounded feature set, then schedule larger features as updates.
+The signed candidate is now available for internal TestFlight testing, but there is no defensible public release date until device results, store metadata/privacy/support requirements, and App Store review status are complete. The shortest path is to finish this checklist with a deliberately bounded feature set, then schedule larger features as updates.
