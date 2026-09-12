@@ -2,6 +2,17 @@
 
 Reviewed September 11, 2026. Target: iPhone, iOS 16.4+, version 1.0.
 
+## Repository work completed September 11, 2026
+
+- Added an Expo Router root error boundary with app-owned SwiftUI recovery UI on iOS. It offers a retry, does not reset local data, and does not expose internal error details.
+- Added focused coverage for the recovery state and retry action using a simulated migration/initialization error.
+- Added a production EAS validation job with Node v22.13.0, locked dependency installation, Expo compatibility checks, Expo Doctor, and the repository validation suite. The production iOS build depends on that job and explicitly uses the production profile.
+- Validated the workflow with Expo's live EAS workflow validator.
+- Updated the Expo SDK 57 packages to Expo's current compatible patch versions and pinned Expo Doctor as a development dependency. Expo compatibility and all 21 Expo Doctor checks pass.
+- Ran the full repository validation outside the restricted sandbox: 62 suites and 392 tests passed. This includes all 22 notification timezone/DST parity cases and the new recovery test. The earlier `ETIMEDOUT` result was caused by the restricted environment rejecting child-process execution (`EPERM`), not by a reminder-policy failure.
+
+`npm audit` still reports one high-severity advisory through `@bacons/apple-targets` → `@bacons/xcode` → `@expo/plist@0.0.18` → `@xmldom/xmldom@0.7.13`. npm offers no compatible fix for the parent chain. This parser is build tooling rather than app runtime code, and production builds consume repository-controlled project files, which limits exposure. Track the upstream Apple-target toolchain and update when a compatible release is available; do not force an unverified transitive override into the native build. The audit also reports 18 moderate transitive advisories.
+
 ## Recommendation
 
 The app has enough functionality for an initial release. Focus remaining work on reliability, production purchases, support/privacy, and proving the signed build on physical devices. Additional tracker features are not the missing ingredient.
@@ -21,26 +32,27 @@ This is a proposed release boundary, not an implemented feature switch or a repl
 | Cloud | Apple sign-in, manual snapshots, empty-install restore | Partial release readiness; deletion remains planned and restore verification remains open |
 | Siri / Watch | Local Swift module, App Intents, XCTest source, Watch target and connectivity code | Real implementations, not just roadmap ideas; native build/device evidence still needed |
 | Release configuration | Bundle ID, EAS project, production profile and remote build numbering | Foundation exists; signing, store record and uploaded artifact not checked |
-| Recovery / automation | Root layout has no exported error boundary; EAS production workflow only builds | Confirmed gaps |
+| Recovery / automation | Root error boundary and validated EAS pre-build gate | Repository work complete; release-device verification remains |
 | Support / policies | `support@example.com` in app config; policy URLs supplied through environment | Default support is unavailable; live policy configuration must be verified |
 
 Inspected product/feature documents, release configuration, route/provider wiring, relevant screens and test coverage. This is a repository readiness review, not a complete line-by-line security audit or a physical-device UX review. No Apple, EAS, RevenueCat or Supabase dashboard state was verified. Missing values in checked-in configuration may exist in hosted environments; do not assume they are absent remotely.
 
 Validation on Node v22.13.0:
 
-- TypeScript and ESLint passed.
-- iOS UI purity passed: 127 app-owned modules reachable from 62 roots.
-- The validation invocation passed 60 Jest suites / 369 tests, but the notification parity suite failed to run with a Jest worker circular-error serialization message. The suite invokes child Node processes for timezone checks. This result does not establish a notification logic defect, but it does not constitute a green release gate either.
-- An isolated rerun (`npm test -- --runInBand src/features/notifications/notification-policy-parity.test.ts`) passed 17 cases and failed five timezone/DST cases with `spawnSync ... node ETIMEDOUT`, each at the configured five-second subprocess timeout. The underlying cause remains unconfirmed; distinguish an execution-environment problem from a policy defect before changing behavior.
+- TypeScript, ESLint and iOS UI purity pass.
+- Jest passes: 62 suites and 392 tests.
+- All 22 notification parity cases pass when child-process execution is permitted.
+- Expo dependency compatibility and all 21 Expo Doctor checks pass.
+- The EAS production workflow passes Expo's live schema validator.
 - Native XCTest, archive/signing, device measurements, Apple sandbox transactions and Supabase policy tests were not run in this review.
 
-The older [Expo audit follow-ups](expo-audit-follow-ups.md) still correctly identifies recovery, performance evidence and build gating gaps, but its closing paragraph calling restore future work is stale. The [cloud feature specification](features/cloud-backup-restore.md) and current code show empty-install restore is implemented.
+The [Expo audit follow-ups](expo-audit-follow-ups.md) now records recovery and build gating as complete; physical-device performance evidence remains open. Its closing cloud paragraph is also updated to match the [cloud feature specification](features/cloud-backup-restore.md) and current empty-install restore implementation.
 
 ## Critical before every 1.0 release
 
 ### 1. Protect local data and recover from startup failures
 
-- Add the documented root Expo Router error boundary around bootstrap failures, with SwiftUI recovery UI and a safe retry. Ensure the splash screen cannot hide the failure indefinitely. Retry must never reset or overwrite the database.
+- Verify the new root recovery boundary in a release-like iPhone build by simulating an initialization failure. Expo Router hides its splash when a route boundary catches an error; confirm the app-owned recovery state appears and retry remounts initialization without changing local data.
 - Exercise initialization/migration failures, interrupted saves, duplicate taps and reset cancellation. Verify that failed writes preserve the previous valid state.
 - Run upgrade tests against prior database versions with realistic history; verify native schema compatibility whenever Siri/native writes remain present.
 - Keep all SQLite mutation work consistent with [the transaction policy](sqlite-transactions.md). Preserve exactly one active tray, alternating punches, historical plan versions and tray boundaries.
@@ -49,8 +61,7 @@ Done when: fresh install and upgrade work; failure recovery preserves records; n
 
 ### 2. Make the release validation gate reproducible
 
-- Diagnose the notification parity failure in a supported environment, including its child-process execution. Fix the actual cause or environment setup and obtain a complete green suite; do not skip the suite to release.
-- Add a validation dependency before the production build in `.eas/workflows/`, using the pinned Node version, lockfile install and `npm run validate`. Include Expo dependency compatibility checks and Expo Doctor, with any exceptions explained.
+- Keep the production EAS validation dependency green. The workflow now uses the pinned Node version, `npm ci`, Expo compatibility checks, pinned Expo Doctor and `npm run validate` before building.
 - Run the local module's native XCTest suite on macOS and verify clean generated iOS projects compile. Jest plugin tests do not compile Swift or prove App Intent discovery.
 - Record commit, commands, environment and results with the release candidate. Ensure the candidate is built from that validated commit.
 
