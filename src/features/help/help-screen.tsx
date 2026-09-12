@@ -1,4 +1,3 @@
-import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
 
@@ -17,7 +16,6 @@ const GETTING_STARTED_STEPS = [
 ] as const;
 
 export function HelpScreen() {
-  const router = useRouter();
   const theme = useAppTheme();
   const [contactError, setContactError] = useState(false);
 
@@ -81,23 +79,6 @@ export function HelpScreen() {
         ) : null}
       </View>
 
-      <Pressable
-        accessibilityLabel="Premium Support, Pro"
-        accessibilityRole="button"
-        onPress={() => router.push('/premium-support' as never)}
-        style={({ pressed }) => [
-          styles.navigationRow,
-          {
-            backgroundColor: pressed ? theme.border : theme.surface,
-            borderColor: theme.border,
-          },
-        ]}>
-        <AppText style={styles.navigationLabel}>Premium Support</AppText>
-        <View style={styles.navigationAccessory}>
-          <AppText muted variant="caption">PRO</AppText>
-          <AppText muted>›</AppText>
-        </View>
-      </Pressable>
     </AppScreen>
   );
 }

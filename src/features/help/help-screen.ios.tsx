@@ -9,11 +9,10 @@ import {
   padding,
   textSelection,
 } from '@expo/ui/swift-ui/modifiers';
-import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Linking } from 'react-native';
 
-import { NavigationRow, ValidationMessage } from '@/components/expo-ui-components';
+import { ValidationMessage } from '@/components/expo-ui-components';
 import { supportContact } from '@/config/app-config';
 import { useAppTheme } from '@/theme/use-app-theme';
 import { openSupportEmail } from './support-contact';
@@ -43,7 +42,6 @@ function GettingStartedStep({ index, step }: { index: number; step: string }) {
 }
 
 export function HelpScreen() {
-  const router = useRouter();
   const theme = useAppTheme();
   const [contactError, setContactError] = useState(false);
 
@@ -96,14 +94,6 @@ export function HelpScreen() {
           </VStack>
         </Section>
 
-        <Section>
-          <NavigationRow
-            label="Premium Support"
-            onPress={() => router.push('/premium-support' as never)}
-            secondaryValue="PRO"
-            systemImage="star.bubble"
-          />
-        </Section>
       </Form>
     </Host>
   );

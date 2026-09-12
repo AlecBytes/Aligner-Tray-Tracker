@@ -37,9 +37,7 @@ export default function MainLayout() {
         <Stack.Screen name="share-progress" options={{ title: 'Share Progress' }} />
         <Stack.Screen name="support" options={{ title: 'Support Aligner Tracker' }} />
         <Stack.Screen name="themes" options={{ title: 'Themes' }} />
-        <Stack.Screen name="premium" options={{ presentation: 'modal', title: 'Premium' }} />
         <Stack.Screen name="help" options={{ title: 'Help' }} />
-        <Stack.Screen name="premium-support" options={{ title: 'Premium Support' }} />
       </Stack>
     </TreatmentRouteGate>
   );

@@ -2,8 +2,8 @@ const isDevelopment = process.env.APP_VARIANT === 'development';
 const appleTeamId = process.env.APPLE_TEAM_ID;
 const paidAccessMode = process.env.EXPO_PUBLIC_PAID_ACCESS_MODE;
 
-if (!isDevelopment && process.env.APP_VARIANT === 'production' && paidAccessMode !== 'apple') {
-  throw new Error('Production builds must use EXPO_PUBLIC_PAID_ACCESS_MODE=apple.');
+if (!isDevelopment && process.env.APP_VARIANT === 'production' && paidAccessMode && paidAccessMode !== 'apple' && paidAccessMode !== 'disabled') {
+  throw new Error('Production Apple premium builds must use EXPO_PUBLIC_PAID_ACCESS_MODE=apple; free-first production builds should leave the mode unset or set it to disabled.');
 }
 
 export default ({ config }) => ({
