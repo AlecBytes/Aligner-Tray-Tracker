@@ -60,5 +60,6 @@ Policy URLs and actual store product identifiers remain setup inputs. This decis
 The configured Test Store exposes offering `default`, with monthly, annual,
 and lifetime packages. Development Test Store mode explicitly uses `default`;
 Apple mode retains `premium`. Both require `aligner_tray_tracker_pro`.
-This supersedes the Test Store offering name above. See README for the verified
+This supersedes the Test Store offering name above. See the
+[development guide](../development.md#test-store-catalog) for the verified
 catalog, test commands, and remaining device verification.

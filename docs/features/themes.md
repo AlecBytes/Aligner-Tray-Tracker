@@ -123,11 +123,11 @@ Codex integrates `react-native-purchases` compatible with the installed Expo/Rea
 ### Before Apple sandbox and release
 Alec configures the matching App Store Connect app, subscription group/products and lifetime non-consumable, product metadata, commercial agreements and required account details; connects the Apple app and required credentials in RevenueCat; maps Apple products to the same entitlement and offering; and provides the Apple public SDK key. Configure store notifications following RevenueCat guidance.
 
-Production/preview bundle ID is currently `com.alecsbytes.alignertraytracker`; development is `com.alecsbytes.alignertraytracker.dev`. Test Store can support initial development. For Apple sandbox, use a build whose bundle ID matches the configured store app, or configure the development app separately. Do not assume production products work in the .dev app.
+Production/preview bundle ID is currently `com.alecsbytes.alignertraytracker`; development is `com.alecsbytes.alignertraytracker.dev`. Test Store can support initial development. For Apple sandbox, use a build whose bundle ID matches the configured store app, or configure the development app separately. Do not assume production products work in the .dev app. See the [development guide](../development.md#paid-access-development) for environment variables, build commands, and local testing workflows.
 
 Use anonymous RevenueCat identity managed by the SDK; no Supabase account mapping. Use RevenueCat's “Transfer to new App User ID” restore policy for this account-free purchase model, and verify restoration after reinstall with the same App Store account.
 
-Separate mock, Test Store, and Apple environments explicitly. Production release validation must reject mock/Test Store configuration. Missing billing configuration must fail safely in the UI without breaking core tracking. Document environment variables/build commands in README.
+Separate mock, Test Store, and Apple environments explicitly. Production release validation must reject mock/Test Store configuration. Missing billing configuration must fail safely in the UI without breaking core tracking. Document environment variables and build commands in `docs/development.md`.
 
 ### Commercial terms and remaining release inputs
 Confirmed in #38: $0.99 USD/month, $7.99 USD/year, and $49.99 USD lifetime. All plans unlock all current and future paid features, with permanent lifetime access and subscription access while active. No trials or introductory discounts; tips grant nothing. See `paid-access.md` for the shared purchase contract.
@@ -157,7 +157,7 @@ Phase 3 (#36): optional decorative animation using the same access contract, sta
 Do not implement either phase's rendering, scheduling, or animation now.
 
 ## Documentation maintenance
-Keep `paid-access.md` authoritative for commercial terms and shared access behavior; this file owns theme behavior. Planner context, the post-MVP roadmap, and Support distinguish app-wide paid access from free utility and tips. Update README with actual purchase environments, setup variables, rebuilds, product IDs, and verification when integration is implemented; do not document nonexistent configuration as working.
+Keep `paid-access.md` authoritative for commercial terms and shared access behavior; this file owns theme behavior. Planner context, the post-MVP roadmap, and Support distinguish app-wide paid access from free utility and tips. Update `docs/development.md` with actual purchase environments, setup variables, rebuilds, product IDs, and verification when integration is implemented; do not document nonexistent configuration as working.
 
 ## Technical references
 Checked 2026-09-05:
@@ -174,5 +174,6 @@ Implement #34 using `docs/features/themes.md`, `AGENTS.md`, and relevant existin
 The configured Test Store exposes offering `default`, with monthly, annual,
 and lifetime packages. Development Test Store mode explicitly uses `default`;
 Apple mode retains `premium`. Both require `aligner_tray_tracker_pro`.
-This supersedes the Test Store offering name above. See README for the verified
+This supersedes the Test Store offering name above. See the
+[development guide](../development.md#test-store-catalog) for the verified
 catalog, test commands, and remaining device verification.
