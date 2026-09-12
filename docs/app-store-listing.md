@@ -23,7 +23,7 @@ This is within Apple's 30-character subtitle limit.
 
 ### Promotional text
 
-Track aligner wear, tray changes, treatment history, and reminders without an account.
+Stay on track with reminders to put your aligners back in and change trays, without an account.
 
 This is within Apple's 170-character promotional-text limit. Promotional text
 can be changed without submitting a new app version.
@@ -32,7 +32,7 @@ can be changed without submitting a new app version.
 
 Aligner Tracker is a simple, local-first companion for recording daily clear-aligner wear.
 
-Track when your aligners are in or out, see today's wear time, manage tray changes, and keep your treatment history organized. The app is designed for quick daily use and does not require an account or an internet connection for core tracking.
+Track when your aligners are in or out, get reminded to put them back in, stay on schedule for tray changes, and keep your treatment history organized. The app is designed for quick daily use and does not require an account or an internet connection for core tracking.
 
 Features include:
 
@@ -42,7 +42,7 @@ Features include:
 - Tray changes and treatment-plan history
 - Editing and correcting recorded IN / OUT times
 - Statistics and graphs for reviewing progress
-- Configurable local reminders
+- Configurable local reminders to put trays back in and change trays
 - Share Progress for sharing selected treatment information
 - Help and Getting Started guidance
 
@@ -52,11 +52,13 @@ Use Aligner Tracker to record the treatment plan prescribed by your clinician an
 
 ### Keywords
 
-aligners,wear time,retainer,orthodontic,braces,teeth,oral health,treatment
+invisalign,clearcorrect,spark aligners,angel aligners,wear time,retainer,orthodontic
 
-Keep the final keyword field at or below Apple's 100-character limit. Do not
-repeat words already covered by the app name or subtitle unless testing shows a
-clear discoverability reason.
+This brand-focused draft is 84 characters. Keep the final keyword field at or
+below Apple's 100-character limit. Brand names should only remain if the app
+works with users of those aligner systems and the listing does not imply an
+official affiliation, endorsement, or integration. Confirm Apple's current
+metadata and trademark requirements before submission.
 
 ### Suggested category
 
@@ -78,7 +80,7 @@ Recommended sequence:
 2. **Treatment progress:** tray progress and the change-tray workflow.
 3. **History and corrections:** recorded IN / OUT times and editing controls.
 4. **Statistics:** a useful graph or summary with a realistic sample history.
-5. **Reminders:** notification settings and reminder controls.
+5. **Reminders:** notification settings for putting trays back in and changing trays.
 6. **Share Progress or Help:** the sharing preview, or the Help / Getting Started screen.
 
 Use the first three frames to explain the core value even if a viewer never
