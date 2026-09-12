@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useColorScheme } from 'react-native';
 
 import { AppLoadingScreen } from '@/components/app-loading-screen';
+import { releaseFeatures } from '@/config/release-features';
 import { AppDatabaseProvider } from '@/db/database-provider';
 import { CloudAuthInitializer } from '@/features/cloud-auth/cloud-auth-initializer';
 import { NotificationInitializer } from '@/features/notifications/notification-initializer';
@@ -47,6 +48,7 @@ function AppShell() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen
           name="restore"
+          redirect={!releaseFeatures.cloudBackup}
           options={{
             headerBackButtonDisplayMode: 'minimal',
             headerShown: true,
@@ -64,7 +66,7 @@ export default function RootLayout() {
       <DatabaseReady>
         <PaidAccessProvider>
           <AppThemeProvider>
-            <CloudAuthInitializer />
+            {releaseFeatures.cloudBackup ? <CloudAuthInitializer /> : null}
             <NotificationInitializer />
             <AppShell />
           </AppThemeProvider>

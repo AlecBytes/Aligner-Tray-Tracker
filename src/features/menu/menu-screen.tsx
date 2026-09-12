@@ -5,6 +5,7 @@ import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppScreen } from '@/components/app-screen';
 import { AppText } from '@/components/app-text';
+import { releaseFeatures } from '@/config/release-features';
 import { isSupportEnabled } from '@/config/support-config';
 import { reconcileLocalNotifications } from '@/features/notifications/local-notifications';
 import { resetAppData } from '@/features/reset/reset-app-repository';
@@ -89,7 +90,9 @@ export function MenuScreen() {
   return (
     <AppScreen scrollable>
       <View style={styles.menuItems}>
-        <MenuItem label="Account" onPress={() => router.push('/account')} />
+        {releaseFeatures.cloudBackup ? (
+          <MenuItem label="Account" onPress={() => router.push('/account')} />
+        ) : null}
         <MenuItem label="Treatment Plan" onPress={() => router.push('/treatment-plan')} />
         <MenuItem label="Notifications" onPress={() => router.push('/notifications')} />
         <MenuItem

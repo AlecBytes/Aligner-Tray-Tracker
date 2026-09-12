@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 import { Platform } from 'react-native';
 
+import { releaseFeatures } from '@/config/release-features';
 import { TreatmentRouteGate } from '@/features/treatment/treatment-route-gate';
 import { useAppTheme } from '@/theme/use-app-theme';
 
@@ -22,6 +23,7 @@ export default function MainLayout() {
         <Stack.Screen name="menu" options={{ title: 'Menu' }} />
         <Stack.Screen
           name="account"
+          redirect={!releaseFeatures.cloudBackup}
           options={{ title: Platform.OS === 'ios' ? 'Cloud Backup' : 'Account' }}
         />
         <Stack.Screen name="treatment-plan" options={{ title: 'Treatment Plan' }} />
@@ -36,7 +38,21 @@ export default function MainLayout() {
         <Stack.Screen name="statistics/graphs/[graph]" options={{ title: 'Graph' }} />
         <Stack.Screen name="share-progress" options={{ title: 'Share Progress' }} />
         <Stack.Screen name="support" options={{ title: 'Support Aligner Tracker' }} />
-        <Stack.Screen name="themes" options={{ title: 'Themes' }} />
+        <Stack.Screen
+          name="themes"
+          redirect={!releaseFeatures.paidAccess}
+          options={{ title: 'Themes' }}
+        />
+        <Stack.Screen
+          name="premium"
+          redirect={!releaseFeatures.paidAccess}
+          options={{ presentation: 'modal', title: 'Premium' }}
+        />
+        <Stack.Screen
+          name="premium-support"
+          redirect={!releaseFeatures.paidAccess}
+          options={{ title: 'Premium Support' }}
+        />
         <Stack.Screen name="help" options={{ title: 'Help' }} />
       </Stack>
     </TreatmentRouteGate>

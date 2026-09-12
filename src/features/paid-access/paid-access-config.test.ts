@@ -10,17 +10,25 @@ describe('paid access configuration', () => {
   it('rejects a key from the wrong store environment', () => expect(resolvePaidAccessConfig({ EXPO_PUBLIC_PAID_ACCESS_MODE: 'apple', EXPO_PUBLIC_REVENUECAT_IOS_API_KEY: 'test_public' }).mode).toBe('disabled'));
   it('allows a production free-first build without forcing Apple paid access', () => {
     const priorVariant = process.env.APP_VARIANT;
+    const priorCloudMode = process.env.EXPO_PUBLIC_CLOUD_BACKUP_MODE;
     const priorMode = process.env.EXPO_PUBLIC_PAID_ACCESS_MODE;
     process.env.APP_VARIANT = 'production';
+    process.env.EXPO_PUBLIC_CLOUD_BACKUP_MODE = 'disabled';
     delete process.env.EXPO_PUBLIC_PAID_ACCESS_MODE;
 
     try {
       const configModule = jest.requireActual('../../../app.config.js');
       const exportedConfig = configModule.default ?? configModule;
-      const config = { config: { plugins: [], ios: {} } };
-      expect(() => exportedConfig(config)).not.toThrow();
+      const config = {
+        config: { plugins: ['expo-apple-authentication', 'expo-notifications'], ios: {} },
+      };
+      const resolved = exportedConfig(config);
+      expect(resolved.plugins).not.toContain('expo-apple-authentication');
+      expect(resolved.plugins).toContain('expo-notifications');
+      expect(resolved.ios.usesAppleSignIn).toBe(false);
     } finally {
       if (priorVariant === undefined) delete process.env.APP_VARIANT; else process.env.APP_VARIANT = priorVariant;
+      if (priorCloudMode === undefined) delete process.env.EXPO_PUBLIC_CLOUD_BACKUP_MODE; else process.env.EXPO_PUBLIC_CLOUD_BACKUP_MODE = priorCloudMode;
       if (priorMode === undefined) delete process.env.EXPO_PUBLIC_PAID_ACCESS_MODE; else process.env.EXPO_PUBLIC_PAID_ACCESS_MODE = priorMode;
     }
   });

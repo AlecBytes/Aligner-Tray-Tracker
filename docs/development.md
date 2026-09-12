@@ -113,6 +113,107 @@ computer:
 4. Open the EAS install link on the registered iPhone and install the build.
 5. Launch **Aligner Tracker** normally.
 
+## Build and release to production
+
+A production EAS build creates the signed App Store binary. It does not publish
+the app or submit it for App Review. The resulting build must first be uploaded
+to App Store Connect, tested through TestFlight, and then selected for App
+Review.
+
+Before building a release candidate:
+
+1. Complete the applicable items in the
+   [App Store release plan](app-store-release-plan.md), including the explicit
+   feature boundary and physical-device verification.
+2. Use a clean, committed revision so the tested source matches the submitted
+   binary.
+3. Verify the production profile explicitly sets paid access and Cloud Backup to
+   `disabled`. Version 1.0 is a free, local-only release and requires no
+   RevenueCat or Supabase production variables.
+4. Confirm that the Apple Developer account, distribution certificate,
+   provisioning profile, App Store Connect app, and bundle identifier
+   `com.alecsbytes.alignertraytracker` are configured. Use
+   `eas credentials --platform ios` when credentials need to be created or
+   updated.
+
+### Preferred: validated production workflow
+
+Run the checked-in EAS workflow:
+
+```sh
+eas workflow:run .eas/workflows/create-production-builds.yml
+```
+
+The workflow installs locked dependencies, checks Expo package compatibility,
+runs Expo Doctor and `npm run validate`, and only then builds iOS with the
+`production` profile. It creates the production build but does not submit it to
+App Store Connect.
+
+### Manual production build
+
+To build directly without the workflow:
+
+```sh
+npm ci
+npx expo install --check
+npx expo-doctor
+npm run validate
+eas build --platform ios --profile production
+```
+
+The explicit profile is intentional even though EAS defaults to `production`.
+The profile uses remote app versioning and automatically increments the build
+number. A production iOS build cannot be installed directly from an EAS link;
+distribute it through App Store Connect and TestFlight.
+
+For version 1.0, confirm the resolved production configuration includes:
+
+```text
+APP_VARIANT=production
+EXPO_PUBLIC_APP_VARIANT=production
+EXPO_PUBLIC_CLOUD_BACKUP_MODE=disabled
+EXPO_PUBLIC_PAID_ACCESS_MODE=disabled
+EXPO_PUBLIC_SUPPORT_MODE=disabled
+```
+
+Do not add RevenueCat or Supabase production variables for this release. Paid
+access and cloud code remain in the repository for future work, while production
+menus, routes, and cloud initialization are disabled.
+
+### Upload to TestFlight
+
+After the production build succeeds, upload the selected build to App Store
+Connect:
+
+```sh
+eas submit --platform ios --profile production
+```
+
+The current `submit.production` profile is empty, so EAS may prompt for the
+build and App Store Connect details. Configure its `ascAppId` and submission
+credentials before relying on unattended submission.
+
+EAS Submit uploads the binary; it does not submit the app for public App Store
+review. Wait for Apple to process the build, assign it to the appropriate
+TestFlight testers, and run the release verification matrix against that exact
+candidate.
+
+### Submit for App Review
+
+In App Store Connect:
+
+1. Complete the app metadata, screenshots, privacy disclosures, pricing, and
+   review information.
+2. Select the verified production build for the App Store version.
+3. Attach any required in-app purchases and provide reviewer instructions.
+4. Submit the version for App Review.
+5. After approval, release it according to the selected manual or automatic
+   release setting.
+
+See Expo's guides for
+[production iOS builds](https://docs.expo.dev/tutorial/eas/ios-production-build/)
+and [EAS Submit](https://docs.expo.dev/submit/ios/) for service-level details.
+
 ## Start Expo with MCP capabilities
 
 ```sh

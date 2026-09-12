@@ -12,19 +12,21 @@ derives wear time from timestamped IN/OUT events.
 - Shows local wear statistics and progress
 - Schedules on-device wear and tray reminders
 - Keeps normal tracking independent of accounts and network access
-- Offers optional color themes through paid access
+- Includes a foundation for optional paid color themes in a future release
 
 ## Status
 
 The core iPhone tracker, treatment setup, tray history, event corrections,
 statistics, notifications, help, and sharing flows are implemented. The app is
-being prepared for its initial release; production purchase configuration and
-physical-device release verification are still in progress.
+being prepared for its initial release. Version 1.0 is a free, local-only
+release; paid features and Cloud Backup are explicitly excluded. Physical-device
+release verification is still in progress.
 
-Optional cloud foundations include Sign in with Apple, manual backup, and
-empty-install restore. SQLite remains the source of truth on the device, and
-multi-device synchronization is not implemented. Android and web are not
-currently supported product targets.
+The repository contains future cloud foundations, including Sign in with Apple,
+manual backup, and empty-install restore, but they are disabled in production
+1.0. SQLite remains the source of truth on the device, and multi-device
+synchronization is not implemented. Android and web are not currently supported
+product targets.
 
 See the [App Store release plan](docs/app-store-release-plan.md) for the detailed
 release-readiness assessment.

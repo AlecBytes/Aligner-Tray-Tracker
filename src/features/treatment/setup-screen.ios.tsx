@@ -34,6 +34,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useMemo, useRef, useState } from 'react';
 
 import { isLiquidGlassPlatform, NavigationRow } from '@/components/expo-ui-components';
+import { releaseFeatures } from '@/config/release-features';
 import { initializeLocalNotifications } from '@/features/notifications/local-notifications';
 import { refreshWatchTrackerSnapshot } from '@/features/siri/aligner-tracker-intents';
 import { createInitialTreatment } from '@/features/treatment/treatment-repository';
@@ -194,14 +195,16 @@ export function SetupScreen() {
           </VStack>
         </Section>
 
-        <Section title="Already have a cloud backup?">
-          <NavigationRow
-            disabled={isSubmitting}
-            label="Restore from Cloud Backup"
-            onPress={() => router.push('/restore')}
-            systemImage="icloud.and.arrow.down"
-          />
-        </Section>
+        {releaseFeatures.cloudBackup ? (
+          <Section title="Already have a cloud backup?">
+            <NavigationRow
+              disabled={isSubmitting}
+              label="Restore from Cloud Backup"
+              onPress={() => router.push('/restore')}
+              systemImage="icloud.and.arrow.down"
+            />
+          </Section>
+        ) : null}
 
         <Section footer={errorFooter(errors.totalTrays)} title="Total number of trays">
           <TextField

@@ -5,6 +5,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useRef, useState } from 'react';
 
 import { NavigationRow } from '@/components/expo-ui-components';
+import { releaseFeatures } from '@/config/release-features';
 import { isSupportEnabled } from '@/config/support-config';
 import { clearLocalCloudSession } from '@/features/cloud-auth/cloud-auth-service.ios';
 import { reconcileLocalNotifications } from '@/features/notifications/local-notifications';
@@ -53,16 +54,20 @@ export function MenuScreen() {
     <Host seedColor={theme.primary} style={{ flex: 1 }}>
       <Form>
         <Section>
-          <NavigationRow
-            label="Themes"
-            onPress={() => router.push('/themes' as never)}
-            systemImage="paintpalette"
-          />
-          <NavigationRow
-            label="Cloud Backup"
-            onPress={() => router.push('/account')}
-            systemImage="person.circle"
-          />
+          {releaseFeatures.paidAccess ? (
+            <NavigationRow
+              label="Themes"
+              onPress={() => router.push('/themes' as never)}
+              systemImage="paintpalette"
+            />
+          ) : null}
+          {releaseFeatures.cloudBackup ? (
+            <NavigationRow
+              label="Cloud Backup"
+              onPress={() => router.push('/account')}
+              systemImage="person.circle"
+            />
+          ) : null}
           <NavigationRow
             label="Treatment Plan"
             onPress={() => router.push('/treatment-plan')}

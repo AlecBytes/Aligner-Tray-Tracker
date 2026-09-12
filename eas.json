@@ -26,11 +26,13 @@
     },
     "production": {
       "autoIncrement": true,
+      "environment": "production",
       "env": {
         "APP_VARIANT": "production",
         "EXPO_PUBLIC_APP_VARIANT": "production",
+        "EXPO_PUBLIC_CLOUD_BACKUP_MODE": "disabled",
         "EXPO_PUBLIC_SUPPORT_MODE": "disabled",
-        "EXPO_PUBLIC_PAID_ACCESS_MODE": "apple"
+        "EXPO_PUBLIC_PAID_ACCESS_MODE": "disabled"
       }
     }
   },

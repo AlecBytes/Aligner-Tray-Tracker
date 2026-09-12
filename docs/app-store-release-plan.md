@@ -15,11 +15,11 @@ Reviewed September 11, 2026. Target: iPhone, iOS 16.4+, version 1.0.
 
 ## Recommendation
 
-The app has enough functionality for an initial release. Focus remaining work on reliability, production purchases, support/privacy, and proving the signed build on physical devices. Additional tracker features are not the missing ingredient.
+The app has enough functionality for an initial release. Focus remaining work on reliability, support/privacy, and proving the signed build on physical devices. Additional tracker features are not the missing ingredient.
 
-Recommended 1.0: ship the existing local tracker, corrections, treatment plans/history, statistics/graphs, notifications, Share Progress, Help, and the existing color themes/Premium Support once production billing is verified. Defer cloud accounts/backup and Apple Watch unless their conditional launch gates below are completed. Keep Siri only after its existing device-verification gate passes.
+Confirmed 1.0 scope: ship the existing local tracker, corrections, treatment plans/history, statistics/graphs, notifications, Share Progress, and Help as a free, local-only app. Paid features and Cloud Backup are deferred and disabled in production. Defer Apple Watch unless its conditional launch gate below is completed. Keep Siri only after its existing device-verification gate passes.
 
-This is a proposed release boundary, not an implemented feature switch or a replacement for the confirmed commercial decision in [Paid Access](features/paid-access.md). Monthly ($0.99 US), annual ($7.99 US), and lifetime ($49.99 US) remain the documented plans. A free-only first release is a fallback product decision if billing delays launch; it would require deliberately removing paid entry points and adjusting the production configuration guard.
+The future commercial decision in [Paid Access](features/paid-access.md) remains unchanged, but it does not apply to version 1.0. Production configuration explicitly disables RevenueCat, paid-theme and Premium Support entry points, Cloud Backup entry points, direct paid/cloud routes, and cloud initialization. Development and preview builds retain those foundations for continued work.
 
 ## What exists, and what the review established
 
@@ -28,19 +28,19 @@ This is a proposed release boundary, not an implemented feature switch or a repl
 | Local tracker | Setup, IN/OUT, tray changes, treatment versioning, corrections, statistics and SQLite migrations/repository tests | Substantially implemented; retain and harden |
 | iOS presentation | SwiftUI screen implementations; dependency-aware UI purity guard | Guard passes; visual/accessibility testing still required |
 | Notifications | Settings, native coordinator, shared Swift/TypeScript policy fixtures | Implemented; automated parity result and physical delivery need verification |
-| Paid access | RevenueCat iOS adapter, access lifecycle tests, paywall, themes and Premium Support | Integration exists; production catalog and real Apple transactions are not proven by this review |
-| Cloud | Apple sign-in, manual snapshots, empty-install restore | Partial release readiness; deletion remains planned and restore verification remains open |
+| Paid access | RevenueCat iOS adapter, access lifecycle tests, paywall, themes and Premium Support | Integration exists for future work; excluded from production 1.0 |
+| Cloud | Apple sign-in, manual snapshots, empty-install restore | Partial future implementation; excluded from production 1.0 |
 | Siri / Watch | Local Swift module, App Intents, XCTest source, Watch target and connectivity code | Real implementations, not just roadmap ideas; native build/device evidence still needed |
 | Release configuration | Bundle ID, EAS project, production profile and remote build numbering | Foundation exists; signing, store record and uploaded artifact not checked |
 | Recovery / automation | Root error boundary and validated EAS pre-build gate | Repository work complete; release-device verification remains |
-| Support / policies | `support@example.com` in app config; policy URLs supplied through environment | Default support is unavailable; live policy configuration must be verified |
+| Support / policies | `support@alecbytes.com` in app config | Address is configured; delivery and public support/privacy pages still require verification |
 
 Inspected product/feature documents, release configuration, route/provider wiring, relevant screens and test coverage. This is a repository readiness review, not a complete line-by-line security audit or a physical-device UX review. No Apple, EAS, RevenueCat or Supabase dashboard state was verified. Missing values in checked-in configuration may exist in hosted environments; do not assume they are absent remotely.
 
 Validation on Node v22.13.0:
 
 - TypeScript, ESLint and iOS UI purity pass.
-- Jest passes: 62 suites and 392 tests.
+- Jest passes: 63 suites and 396 tests.
 - All 22 notification parity cases pass when child-process execution is permitted.
 - Expo dependency compatibility and all 21 Expo Doctor checks pass.
 - The EAS production workflow passes Expo's live schema validator.
@@ -69,7 +69,7 @@ Done when: all applicable automated checks pass and a validation failure prevent
 
 ### 3. Finish support, privacy and release copy
 
-- Replace `support@example.com` in `app.json` with a monitored address. Verify standard email support, copy-address fallback, and the advertised priority-support workflow.
+- Verify that `support@alecbytes.com` is monitored and that standard email support and copy-address fallback work on-device.
 - Publish a public support page and privacy policy. Add an easily accessible in-app privacy link in Help/settings, including for free users. Verify `EXPO_PUBLIC_PRIVACY_URL` and `EXPO_PUBLIC_TERMS_URL` in the actual candidate when paid access ships.
 - Describe the actual shipped data flow: local treatment history, optional cloud uploads if included, RevenueCat purchase-related data, and user-initiated support/sharing. Do not equate local-first with collecting no data without reviewing SDK behavior.
 - Complete App Store privacy disclosures using the shipping binary and enabled services; inspect the archive's privacy manifests and required-reason API declarations, including dependencies. [Apple privacy details](https://developer.apple.com/app-store/app-privacy-details/)
@@ -103,7 +103,11 @@ Done when: the candidate survives several days of normal wear tracking, all appl
 
 ## Conditional blockers: ship these features completely or defer them
 
-### Paid features — recommended in 1.0 under the existing commercial decision
+### Paid features — deferred from 1.0
+
+Production 1.0 must use `EXPO_PUBLIC_PAID_ACCESS_MODE=disabled`, hide Themes and Premium Support entry points, and redirect direct paid-feature routes. RevenueCat configuration and purchase verification are not release requirements for 1.0.
+
+Before paid features ship in a future release:
 
 - Verify production bundle `com.alecsbytes.alignertraytracker`, RevenueCat Apple public SDK key, offering `premium`, entitlement `aligner_tray_tracker_pro`, and all three products. Development Test Store uses `default` and is not Apple sandbox proof.
 - Complete Apple agreements/tax/banking and product configuration. Put monthly/annual in one subscription group at the same service level; use a non-consumable for lifetime, per the existing purchase specification.
@@ -112,11 +116,11 @@ Done when: the candidate survives several days of normal wear tracking, all appl
 - Verify Premium Support is actually deliverable and paid access unlocks the promised current benefits. Subscription review requires ongoing value; explain the current service rather than relying on future feature promises. Static themes alone may be a weak subscription justification; this is a review risk, not a finding that Apple has rejected the product. [Apple subscription guidance, 3.1.2](https://developer.apple.com/app-store/review/guidelines/)
 - Follow the existing release work tracked in the spec as #40–#43; their live issue status was not checked here.
 
-If billing is deferred: explicitly revise launch scope, hide paid theme purchase paths and Premium Support/paywall entry points, and adjust `app.config.js`, which currently requires Apple paid-access mode for production. Merely omitting the API key leaves reachable unavailable purchase UI. Do not silently change prices or established purchase rights.
+Do not silently change prices or established future purchase rights when paid access is resumed.
 
 ### Cloud accounts / manual backup / restore — recommend first substantive update
 
-The current Menu exposes Cloud Backup and setup supports restore. Keeping either account-creation path makes deletion a launch dependency even though the tracker itself needs no account.
+Cloud Backup is disabled for production 1.0. Development and preview retain the implementation for future completion.
 
 If cloud ships:
 
@@ -127,7 +131,7 @@ If cloud ships:
 - Clearly label manual backup, successful backup time and empty-install restore limitations. Signing in currently does not create a backup.
 - Establish an honest retention policy and operational storage/failed-upload cleanup process. Automatic tiered retention can follow a manual-only launch if storage is monitored, deletion works and no automatic-retention promise is made; unbounded automatic uploads should not precede those controls.
 
-If deferred: remove cloud/restore entry points and guard direct routes, disable cloud initialization/account creation in the production variant, and update Help/store copy. Missing environment variables alone are insufficient because they leave a visible unavailable feature. Preserve the implementation for later work.
+Production uses `EXPO_PUBLIC_CLOUD_BACKUP_MODE=disabled`, removes cloud/restore entry points, guards direct routes, and skips cloud initialization. Preserve the implementation for later work.
 
 ### Siri / App Shortcuts — keep only if its existing release gate passes
 
@@ -154,13 +158,13 @@ Avoid delaying release for analytics, engagement mechanics, new chart libraries,
 
 ## Execution order and submission
 
-1. **Freeze the feature boundary.** Record whether paid access, cloud, Siri and Watch are included. Apply production exclusions for deferred features and update conflicting documentation. Suggested owners: product owner + developer.
+1. **Preserve the confirmed feature boundary.** Paid access and cloud are excluded from 1.0. Record whether Siri and Watch are included and apply production exclusions for anything else deferred. Suggested owners: product owner + developer.
 2. **Close engineering blockers.** Recovery, full validation, native build/tests, production config checks and any included-feature gaps. Suggested owner: developer.
-3. **Complete store/service setup in parallel.** Verify Developer Program membership, app record, bundle ID, distribution credentials/capabilities, EAS production environment, hosted policies/support and purchase catalog. These are external setup tasks, not confirmed missing accounts. Suggested owner: account holder.
-4. **Build the signed candidate.** Use the validated commit and explicit production profile, then submit that exact artifact to TestFlight. Existing `eas.json` has auto-increment but an empty submission profile; configure the App Store Connect app ID and submission credentials. Verify all included targets have correct signing.
-5. **Run the device and purchase matrices.** Allow several days of real use. Record evidence; rebuild/retest affected areas after fixes. Suggested owner: developer + testers.
+3. **Complete store setup in parallel.** Verify Developer Program membership, app record, bundle ID, distribution credentials/capabilities, EAS production environment, and hosted privacy/support pages. No purchase catalog or cloud service configuration is required for 1.0. Suggested owner: account holder.
+4. **Build the signed candidate.** Follow the [production release workflow](development.md#build-and-release-to-production) using the validated commit and explicit production profile, then submit that exact artifact to TestFlight. Existing `eas.json` has auto-increment but an empty submission profile; configure the App Store Connect app ID and submission credentials. Verify all included targets have correct signing.
+5. **Run the device matrix.** Allow several days of real use. Record evidence; rebuild/retest affected areas after fixes. Suggested owner: developer + testers.
 6. **Prepare the store listing.** Final name/subtitle/description/keywords, category, current age-rating questionnaire, copyright, support/privacy URLs, accurate device screenshots and final icon. Verify the existing assets in the archive; do not assume unused starter files are shipped artwork. Decide iPhone/iPad availability explicitly and test any supported iPad presentation. Complete export-compliance answers based on the actual binary, territories/pricing, and EU trader status if distributing there.
-7. **Submit for App Review.** Attach the chosen build and applicable first IAPs, provide purchase review material and concise review notes explaining offline setup, free vs paid features, and how to reach every included feature. Provide any access/instructions Apple needs to review cloud behavior if shipped. Select manual release to control launch timing.
+7. **Submit for App Review.** Attach the chosen build and provide concise review notes explaining the offline, account-free setup and how to reach every included feature. Version 1.0 has no IAPs or cloud account to review. Select manual release to control launch timing.
 8. **Release after approval.** Verify the public listing, fresh store install and purchase restoration; monitor App Store Connect crash feedback, support and service failures. Keep a tested patch path and the candidate's source/evidence. Avoid adding a telemetry SDK solely to satisfy this step.
 
 Expo SDK 57 documents iOS 16.4+ and Xcode 26.4+; select a compatible EAS image and verify actual build logs. Apple currently requires Xcode 26+ with the relevant version-26 SDK for uploads. Building with a newer SDK does not require raising the app's minimum iOS version to 26. Recheck both sources when submitting. [Expo SDK 57](https://docs.expo.dev/versions/v57.0.0/), [Apple upload requirements](https://developer.apple.com/news/upcoming-requirements/)
