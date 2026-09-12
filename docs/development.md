@@ -41,6 +41,10 @@ variant in a cross-platform way and starts Metro.
 Android and web commands remain available for development tooling, but Android
 and web are not currently supported product targets.
 
+Use `npm test` to run Jest. Its launcher sets `America/New_York` before Jest
+starts so the daylight-saving fixtures behave consistently on local machines
+and UTC build servers. This affects tests only, not the app's local timezone.
+
 ## iOS build variants
 
 The `development` and `preview` profiles in [`eas.json`](../eas.json) support two

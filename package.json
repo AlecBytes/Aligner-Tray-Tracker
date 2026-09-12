@@ -52,7 +52,7 @@
     "check:ios-ui-purity": "node ./scripts/check-ios-ui-purity.mjs",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "test": "jest",
+    "test": "node ./scripts/test.mjs",
     "validate": "npm run typecheck && npm run lint && npm run check:ios-ui-purity && npm run test"
   },
   "jest": {
