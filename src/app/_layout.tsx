@@ -12,6 +12,8 @@ import { PaidAccessProvider } from '@/features/paid-access/paid-access-provider'
 import { AppThemeProvider } from '@/theme/app-theme-provider';
 import { useAppTheme } from '@/theme/use-app-theme';
 
+export { RootErrorBoundary as ErrorBoundary } from '@/components/root-error-boundary';
+
 void SplashScreen.preventAutoHideAsync();
 
 function DatabaseReady({ children }: React.PropsWithChildren) {
