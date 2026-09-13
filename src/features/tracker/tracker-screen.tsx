@@ -33,8 +33,6 @@ import { useAppTheme } from '@/theme/use-app-theme';
 
 const trayInImageSource = require('../../../assets/images/tray-in.png');
 const trayOutImageSource = require('../../../assets/images/tray-out.png');
-const trayInImageAspectRatio = 1448 / 1086;
-const trayOutImageAspectRatio = 1188 / 681;
 
 type TimeMetricProps = {
   disabled: boolean;
@@ -371,21 +369,21 @@ export function TrackerScreen() {
           accessible={false}
           resizeMode="contain"
           source={isIn ? trayInImageSource : trayOutImageSource}
-          style={[
-            styles.toggleAlignerImage,
-            { aspectRatio: isIn ? trayInImageAspectRatio : trayOutImageAspectRatio },
-          ]}
+          style={styles.toggleAlignerImage}
         />
         <AppText
           style={[styles.toggleLabel, { color: isIn ? theme.onPrimary : theme.primary }]}
           variant="heading">
           {isMutating ? 'SAVING…' : `TRAYS ARE ${tracker.currentStatus}`}
         </AppText>
-        {!isIn ? (
-          <AppText style={[styles.outDuration, { color: theme.primary }]}>
-            {currentOutDuration}
-          </AppText>
-        ) : null}
+        <AppText
+          accessible={!isIn}
+          style={[
+            styles.outDuration,
+            { color: theme.primary, opacity: isIn ? 0 : 1 },
+          ]}>
+          {currentOutDuration}
+        </AppText>
         <AppText style={{ color: isIn ? theme.onPrimary : theme.textMuted }}>
           {isIn ? 'Tap when removed' : 'Tap when inserted'}
         </AppText>
@@ -582,6 +580,7 @@ const styles = StyleSheet.create({
   },
   toggleAlignerImage: {
     flexShrink: 1,
+    height: 195,
     maxWidth: 260,
     width: '75%',
   },

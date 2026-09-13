@@ -16,6 +16,7 @@ import {
   lineLimit,
   minimumScaleFactor,
   monospacedDigit,
+  opacity,
   padding,
   resizable,
   shapes,
@@ -126,7 +127,6 @@ export function TrackerScreen() {
   const isIn = tracker.currentStatus === 'IN';
   const trayImage = trackerAssets?.[isIn ? 0 : 1];
   const trayImageAspectRatio = isIn ? trayInImageAspectRatio : trayOutImageAspectRatio;
-  const trayImageMaxHeight = isIn ? 195 : 152;
   const currentOutDuration = formatDuration(tracker.currentOutSeconds);
   const daysRemainingLabel = `${tracker.daysRemaining} ${
     Math.abs(tracker.daysRemaining) === 1 ? 'day' : 'days'
@@ -292,7 +292,7 @@ export function TrackerScreen() {
                 modifiers={[
                   resizable(),
                   aspectRatio({ ratio: trayImageAspectRatio, contentMode: 'fit' }),
-                  frame({ maxWidth: 260, maxHeight: trayImageMaxHeight }),
+                  frame({ width: 260, height: 195 }),
                   accessibilityHidden(),
                 ]}
               />
@@ -305,18 +305,18 @@ export function TrackerScreen() {
               ]}>
               {isMutating ? 'SAVING…' : `TRAYS ARE ${tracker.currentStatus}`}
             </Text>
-            {!isIn ? (
-              <Text
-                modifiers={[
-                  font({ textStyle: 'title', weight: 'bold' }),
-                  monospacedDigit(),
-                  contentTransition('numericText'),
-                  minimumScaleFactor(0.75),
-                  lineLimit(1),
-                ]}>
-                {currentOutDuration}
-              </Text>
-            ) : null}
+            <Text
+              modifiers={[
+                font({ textStyle: 'title', weight: 'bold' }),
+                monospacedDigit(),
+                contentTransition('numericText'),
+                minimumScaleFactor(0.75),
+                lineLimit(1),
+                opacity(isIn ? 0 : 1),
+                accessibilityHidden(isIn),
+              ]}>
+              {currentOutDuration}
+            </Text>
             <Text>{isIn ? 'Tap when removed' : 'Tap when inserted'}</Text>
             <Spacer />
           </VStack>

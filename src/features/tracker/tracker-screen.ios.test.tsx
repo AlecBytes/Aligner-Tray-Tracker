@@ -44,7 +44,7 @@ jest.mock('@expo/ui/swift-ui/modifiers', () => ({
   ...Object.fromEntries([
     'accessibilityHidden', 'accessibilityHint', 'accessibilityLabel', 'aspectRatio', 'background', 'buttonBorderShape', 'buttonStyle',
     'contentTransition', 'controlSize', 'disabled', 'font', 'foregroundStyle', 'frame', 'lineLimit',
-    'minimumScaleFactor', 'monospacedDigit', 'padding', 'resizable',
+    'minimumScaleFactor', 'monospacedDigit', 'opacity', 'padding', 'resizable',
   ].map(name => [name, (value: unknown) => ({ [name]: value })])),
   shapes: { roundedRectangle: () => ({}) },
 }));
@@ -140,13 +140,18 @@ it('shows the decorative tray image for the current tracker state', async () => 
   const trayImage = () => tree.root.findAllByType('Image').find(
     node => node.props.uiImage?.startsWith('file:///tray-'),
   )!;
+  const duration = () => tree.root.findAllByType('Text').find(
+    node => node.props.modifiers?.some(modifier => modifier.opacity !== undefined),
+  )!;
   let image = trayImage();
   expect(image.props.uiImage).toBe('file:///tray-out.png');
   expect(image.props.modifiers).toContainEqual({
     aspectRatio: { ratio: 1188 / 681, contentMode: 'fit' },
   });
-  expect(image.props.modifiers).toContainEqual({ frame: { maxWidth: 260, maxHeight: 152 } });
+  expect(image.props.modifiers).toContainEqual({ frame: { width: 260, height: 195 } });
   expect(image.props.modifiers).toContainEqual({ accessibilityHidden: undefined });
+  expect(duration().props.modifiers).toContainEqual({ opacity: 1 });
+  expect(duration().props.modifiers).toContainEqual({ accessibilityHidden: false });
 
   await press('toggle');
   image = trayImage();
@@ -154,7 +159,9 @@ it('shows the decorative tray image for the current tracker state', async () => 
   expect(image.props.modifiers).toContainEqual({
     aspectRatio: { ratio: 1448 / 1086, contentMode: 'fit' },
   });
-  expect(image.props.modifiers).toContainEqual({ frame: { maxWidth: 260, maxHeight: 195 } });
+  expect(image.props.modifiers).toContainEqual({ frame: { width: 260, height: 195 } });
+  expect(duration().props.modifiers).toContainEqual({ opacity: 0 });
+  expect(duration().props.modifiers).toContainEqual({ accessibilityHidden: true });
 });
 
 it('opens the treatment plan from the bundled teeth shortcut', async () => {
