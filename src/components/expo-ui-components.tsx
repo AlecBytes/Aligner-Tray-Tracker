@@ -12,6 +12,7 @@ import {
   accessibilityLabel,
   buttonBorderShape,
   buttonStyle,
+  contentShape,
   controlSize,
   disabled,
   font,
@@ -19,6 +20,7 @@ import {
   frame,
   monospacedDigit,
   padding,
+  shapes,
 } from '@expo/ui/swift-ui/modifiers';
 import type { ComponentProps } from 'react';
 import { Platform } from 'react-native';
@@ -78,6 +80,7 @@ export function NavigationRow({
         spacing={10}
         modifiers={[
           frame({ maxWidth: Infinity, minHeight: 44, alignment: 'leading' }),
+          contentShape(shapes.rectangle()),
           padding({ vertical: 4 }),
         ]}>
         {systemImage ? <Image color="secondary" size={20} systemName={systemImage} /> : null}
