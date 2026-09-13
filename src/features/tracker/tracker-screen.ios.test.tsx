@@ -38,15 +38,18 @@ jest.mock('react-native', () => {
   return native;
 });
 jest.mock('@expo/ui/swift-ui', () => ({
-  Button: 'Button', Host: 'Host', HStack: 'HStack', Spacer: 'Spacer', Text: 'Text', VStack: 'VStack',
+  Button: 'Button', Host: 'Host', HStack: 'HStack', Image: 'Image', Spacer: 'Spacer', Text: 'Text', VStack: 'VStack',
 }));
 jest.mock('@expo/ui/swift-ui/modifiers', () => ({
   ...Object.fromEntries([
-    'accessibilityHint', 'accessibilityLabel', 'background', 'buttonBorderShape', 'buttonStyle',
+    'accessibilityHidden', 'accessibilityHint', 'accessibilityLabel', 'aspectRatio', 'background', 'buttonBorderShape', 'buttonStyle',
     'contentTransition', 'controlSize', 'disabled', 'font', 'foregroundStyle', 'frame', 'lineLimit',
-    'minimumScaleFactor', 'monospacedDigit', 'padding',
+    'minimumScaleFactor', 'monospacedDigit', 'padding', 'resizable',
   ].map(name => [name, (value: unknown) => ({ [name]: value })])),
   shapes: { roundedRectangle: () => ({}) },
+}));
+jest.mock('expo-asset', () => ({
+  useAssets: () => [[{ localUri: 'file:///clear-aligner.png' }], undefined],
 }));
 jest.mock('@/components/app-loading-screen', () => ({ AppLoadingScreen: 'AppLoadingScreen' }));
 jest.mock('@/components/expo-ui-components', () => ({
@@ -70,7 +73,7 @@ jest.mock('./tracker-repository', () => ({
   redoWearStatus: (...args: unknown[]) => mockRedo(...args),
 }));
 
-type TestNode = { props: { label?: string; onPress?: () => void; message?: string; children?: unknown; modifiers?: Record<string, unknown>[] } };
+type TestNode = { props: { label?: string; onPress?: () => void; message?: string; children?: unknown; modifiers?: Record<string, unknown>[]; uiImage?: string } };
 const renderer = jest.requireActual('react-test-renderer') as {
   act: (callback: () => void | Promise<void>) => Promise<void>;
   create: (element: React.ReactElement) => {
@@ -119,6 +122,13 @@ beforeEach(() => {
 });
 afterEach(async () => { if (tree) await act(async () => tree.unmount()); });
 async function mount() { await act(async () => { tree = renderer.create(<TrackerScreen />); }); }
+
+it('shows the bundled aligner as a decorative image in the tracker toggle', async () => {
+  await mount();
+  const image = tree.root.findAllByType('Image')[0];
+  expect(image.props.uiImage).toBe('file:///clear-aligner.png');
+  expect(image.props.modifiers).toContainEqual({ accessibilityHidden: undefined });
+});
 
 it('keeps IN after Menu navigation, then records OUT on the next tap', async () => {
   await mount();

@@ -1,7 +1,7 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useRef, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppLoadingScreen } from '@/components/app-loading-screen';
 import { AppScreen } from '@/components/app-screen';
@@ -30,6 +30,9 @@ import {
 } from '@/features/tracker/tracker-repository';
 import { radius, spacing } from '@/theme/tokens';
 import { useAppTheme } from '@/theme/use-app-theme';
+
+const alignerImageSource = require('../../../assets/images/clear-aligner.png');
+const alignerImageAspectRatio = 1194 / 697;
 
 type TimeMetricProps = {
   disabled: boolean;
@@ -362,6 +365,12 @@ export function TrackerScreen() {
             opacity: isMutating ? 0.65 : 1,
           },
         ]}>
+        <Image
+          accessible={false}
+          resizeMode="contain"
+          source={alignerImageSource}
+          style={styles.toggleAlignerImage}
+        />
         <AppText
           style={[styles.toggleLabel, { color: isIn ? theme.onPrimary : theme.primary }]}
           variant="heading">
@@ -565,6 +574,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 120,
     padding: spacing.lg,
+  },
+  toggleAlignerImage: {
+    aspectRatio: alignerImageAspectRatio,
+    flexShrink: 1,
+    maxWidth: 180,
+    width: '50%',
   },
   toggleLabel: {
     textAlign: 'center',
