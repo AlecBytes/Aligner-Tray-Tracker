@@ -1,7 +1,9 @@
-import { Button, Host, HStack, Spacer, Text, VStack } from '@expo/ui/swift-ui';
+import { Button, Host, HStack, Image, Spacer, Text, VStack } from '@expo/ui/swift-ui';
 import {
+  accessibilityHidden,
   accessibilityHint,
   accessibilityLabel,
+  aspectRatio,
   background,
   buttonBorderShape,
   buttonStyle,
@@ -15,14 +17,19 @@ import {
   minimumScaleFactor,
   monospacedDigit,
   padding,
+  resizable,
   shapes,
 } from '@expo/ui/swift-ui/modifiers';
+import { useAssets } from 'expo-asset';
 import { useRouter } from 'expo-router';
 import { AppLoadingScreen } from '@/components/app-loading-screen';
 import { ActionButton, CenteredState, isLiquidGlassPlatform, ValidationMessage } from '@/components/expo-ui-components';
 import { createTrackerReadModel, formatDuration, getLatestWearPunch } from '@/features/tracker/tracker-calculations';
 import { useIOSTracker } from '@/features/tracker/use-ios-tracker';
 import { useAppTheme } from '@/theme/use-app-theme';
+
+const alignerImageModule = require('../../../assets/images/clear-aligner.png');
+const alignerImageAspectRatio = 1194 / 697;
 
 function TimeMetric({
   disabled: isDisabled,
@@ -83,6 +90,7 @@ function TimeMetric({
 export function TrackerScreen() {
   const router = useRouter();
   const theme = useAppTheme();
+  const [alignerAssets] = useAssets(alignerImageModule);
   const {
     snapshot, history, now, isLoading, isMutating, error, needsRetry, actionsDisabled,
     refreshTracker, toggleTracker, undoTracker, redoTracker,
@@ -247,6 +255,17 @@ export function TrackerScreen() {
             spacing={8}
             modifiers={[frame({ maxWidth: Infinity, maxHeight: Infinity, minHeight: 112 })]}>
             <Spacer />
+            {alignerAssets?.[0]?.localUri ? (
+              <Image
+                uiImage={alignerAssets[0].localUri}
+                modifiers={[
+                  resizable(),
+                  aspectRatio({ ratio: alignerImageAspectRatio, contentMode: 'fit' }),
+                  frame({ maxWidth: 260, maxHeight: 152 }),
+                  accessibilityHidden(),
+                ]}
+              />
+            ) : null}
             <Text
               modifiers={[
                 font({ textStyle: 'title2', weight: 'bold' }),
