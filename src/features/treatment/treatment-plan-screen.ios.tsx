@@ -236,15 +236,6 @@ export function TreatmentPlanScreen() {
   return (
     <Host seedColor={theme.primary} style={{ flex: 1 }}>
       <Form modifiers={[scrollDismissesKeyboard('interactively')]}>
-        <Section footer={<Text>Update the plan prescribed for your current treatment.</Text>}>
-          <NavigationRow
-            disabled={isSaving}
-            label="View Plan History"
-            onPress={() => router.push('/treatment-plan-history')}
-            systemImage="clock.arrow.circlepath"
-          />
-        </Section>
-
         <Section footer={<ValidationMessage message={errors.totalTrays} />} title="Total trays">
           <TextField
             onTextChange={() => clearFieldError('totalTrays')}
@@ -298,12 +289,21 @@ export function TreatmentPlanScreen() {
           </Section>
         ) : null}
 
-        <Section>
+        <Section footer={<Text>Update the plan prescribed for your current treatment.</Text>}>
           <ActionButton
             disabled={isSaving}
             label={isSaving ? 'Saving…' : 'Save changes'}
             onPress={() => void savePlan()}
             pending={isSaving}
+          />
+        </Section>
+
+        <Section>
+          <NavigationRow
+            disabled={isSaving}
+            label="View Plan History"
+            onPress={() => router.push('/treatment-plan-history')}
+            systemImage="clock.arrow.circlepath"
           />
         </Section>
       </Form>
