@@ -28,9 +28,11 @@ import { createTrackerReadModel, formatDuration, getLatestWearPunch } from '@/fe
 import { useIOSTracker } from '@/features/tracker/use-ios-tracker';
 import { useAppTheme } from '@/theme/use-app-theme';
 
-const alignerImageModule = require('../../../assets/images/clear-aligner.png');
+const trayInImageModule = require('../../../assets/images/tray-in.png');
+const trayOutImageModule = require('../../../assets/images/tray-out.png');
 const teethImageModule = require('../../../assets/images/teeth.png');
-const alignerImageAspectRatio = 1194 / 697;
+const trayInImageAspectRatio = 1448 / 1086;
+const trayOutImageAspectRatio = 1188 / 681;
 const teethImageAspectRatio = 1;
 
 function TimeMetric({
@@ -92,7 +94,11 @@ function TimeMetric({
 export function TrackerScreen() {
   const router = useRouter();
   const theme = useAppTheme();
-  const [trackerAssets] = useAssets([alignerImageModule, teethImageModule]);
+  const [trackerAssets] = useAssets([
+    trayInImageModule,
+    trayOutImageModule,
+    teethImageModule,
+  ]);
   const {
     snapshot, history, now, isLoading, isMutating, error, needsRetry, actionsDisabled,
     refreshTracker, toggleTracker, undoTracker, redoTracker,
@@ -118,6 +124,9 @@ export function TrackerScreen() {
   const tracker = createTrackerReadModel(currentSnapshot, now);
   const latestPunch = getLatestWearPunch(currentSnapshot.punches);
   const isIn = tracker.currentStatus === 'IN';
+  const trayImage = trackerAssets?.[isIn ? 0 : 1];
+  const trayImageAspectRatio = isIn ? trayInImageAspectRatio : trayOutImageAspectRatio;
+  const trayImageMaxHeight = isIn ? 195 : 152;
   const currentOutDuration = formatDuration(tracker.currentOutSeconds);
   const daysRemainingLabel = `${tracker.daysRemaining} ${
     Math.abs(tracker.daysRemaining) === 1 ? 'day' : 'days'
@@ -145,7 +154,7 @@ export function TrackerScreen() {
             ]}
             onPress={() => router.push('/treatment-plan')}>
             <Image
-              uiImage={trackerAssets?.[1]?.localUri ?? undefined}
+              uiImage={trackerAssets?.[2]?.localUri ?? undefined}
               modifiers={[
                 resizable(),
                 aspectRatio({ ratio: teethImageAspectRatio, contentMode: 'fit' }),
@@ -277,13 +286,13 @@ export function TrackerScreen() {
             spacing={8}
             modifiers={[frame({ maxWidth: Infinity, maxHeight: Infinity, minHeight: 112 })]}>
             <Spacer />
-            {trackerAssets?.[0]?.localUri ? (
+            {trayImage?.localUri ? (
               <Image
-                uiImage={trackerAssets[0].localUri}
+                uiImage={trayImage.localUri}
                 modifiers={[
                   resizable(),
-                  aspectRatio({ ratio: alignerImageAspectRatio, contentMode: 'fit' }),
-                  frame({ maxWidth: 260, maxHeight: 152 }),
+                  aspectRatio({ ratio: trayImageAspectRatio, contentMode: 'fit' }),
+                  frame({ maxWidth: 260, maxHeight: trayImageMaxHeight }),
                   accessibilityHidden(),
                 ]}
               />

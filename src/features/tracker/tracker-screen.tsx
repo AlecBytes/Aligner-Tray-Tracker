@@ -31,8 +31,10 @@ import {
 import { radius, spacing } from '@/theme/tokens';
 import { useAppTheme } from '@/theme/use-app-theme';
 
-const alignerImageSource = require('../../../assets/images/clear-aligner.png');
-const alignerImageAspectRatio = 1194 / 697;
+const trayInImageSource = require('../../../assets/images/tray-in.png');
+const trayOutImageSource = require('../../../assets/images/tray-out.png');
+const trayInImageAspectRatio = 1448 / 1086;
+const trayOutImageAspectRatio = 1188 / 681;
 
 type TimeMetricProps = {
   disabled: boolean;
@@ -368,8 +370,11 @@ export function TrackerScreen() {
         <Image
           accessible={false}
           resizeMode="contain"
-          source={alignerImageSource}
-          style={styles.toggleAlignerImage}
+          source={isIn ? trayInImageSource : trayOutImageSource}
+          style={[
+            styles.toggleAlignerImage,
+            { aspectRatio: isIn ? trayInImageAspectRatio : trayOutImageAspectRatio },
+          ]}
         />
         <AppText
           style={[styles.toggleLabel, { color: isIn ? theme.onPrimary : theme.primary }]}
@@ -576,7 +581,6 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   toggleAlignerImage: {
-    aspectRatio: alignerImageAspectRatio,
     flexShrink: 1,
     maxWidth: 260,
     width: '75%',

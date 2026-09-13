@@ -50,7 +50,11 @@ jest.mock('@expo/ui/swift-ui/modifiers', () => ({
 }));
 jest.mock('expo-asset', () => ({
   useAssets: () => [
-    [{ localUri: 'file:///clear-aligner.png' }, { localUri: 'file:///teeth.png' }],
+    [
+      { localUri: 'file:///tray-in.png' },
+      { localUri: 'file:///tray-out.png' },
+      { localUri: 'file:///teeth.png' },
+    ],
     undefined,
   ],
 }));
@@ -131,14 +135,26 @@ beforeEach(() => {
 afterEach(async () => { if (tree) await act(async () => tree.unmount()); });
 async function mount() { await act(async () => { tree = renderer.create(<TrackerScreen />); }); }
 
-it('shows the bundled aligner as a decorative image in the tracker toggle', async () => {
+it('shows the decorative tray image for the current tracker state', async () => {
   await mount();
-  const image = tree.root.findAllByType('Image').find(
-    node => node.props.uiImage === 'file:///clear-aligner.png',
+  const trayImage = () => tree.root.findAllByType('Image').find(
+    node => node.props.uiImage?.startsWith('file:///tray-'),
   )!;
-  expect(image.props.uiImage).toBe('file:///clear-aligner.png');
+  let image = trayImage();
+  expect(image.props.uiImage).toBe('file:///tray-out.png');
+  expect(image.props.modifiers).toContainEqual({
+    aspectRatio: { ratio: 1188 / 681, contentMode: 'fit' },
+  });
   expect(image.props.modifiers).toContainEqual({ frame: { maxWidth: 260, maxHeight: 152 } });
   expect(image.props.modifiers).toContainEqual({ accessibilityHidden: undefined });
+
+  await press('toggle');
+  image = trayImage();
+  expect(image.props.uiImage).toBe('file:///tray-in.png');
+  expect(image.props.modifiers).toContainEqual({
+    aspectRatio: { ratio: 1448 / 1086, contentMode: 'fit' },
+  });
+  expect(image.props.modifiers).toContainEqual({ frame: { maxWidth: 260, maxHeight: 195 } });
 });
 
 it('opens the treatment plan from the bundled teeth shortcut', async () => {
