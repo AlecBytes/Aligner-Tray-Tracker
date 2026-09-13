@@ -261,7 +261,7 @@ export function TrackerScreen() {
                 modifiers={[
                   resizable(),
                   aspectRatio({ ratio: alignerImageAspectRatio, contentMode: 'fit' }),
-                  frame({ maxWidth: 180, maxHeight: 105 }),
+                  frame({ maxWidth: 260, maxHeight: 152 }),
                   accessibilityHidden(),
                 ]}
               />

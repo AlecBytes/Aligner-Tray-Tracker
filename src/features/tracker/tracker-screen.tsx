@@ -578,8 +578,8 @@ const styles = StyleSheet.create({
   toggleAlignerImage: {
     aspectRatio: alignerImageAspectRatio,
     flexShrink: 1,
-    maxWidth: 180,
-    width: '50%',
+    maxWidth: 260,
+    width: '75%',
   },
   toggleLabel: {
     textAlign: 'center',

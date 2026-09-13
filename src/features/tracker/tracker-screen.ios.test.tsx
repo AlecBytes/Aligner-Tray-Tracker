@@ -127,6 +127,7 @@ it('shows the bundled aligner as a decorative image in the tracker toggle', asyn
   await mount();
   const image = tree.root.findAllByType('Image')[0];
   expect(image.props.uiImage).toBe('file:///clear-aligner.png');
+  expect(image.props.modifiers).toContainEqual({ frame: { maxWidth: 260, maxHeight: 152 } });
   expect(image.props.modifiers).toContainEqual({ accessibilityHidden: undefined });
 });
 
