@@ -29,7 +29,9 @@ import { useIOSTracker } from '@/features/tracker/use-ios-tracker';
 import { useAppTheme } from '@/theme/use-app-theme';
 
 const alignerImageModule = require('../../../assets/images/clear-aligner.png');
+const teethImageModule = require('../../../assets/images/teeth.png');
 const alignerImageAspectRatio = 1194 / 697;
+const teethImageAspectRatio = 1;
 
 function TimeMetric({
   disabled: isDisabled,
@@ -90,7 +92,7 @@ function TimeMetric({
 export function TrackerScreen() {
   const router = useRouter();
   const theme = useAppTheme();
-  const [alignerAssets] = useAssets(alignerImageModule);
+  const [trackerAssets] = useAssets([alignerImageModule, teethImageModule]);
   const {
     snapshot, history, now, isLoading, isMutating, error, needsRetry, actionsDisabled,
     refreshTracker, toggleTracker, undoTracker, redoTracker,
@@ -132,6 +134,26 @@ export function TrackerScreen() {
           padding({ all: 16 }),
         ]}>
         <HStack>
+          <Button
+            modifiers={[
+              buttonStyle(liquidGlass ? 'glass' : 'bordered'),
+              controlSize('large'),
+              disabled(actionsDisabled),
+              frame({ minWidth: 44, minHeight: 44 }),
+              accessibilityLabel('Open treatment plan'),
+              accessibilityHint('Opens your treatment plan.'),
+            ]}
+            onPress={() => router.push('/treatment-plan')}>
+            <Image
+              uiImage={trackerAssets?.[1]?.localUri ?? undefined}
+              modifiers={[
+                resizable(),
+                aspectRatio({ ratio: teethImageAspectRatio, contentMode: 'fit' }),
+                frame({ width: 32, height: 32 }),
+                accessibilityHidden(),
+              ]}
+            />
+          </Button>
           <Spacer />
           <Button
             label="Menu"
@@ -255,9 +277,9 @@ export function TrackerScreen() {
             spacing={8}
             modifiers={[frame({ maxWidth: Infinity, maxHeight: Infinity, minHeight: 112 })]}>
             <Spacer />
-            {alignerAssets?.[0]?.localUri ? (
+            {trackerAssets?.[0]?.localUri ? (
               <Image
-                uiImage={alignerAssets[0].localUri}
+                uiImage={trackerAssets[0].localUri}
                 modifiers={[
                   resizable(),
                   aspectRatio({ ratio: alignerImageAspectRatio, contentMode: 'fit' }),

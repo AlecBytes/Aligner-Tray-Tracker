@@ -49,7 +49,10 @@ jest.mock('@expo/ui/swift-ui/modifiers', () => ({
   shapes: { roundedRectangle: () => ({}) },
 }));
 jest.mock('expo-asset', () => ({
-  useAssets: () => [[{ localUri: 'file:///clear-aligner.png' }], undefined],
+  useAssets: () => [
+    [{ localUri: 'file:///clear-aligner.png' }, { localUri: 'file:///teeth.png' }],
+    undefined,
+  ],
 }));
 jest.mock('@/components/app-loading-screen', () => ({ AppLoadingScreen: 'AppLoadingScreen' }));
 jest.mock('@/components/expo-ui-components', () => ({
@@ -96,6 +99,11 @@ function button(label: string) {
     ? node.props.modifiers?.some(modifier => String(modifier.accessibilityLabel).startsWith('Trays are'))
     : node.props.label === label)!;
 }
+function accessibleButton(label: string) {
+  return tree.root.findAllByType('Button').find(node =>
+    node.props.modifiers?.some(modifier => modifier.accessibilityLabel === label),
+  )!;
+}
 const press = (label: string) => act(async () => { button(label).props.onPress!(); });
 
 beforeEach(() => {
@@ -125,10 +133,29 @@ async function mount() { await act(async () => { tree = renderer.create(<Tracker
 
 it('shows the bundled aligner as a decorative image in the tracker toggle', async () => {
   await mount();
-  const image = tree.root.findAllByType('Image')[0];
+  const image = tree.root.findAllByType('Image').find(
+    node => node.props.uiImage === 'file:///clear-aligner.png',
+  )!;
   expect(image.props.uiImage).toBe('file:///clear-aligner.png');
   expect(image.props.modifiers).toContainEqual({ frame: { maxWidth: 260, maxHeight: 152 } });
   expect(image.props.modifiers).toContainEqual({ accessibilityHidden: undefined });
+});
+
+it('opens the treatment plan from the bundled teeth shortcut', async () => {
+  await mount();
+  const image = tree.root.findAllByType('Image').find(
+    node => node.props.uiImage === 'file:///teeth.png',
+  )!;
+  const treatmentPlanButton = accessibleButton('Open treatment plan');
+
+  expect(image.props.modifiers).toContainEqual({ frame: { width: 32, height: 32 } });
+  expect(image.props.modifiers).toContainEqual({ accessibilityHidden: undefined });
+  expect(treatmentPlanButton.props.modifiers).toContainEqual({
+    frame: { minWidth: 44, minHeight: 44 },
+  });
+
+  await act(async () => treatmentPlanButton.props.onPress!());
+  expect(mockPush).toHaveBeenCalledWith('/treatment-plan');
 });
 
 it('keeps IN after Menu navigation, then records OUT on the next tap', async () => {
