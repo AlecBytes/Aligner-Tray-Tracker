@@ -1,5 +1,5 @@
 import Foundation
-import SQLite3
+import ExpoSQLite
 
 enum AlignerWearStatus: String, Sendable {
   case inTrays = "IN"
@@ -95,23 +95,23 @@ private final class AlignerSQLiteConnection {
     }
 
     let flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX
-    guard sqlite3_open_v2(databaseURL.path, &handle, flags, nil) == SQLITE_OK else {
+    guard exsqlite3_open_v2(databaseURL.path, &handle, flags, nil) == SQLITE_OK else {
       let message = errorMessage
-      sqlite3_close(handle)
+      exsqlite3_close(handle)
       handle = nil
       throw AlignerTrackerStoreError.sqlite(message)
     }
 
-    sqlite3_busy_timeout(handle, 5_000)
+    exsqlite3_busy_timeout(handle, 5_000)
     try execute("PRAGMA foreign_keys = ON")
   }
 
   deinit {
-    sqlite3_close(handle)
+    exsqlite3_close(handle)
   }
 
   var errorMessage: String {
-    guard let handle, let message = sqlite3_errmsg(handle) else {
+    guard let handle, let message = exsqlite3_errmsg(handle) else {
       return "Unknown SQLite error."
     }
     return String(cString: message)
@@ -119,16 +119,16 @@ private final class AlignerSQLiteConnection {
 
   func execute(_ sql: String) throws {
     var errorPointer: UnsafeMutablePointer<CChar>?
-    guard sqlite3_exec(handle, sql, nil, nil, &errorPointer) == SQLITE_OK else {
+    guard exsqlite3_exec(handle, sql, nil, nil, &errorPointer) == SQLITE_OK else {
       let message = errorPointer.map { String(cString: $0) } ?? errorMessage
-      sqlite3_free(errorPointer)
+      exsqlite3_free(errorPointer)
       throw AlignerTrackerStoreError.sqlite(message)
     }
   }
 
   func prepare(_ sql: String) throws -> OpaquePointer {
     var statement: OpaquePointer?
-    guard sqlite3_prepare_v2(handle, sql, -1, &statement, nil) == SQLITE_OK,
+    guard exsqlite3_prepare_v2(handle, sql, -1, &statement, nil) == SQLITE_OK,
           let statement else {
       throw AlignerTrackerStoreError.sqlite(errorMessage)
     }
@@ -136,7 +136,7 @@ private final class AlignerSQLiteConnection {
   }
 
   func expectDone(_ statement: OpaquePointer) throws {
-    guard sqlite3_step(statement) == SQLITE_DONE else {
+    guard exsqlite3_step(statement) == SQLITE_DONE else {
       throw AlignerTrackerStoreError.sqlite(errorMessage)
     }
   }
@@ -214,29 +214,29 @@ enum AlignerTrackerStore {
         )
       """
     )
-    defer { sqlite3_finalize(insert) }
+    defer { exsqlite3_finalize(insert) }
 
-    sqlite3_bind_int64(insert, 1, trayPeriodId)
+    exsqlite3_bind_int64(insert, 1, trayPeriodId)
     _ = desiredStatus.rawValue.withCString {
-      sqlite3_bind_text(insert, 2, $0, -1, SQLITE_TRANSIENT)
+      exsqlite3_bind_text(insert, 2, $0, -1, SQLITE_TRANSIENT)
     }
-    sqlite3_bind_int64(insert, 3, timestamp)
-    sqlite3_bind_int64(insert, 4, trayPeriodId)
-    sqlite3_bind_int64(insert, 5, latestPunch.id)
-    sqlite3_bind_int64(insert, 6, trayPeriodId)
+    exsqlite3_bind_int64(insert, 3, timestamp)
+    exsqlite3_bind_int64(insert, 4, trayPeriodId)
+    exsqlite3_bind_int64(insert, 5, latestPunch.id)
+    exsqlite3_bind_int64(insert, 6, trayPeriodId)
     _ = latestPunch.status.rawValue.withCString {
-      sqlite3_bind_text(insert, 7, $0, -1, SQLITE_TRANSIENT)
+      exsqlite3_bind_text(insert, 7, $0, -1, SQLITE_TRANSIENT)
     }
-    sqlite3_bind_int64(insert, 8, latestPunch.timestamp)
-    sqlite3_bind_int64(insert, 9, trayPeriodId)
+    exsqlite3_bind_int64(insert, 8, latestPunch.timestamp)
+    exsqlite3_bind_int64(insert, 9, trayPeriodId)
     try connection.expectDone(insert)
 
-    guard sqlite3_changes(connection.handle) == 1 else {
+    guard exsqlite3_changes(connection.handle) == 1 else {
       throw AlignerTrackerStoreError.invalidTrackerState
     }
 
     let punch = AlignerWearPunch(
-      id: sqlite3_last_insert_rowid(connection.handle),
+      id: exsqlite3_last_insert_rowid(connection.handle),
       status: desiredStatus,
       timestamp: timestamp
     )
@@ -295,17 +295,17 @@ enum AlignerTrackerStore {
       WHERE tray_periods.id = ? AND tray_periods.ended_at IS NULL
       """
     )
-    defer { sqlite3_finalize(trackerStatement) }
-    sqlite3_bind_int64(trackerStatement, 1, trayPeriodId)
-    guard sqlite3_step(trackerStatement) == SQLITE_ROW else {
+    defer { exsqlite3_finalize(trackerStatement) }
+    exsqlite3_bind_int64(trackerStatement, 1, trayPeriodId)
+    guard exsqlite3_step(trackerStatement) == SQLITE_ROW else {
       throw AlignerTrackerStoreError.invalidTrackerState
     }
 
-    let treatmentId = sqlite3_column_int64(trackerStatement, 0)
-    let currentTrayNumber = Int(sqlite3_column_int64(trackerStatement, 1))
-    let trayStartedAt = sqlite3_column_int64(trackerStatement, 2)
-    let totalTrays = Int(sqlite3_column_int64(trackerStatement, 3))
-    let daysPerTray = Int(sqlite3_column_int64(trackerStatement, 4))
+    let treatmentId = exsqlite3_column_int64(trackerStatement, 0)
+    let currentTrayNumber = Int(exsqlite3_column_int64(trackerStatement, 1))
+    let trayStartedAt = exsqlite3_column_int64(trackerStatement, 2)
+    let totalTrays = Int(exsqlite3_column_int64(trackerStatement, 3))
+    let daysPerTray = Int(exsqlite3_column_int64(trackerStatement, 4))
 
     guard let latestPunch = try loadLatestPunch(
       connection,
@@ -380,16 +380,16 @@ enum AlignerTrackerStore {
       WHERE tray_periods.id = ? AND tray_periods.ended_at IS NULL
       """
     )
-    defer { sqlite3_finalize(trackerStatement) }
-    sqlite3_bind_int64(trackerStatement, 1, activeTrayPeriodIds[0])
-    guard sqlite3_step(trackerStatement) == SQLITE_ROW else {
+    defer { exsqlite3_finalize(trackerStatement) }
+    exsqlite3_bind_int64(trackerStatement, 1, activeTrayPeriodIds[0])
+    guard exsqlite3_step(trackerStatement) == SQLITE_ROW else {
       throw AlignerTrackerStoreError.invalidTrackerState
     }
 
-    let treatmentId = sqlite3_column_int64(trackerStatement, 0)
-    let currentTrayNumber = Int(sqlite3_column_int64(trackerStatement, 1))
-    let trayStartedAt = sqlite3_column_int64(trackerStatement, 2)
-    let totalTrays = Int(sqlite3_column_int64(trackerStatement, 3))
+    let treatmentId = exsqlite3_column_int64(trackerStatement, 0)
+    let currentTrayNumber = Int(exsqlite3_column_int64(trackerStatement, 1))
+    let trayStartedAt = exsqlite3_column_int64(trackerStatement, 2)
+    let totalTrays = Int(exsqlite3_column_int64(trackerStatement, 3))
     let generatedAt = Int64((now.timeIntervalSince1970 * 1_000).rounded(.down))
     let dayStart = calendar.startOfDay(for: now)
     let dayStartTimestamp = Int64((dayStart.timeIntervalSince1970 * 1_000).rounded(.down))
@@ -427,11 +427,11 @@ enum AlignerTrackerStore {
 
   private static func requireSupportedSchema(_ connection: AlignerSQLiteConnection) throws {
     let statement = try connection.prepare("PRAGMA user_version")
-    defer { sqlite3_finalize(statement) }
-    guard sqlite3_step(statement) == SQLITE_ROW else {
+    defer { exsqlite3_finalize(statement) }
+    guard exsqlite3_step(statement) == SQLITE_ROW else {
       throw AlignerTrackerStoreError.invalidTrackerState
     }
-    let version = Int(sqlite3_column_int64(statement, 0))
+    let version = Int(exsqlite3_column_int64(statement, 0))
     guard version >= minimumSupportedDatabaseVersion else {
       throw AlignerTrackerStoreError.databaseNeedsMigration
     }
@@ -452,11 +452,11 @@ enum AlignerTrackerStore {
       LIMIT 2
       """
     )
-    defer { sqlite3_finalize(statement) }
+    defer { exsqlite3_finalize(statement) }
 
     var ids: [Int64] = []
-    while sqlite3_step(statement) == SQLITE_ROW {
-      ids.append(sqlite3_column_int64(statement, 0))
+    while exsqlite3_step(statement) == SQLITE_ROW {
+      ids.append(exsqlite3_column_int64(statement, 0))
     }
     return ids
   }
@@ -479,9 +479,9 @@ enum AlignerTrackerStore {
         )
       """
     )
-    defer { sqlite3_finalize(statement) }
-    sqlite3_bind_int64(statement, 1, trayPeriodId)
-    return sqlite3_step(statement) == SQLITE_ROW
+    defer { exsqlite3_finalize(statement) }
+    exsqlite3_bind_int64(statement, 1, trayPeriodId)
+    return exsqlite3_step(statement) == SQLITE_ROW
   }
 
   private static func loadLatestPunch(
@@ -497,8 +497,8 @@ enum AlignerTrackerStore {
       LIMIT 1
       """
     )
-    defer { sqlite3_finalize(statement) }
-    sqlite3_bind_int64(statement, 1, trayPeriodId)
+    defer { exsqlite3_finalize(statement) }
+    exsqlite3_bind_int64(statement, 1, trayPeriodId)
     return try readPunch(statement)
   }
 
@@ -529,29 +529,29 @@ enum AlignerTrackerStore {
       ORDER BY timestamp, id
       """
     )
-    defer { sqlite3_finalize(statement) }
-    sqlite3_bind_int64(statement, 1, treatmentId)
-    sqlite3_bind_int64(statement, 2, dayStart)
-    sqlite3_bind_int64(statement, 3, treatmentId)
-    sqlite3_bind_int64(statement, 4, dayStart)
-    sqlite3_bind_int64(statement, 5, now)
+    defer { exsqlite3_finalize(statement) }
+    exsqlite3_bind_int64(statement, 1, treatmentId)
+    exsqlite3_bind_int64(statement, 2, dayStart)
+    exsqlite3_bind_int64(statement, 3, treatmentId)
+    exsqlite3_bind_int64(statement, 4, dayStart)
+    exsqlite3_bind_int64(statement, 5, now)
 
     var punches: [AlignerWearPunch] = []
     while true {
-      let stepResult = sqlite3_step(statement)
+      let stepResult = exsqlite3_step(statement)
       if stepResult == SQLITE_DONE {
         return punches
       }
       guard stepResult == SQLITE_ROW,
-            let statusPointer = sqlite3_column_text(statement, 1),
+            let statusPointer = exsqlite3_column_text(statement, 1),
             let status = AlignerWearStatus(rawValue: String(cString: statusPointer)) else {
         throw AlignerTrackerStoreError.invalidTrackerState
       }
       punches.append(
         AlignerWearPunch(
-          id: sqlite3_column_int64(statement, 0),
+          id: exsqlite3_column_int64(statement, 0),
           status: status,
-          timestamp: sqlite3_column_int64(statement, 2)
+          timestamp: exsqlite3_column_int64(statement, 2)
         )
       )
     }
@@ -619,27 +619,27 @@ enum AlignerTrackerStore {
       LIMIT 1
       """
     )
-    defer { sqlite3_finalize(statement) }
-    sqlite3_bind_int64(statement, 1, treatmentId)
+    defer { exsqlite3_finalize(statement) }
+    exsqlite3_bind_int64(statement, 1, treatmentId)
     return try readPunch(statement)
   }
 
   private static func readPunch(_ statement: OpaquePointer) throws -> AlignerWearPunch? {
-    let stepResult = sqlite3_step(statement)
+    let stepResult = exsqlite3_step(statement)
     guard stepResult == SQLITE_ROW else {
       if stepResult == SQLITE_DONE {
         return nil
       }
       throw AlignerTrackerStoreError.invalidTrackerState
     }
-    guard let statusPointer = sqlite3_column_text(statement, 1),
+    guard let statusPointer = exsqlite3_column_text(statement, 1),
           let status = AlignerWearStatus(rawValue: String(cString: statusPointer)) else {
       throw AlignerTrackerStoreError.invalidTrackerState
     }
     return AlignerWearPunch(
-      id: sqlite3_column_int64(statement, 0),
+      id: exsqlite3_column_int64(statement, 0),
       status: status,
-      timestamp: sqlite3_column_int64(statement, 2)
+      timestamp: exsqlite3_column_int64(statement, 2)
     )
   }
 
@@ -648,11 +648,11 @@ enum AlignerTrackerStore {
   ) throws -> AlignerNotificationSettings {
     // Intents may run before the app has migrated an older supported database.
     let versionStatement = try connection.prepare("PRAGMA user_version")
-    defer { sqlite3_finalize(versionStatement) }
-    guard sqlite3_step(versionStatement) == SQLITE_ROW else {
+    defer { exsqlite3_finalize(versionStatement) }
+    guard exsqlite3_step(versionStatement) == SQLITE_ROW else {
       throw AlignerTrackerStoreError.invalidTrackerState
     }
-    let overdueColumn = sqlite3_column_int(versionStatement, 0) >= 7
+    let overdueColumn = exsqlite3_column_int(versionStatement, 0) >= 7
       ? "tray_change_overdue_reminder_enabled" : "0"
     let statement = try connection.prepare(
       """
@@ -668,18 +668,18 @@ enum AlignerTrackerStore {
       WHERE id = 1
       """
     )
-    defer { sqlite3_finalize(statement) }
-    guard sqlite3_step(statement) == SQLITE_ROW else {
+    defer { exsqlite3_finalize(statement) }
+    guard exsqlite3_step(statement) == SQLITE_ROW else {
       throw AlignerTrackerStoreError.invalidTrackerState
     }
     return AlignerNotificationSettings(
-      outReminderEnabled: sqlite3_column_int(statement, 0) == 1,
-      outReminderMinutes: Int(sqlite3_column_int64(statement, 1)),
-      outPersistentReminderIntervalMinutes: Int(sqlite3_column_int64(statement, 2)),
-      trayChangeReminderEnabled: sqlite3_column_int(statement, 3) == 1,
-      trayChangeReminderHour: Int(sqlite3_column_int64(statement, 4)),
-      trayChangeReminderMinute: Int(sqlite3_column_int64(statement, 5)),
-      trayChangeOverdueReminderEnabled: sqlite3_column_int(statement, 6) == 1
+      outReminderEnabled: exsqlite3_column_int(statement, 0) == 1,
+      outReminderMinutes: Int(exsqlite3_column_int64(statement, 1)),
+      outPersistentReminderIntervalMinutes: Int(exsqlite3_column_int64(statement, 2)),
+      trayChangeReminderEnabled: exsqlite3_column_int(statement, 3) == 1,
+      trayChangeReminderHour: Int(exsqlite3_column_int64(statement, 4)),
+      trayChangeReminderMinute: Int(exsqlite3_column_int64(statement, 5)),
+      trayChangeOverdueReminderEnabled: exsqlite3_column_int(statement, 6) == 1
     )
   }
 }

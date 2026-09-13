@@ -1,4 +1,4 @@
-import SQLite3
+import ExpoSQLite
 import XCTest
 @testable import AlignerTrackerIntents
 
@@ -7,6 +7,49 @@ private enum WatchBridgeTestError: Error {
 }
 
 final class AlignerTrackerStoreTests: XCTestCase {
+  func testExpoConnectionSeesNativeCommitsAndNativeSeesExpoCommits() throws {
+    let url = try makeDatabase(initialStatus: "OUT")
+    var reader: OpaquePointer?
+    XCTAssertEqual(exsqlite3_open(url.path, &reader), SQLITE_OK)
+    defer { exsqlite3_close(reader) }
+
+    func latestStatus() throws -> String {
+      var statement: OpaquePointer?
+      XCTAssertEqual(exsqlite3_prepare_v2(reader,
+        "SELECT status FROM wear_punches ORDER BY timestamp DESC, id DESC LIMIT 1",
+        -1, &statement, nil), SQLITE_OK)
+      defer { exsqlite3_finalize(statement) }
+      XCTAssertEqual(exsqlite3_step(statement), SQLITE_ROW)
+      return String(cString: try XCTUnwrap(exsqlite3_column_text(statement, 0)))
+    }
+
+    XCTAssertEqual(try latestStatus(), "OUT")
+    let result = try AlignerTrackerStore.ensureWearStatus(.inTrays, timestamp: 2_000, databaseURL: url)
+    assertChanged(result, status: .inTrays, timestamp: 2_000)
+    // Keep the original connection open across the native store's open/write/close.
+    XCTAssertEqual(try latestStatus(), "IN")
+    try execute("INSERT INTO wear_punches (tray_period_id, status, timestamp) VALUES (1, 'OUT', 3000)", database: reader)
+    let snapshot = try XCTUnwrap(AlignerTrackerStore.loadNotificationSnapshot(databaseURL: url))
+    XCTAssertEqual(snapshot.latestPunch.status, .outTrays)
+    XCTAssertEqual(snapshot.latestPunch.timestamp, 3_000)
+  }
+
+  func testConcurrentExpoMutationsCreateOnlyOneTransition() async throws {
+    let url = try makeDatabase(initialStatus: "OUT")
+    let first = Task.detached {
+      try AlignerTrackerStore.ensureWearStatus(.inTrays, timestamp: 2_000, databaseURL: url)
+    }
+    let second = Task.detached {
+      try AlignerTrackerStore.ensureWearStatus(.inTrays, timestamp: 2_000, databaseURL: url)
+    }
+    let results = try await [first.value, second.value]
+    let changedCount = results.filter { if case .changed = $0 { return true }; return false }.count
+    let alreadyCount = results.filter { if case .already(.inTrays) = $0 { return true }; return false }.count
+    XCTAssertEqual(changedCount, 1)
+    XCTAssertEqual(alreadyCount, 1)
+    XCTAssertEqual(try punchCount(url), 2)
+  }
+
   func testChangesInToOutAndOutToIn() throws {
     let inDatabase = try makeDatabase(initialStatus: "IN")
     let outResult = try AlignerTrackerStore.ensureWearStatus(
@@ -517,8 +560,8 @@ final class AlignerTrackerStoreTests: XCTestCase {
     }
 
     var database: OpaquePointer?
-    XCTAssertEqual(sqlite3_open(url.path, &database), SQLITE_OK)
-    defer { sqlite3_close(database) }
+    XCTAssertEqual(exsqlite3_open(url.path, &database), SQLITE_OK)
+    defer { exsqlite3_close(database) }
 
     try execute(
       """
@@ -611,48 +654,48 @@ final class AlignerTrackerStoreTests: XCTestCase {
 
   private func punchCount(_ url: URL) throws -> Int {
     var database: OpaquePointer?
-    guard sqlite3_open(url.path, &database) == SQLITE_OK else {
+    guard exsqlite3_open(url.path, &database) == SQLITE_OK else {
       throw NSError(
         domain: "AlignerTrackerIntentsTests",
         code: 2,
         userInfo: [NSLocalizedDescriptionKey: "Could not reopen temporary SQLite database."]
       )
     }
-    defer { sqlite3_close(database) }
+    defer { exsqlite3_close(database) }
     var statement: OpaquePointer?
-    sqlite3_prepare_v2(database, "SELECT COUNT(*) FROM wear_punches", -1, &statement, nil)
-    defer { sqlite3_finalize(statement) }
-    XCTAssertEqual(sqlite3_step(statement), SQLITE_ROW)
-    return Int(sqlite3_column_int64(statement, 0))
+    exsqlite3_prepare_v2(database, "SELECT COUNT(*) FROM wear_punches", -1, &statement, nil)
+    defer { exsqlite3_finalize(statement) }
+    XCTAssertEqual(exsqlite3_step(statement), SQLITE_ROW)
+    return Int(exsqlite3_column_int64(statement, 0))
   }
 
   private func latestPunch(_ url: URL) throws -> (status: String, timestamp: Int64) {
     var database: OpaquePointer?
-    guard sqlite3_open(url.path, &database) == SQLITE_OK else {
+    guard exsqlite3_open(url.path, &database) == SQLITE_OK else {
       throw NSError(domain: "AlignerTrackerIntentsTests", code: 4)
     }
-    defer { sqlite3_close(database) }
+    defer { exsqlite3_close(database) }
     var statement: OpaquePointer?
-    sqlite3_prepare_v2(
+    exsqlite3_prepare_v2(
       database,
       "SELECT status, timestamp FROM wear_punches ORDER BY timestamp DESC, id DESC LIMIT 1",
       -1,
       &statement,
       nil
     )
-    defer { sqlite3_finalize(statement) }
-    guard sqlite3_step(statement) == SQLITE_ROW,
-          let statusPointer = sqlite3_column_text(statement, 0) else {
+    defer { exsqlite3_finalize(statement) }
+    guard exsqlite3_step(statement) == SQLITE_ROW,
+          let statusPointer = exsqlite3_column_text(statement, 0) else {
       throw NSError(domain: "AlignerTrackerIntentsTests", code: 5)
     }
-    return (String(cString: statusPointer), sqlite3_column_int64(statement, 1))
+    return (String(cString: statusPointer), exsqlite3_column_int64(statement, 1))
   }
 
   private func execute(_ sql: String, database: OpaquePointer?) throws {
     var errorPointer: UnsafeMutablePointer<CChar>?
-    guard sqlite3_exec(database, sql, nil, nil, &errorPointer) == SQLITE_OK else {
+    guard exsqlite3_exec(database, sql, nil, nil, &errorPointer) == SQLITE_OK else {
       let message = errorPointer.map { String(cString: $0) } ?? "SQLite test setup failed."
-      sqlite3_free(errorPointer)
+      exsqlite3_free(errorPointer)
       throw NSError(domain: "AlignerTrackerIntentsTests", code: 1, userInfo: [
         NSLocalizedDescriptionKey: message,
       ])
@@ -661,10 +704,10 @@ final class AlignerTrackerStoreTests: XCTestCase {
 
   private func execute(_ sql: String, databaseURL: URL) throws {
     var database: OpaquePointer?
-    guard sqlite3_open(databaseURL.path, &database) == SQLITE_OK else {
+    guard exsqlite3_open(databaseURL.path, &database) == SQLITE_OK else {
       throw NSError(domain: "AlignerTrackerIntentsTests", code: 3)
     }
-    defer { sqlite3_close(database) }
+    defer { exsqlite3_close(database) }
     try execute(sql, database: database)
   }
 }
