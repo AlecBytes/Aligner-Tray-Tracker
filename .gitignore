@@ -50,3 +50,6 @@ example
 # generated native folders
 /ios
 /android
+
+# local editor workspace
+/docs/aligner-tray-tracker.code-workspace
