@@ -1,6 +1,7 @@
 import type { WearStatus } from '@/db/schema';
 import type {
   EnsureWearStatusResult,
+  CommitWearStatusResult,
   WearStatusChangedListener,
   WearStatusChangedSubscription,
 } from '@/features/siri/aligner-tracker-intents.types';
@@ -13,6 +14,13 @@ export function ensureWearStatus(
   _status: WearStatus,
   _timestamp = Date.now(),
 ): Promise<EnsureWearStatusResult> {
+  return Promise.reject(new Error('App Intents are available only on iOS.'));
+}
+
+export function commitWearStatus(
+  _status: WearStatus,
+  _timestamp = Date.now(),
+): Promise<CommitWearStatusResult> {
   return Promise.reject(new Error('App Intents are available only on iOS.'));
 }
 

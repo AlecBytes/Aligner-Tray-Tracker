@@ -58,17 +58,28 @@ Initial project budget:
 
 ### 3. IN/OUT Toggle
 
-Measure:
+Measure these boundaries separately:
 
-`Tap → SQLite write completes → correct tracker state is visible`
+- `tap → native pressed feedback`
+- `accepted handler → SQLite commit confirmed in JavaScript`
+- `accepted handler → committed tracker state rendered`
+- `accepted handler → authoritative readback completes and controls are usable`
+- notification reconciliation completion as a diagnostic outside the toggle critical path
 
-This includes the local application/repository work required for the action.
+The committed-state measurement includes the local application/repository work
+required for the action. Use a monotonic clock for elapsed durations and wall-clock
+time only for the persisted punch timestamp. A React state setter is not proof that
+the new state reached the display; verify visual response with device tooling.
 
 It should not include network activity because normal tracker actions are local-only.
 
 Initial project budget:
 
 **Target: under 100 ms**
+
+This target applies to SQLite completion and the correct committed state becoming
+visible. Establish a separate pressed/visual-response budget after collecting a
+release-like device baseline.
 
 Measure both:
 
@@ -298,6 +309,12 @@ Keep instrumentation:
 - removable or disableable in release builds
 
 Do not scatter ad-hoc timing logs throughout React components.
+
+The Tracker's opt-in development timing output is enabled with
+`EXPO_PUBLIC_TRACKER_PERFORMANCE=1`. It assigns an operation ID and records handler
+entry, native commit duration, JavaScript receipt, scheduled visual state, readback,
+and notification completion. Treat scheduled visual state as an application marker,
+then use device tools to validate the actual frame.
 
 ---
 

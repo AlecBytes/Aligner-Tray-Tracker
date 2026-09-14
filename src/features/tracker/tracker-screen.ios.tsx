@@ -3,6 +3,7 @@ import {
   accessibilityHidden,
   accessibilityHint,
   accessibilityLabel,
+  accessibilityValue,
   aspectRatio,
   background,
   buttonBorderShape,
@@ -274,12 +275,13 @@ export function TrackerScreen() {
             buttonBorderShape('roundedRectangle', 18),
             disabled(actionsDisabled),
             frame({ maxWidth: Infinity, maxHeight: Infinity, minHeight: 124 }),
-            accessibilityLabel(
-              isIn
-                ? 'Trays are in. Tap when removed.'
-                : `Trays are out for ${currentOutDuration}. Tap when inserted.`,
+            accessibilityLabel('Aligner trays'),
+            accessibilityValue(`${tracker.currentStatus}${isMutating ? ', saving' : ''}`),
+            accessibilityHint(
+              isMutating
+                ? 'Saving the tracker change.'
+                : `Tap when trays are ${isIn ? 'removed' : 'inserted'}.`,
             ),
-            accessibilityHint('Updates the saved IN or OUT state.'),
           ]}
           onPress={() => void toggleTracker()}>
           <VStack
@@ -303,7 +305,7 @@ export function TrackerScreen() {
                 minimumScaleFactor(0.75),
                 lineLimit(1),
               ]}>
-              {isMutating ? 'SAVING…' : `TRAYS ARE ${tracker.currentStatus}`}
+              {`TRAYS ARE ${tracker.currentStatus}`}
             </Text>
             <Text
               modifiers={[
@@ -317,7 +319,7 @@ export function TrackerScreen() {
               ]}>
               {currentOutDuration}
             </Text>
-            <Text>{isIn ? 'Tap when removed' : 'Tap when inserted'}</Text>
+            <Text>{isMutating ? 'Saving…' : isIn ? 'Tap when removed' : 'Tap when inserted'}</Text>
             <Spacer />
           </VStack>
         </Button>

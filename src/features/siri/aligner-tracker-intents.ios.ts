@@ -1,6 +1,7 @@
 import type { WearStatus } from '@/db/schema';
 import type {
   EnsureWearStatusResult,
+  CommitWearStatusResult,
   WearStatusChangedListener,
   WearStatusChangedSubscription,
 } from '@/features/siri/aligner-tracker-intents.types';
@@ -35,6 +36,16 @@ export function ensureWearStatus(
   return module === null
     ? Promise.reject(new Error('Aligner Tracker App Intents are unavailable in this build.'))
     : module.ensureWearStatus(status, timestamp);
+}
+
+export function commitWearStatus(
+  status: WearStatus,
+  timestamp = Date.now(),
+): Promise<CommitWearStatusResult> {
+  const module = getIntentsModule();
+  return module === null
+    ? Promise.reject(new Error('Aligner Tracker App Intents are unavailable in this build.'))
+    : module.commitWearStatus(status, timestamp);
 }
 
 export async function reconcileNativeNotifications(): Promise<boolean> {

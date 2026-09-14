@@ -17,6 +17,13 @@ Keep a mutation in one conditional SQL statement when SQLite can validate and ap
 The tracker IN/OUT toggle, undo, and redo paths use this pattern. Their predicates must reject stale
 state, and they do not need an exclusive transaction merely to make the search results uniform.
 
+The TypeScript repository uses that conditional statement directly. The production
+iOS foreground toggle shares the App Intent native store, which wraps its validation
+and conditional insert in `BEGIN IMMEDIATE` so the native connection can return the
+committed punch and its authoritative predecessor. Notification and Watch work begin
+only after commit. Undo and Redo continue through the TypeScript repository's guarded
+single statements.
+
 ### User-initiated multi-step mutations
 
 On iOS and Android, every user-initiated mutation that requires multiple reads or writes must use

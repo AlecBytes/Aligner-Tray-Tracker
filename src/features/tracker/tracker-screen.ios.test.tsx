@@ -10,6 +10,7 @@ let mockExternal: () => void;
 let mockPersisted: TrackerSnapshot | null;
 const mockRead = jest.fn(async () => mockPersisted);
 const mockEnsure = jest.fn();
+const mockReconcileNative = jest.fn();
 const mockUndo = jest.fn();
 const mockRedo = jest.fn();
 const mockPush = jest.fn();
@@ -42,7 +43,7 @@ jest.mock('@expo/ui/swift-ui', () => ({
 }));
 jest.mock('@expo/ui/swift-ui/modifiers', () => ({
   ...Object.fromEntries([
-    'accessibilityHidden', 'accessibilityHint', 'accessibilityLabel', 'aspectRatio', 'background', 'buttonBorderShape', 'buttonStyle',
+    'accessibilityHidden', 'accessibilityHint', 'accessibilityLabel', 'accessibilityValue', 'aspectRatio', 'background', 'buttonBorderShape', 'buttonStyle',
     'contentTransition', 'controlSize', 'disabled', 'font', 'foregroundStyle', 'frame', 'lineLimit',
     'minimumScaleFactor', 'monospacedDigit', 'opacity', 'padding', 'resizable',
   ].map(name => [name, (value: unknown) => ({ [name]: value })])),
@@ -67,7 +68,8 @@ jest.mock('@/theme/use-app-theme', () => ({ useAppTheme: () => ({ primary: 'purp
 jest.mock('@/features/notifications/local-notifications', () => ({ reconcileLocalNotifications: jest.fn() }));
 jest.mock('@/features/siri/aligner-tracker-intents', () => ({
   isNativeWearStatusAvailable: () => true,
-  ensureWearStatus: (...args: unknown[]) => mockEnsure(...args),
+  commitWearStatus: (...args: unknown[]) => mockEnsure(...args),
+  reconcileNativeNotifications: (...args: unknown[]) => mockReconcileNative(...args),
   refreshWatchTrackerSnapshot: jest.fn(),
   addWearStatusChangedListener: (listener: () => void) => {
     mockExternal = listener;
@@ -100,7 +102,7 @@ const text = () => tree.root.findAllByType('Text').map(node => node.props.childr
 const error = () => tree.root.findAllByType('ValidationMessage')[0]?.props.message;
 function button(label: string) {
   return tree.root.findAllByType('Button').find(node => label === 'toggle'
-    ? node.props.modifiers?.some(modifier => String(modifier.accessibilityLabel).startsWith('Trays are'))
+    ? node.props.modifiers?.some(modifier => modifier.accessibilityLabel === 'Aligner trays')
     : node.props.label === label)!;
 }
 function accessibleButton(label: string) {
@@ -114,10 +116,12 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockRead.mockReset().mockImplementation(async () => mockPersisted);
   mockEnsure.mockReset().mockImplementation(async (status: 'IN' | 'OUT', timestamp: number) => {
+    const predecessor = mockPersisted!.punches[mockPersisted!.punches.length - 1];
     const punch = { id: mockPersisted!.punches.length + 1, status, timestamp };
     mockPersisted = { ...mockPersisted!, punches: [...mockPersisted!.punches, punch] };
-    return { outcome: 'changed', notificationStatus: 'reconciled', punch };
+    return { outcome: 'changed', predecessor, punch, trayPeriodId: mockPersisted!.trayPeriodId };
   });
+  mockReconcileNative.mockReset().mockResolvedValue(true);
   mockUndo.mockReset().mockImplementation(async () => {
     mockPersisted = { ...mockPersisted!, punches: mockPersisted!.punches.slice(0, -1) };
   });
@@ -162,6 +166,63 @@ it('shows the decorative tray image for the current tracker state', async () => 
   expect(image.props.modifiers).toContainEqual({ frame: { width: 260, height: 195 } });
   expect(duration().props.modifiers).toContainEqual({ opacity: 0 });
   expect(duration().props.modifiers).toContainEqual({ accessibilityHidden: true });
+});
+
+it('keeps confirmed state while committing, then renders the commit before notifications finish', async () => {
+  await mount();
+  const commit = deferred<{
+    nativeCommitDurationMs: number;
+    outcome: 'changed';
+    predecessor: TrackerSnapshot['punches'][number];
+    punch: TrackerSnapshot['punches'][number];
+    trayPeriodId: number;
+  }>();
+  const notifications = deferred<boolean>();
+  const predecessor = mockPersisted!.punches[0];
+  const punch = { id: 2, status: 'IN' as const, timestamp: Date.now() };
+  mockEnsure.mockReturnValueOnce(commit.promise);
+  mockReconcileNative.mockReturnValueOnce(notifications.promise);
+
+  act(() => button('toggle').props.onPress!());
+  expect(text()).toContain('TRAYS ARE OUT');
+  expect(text()).toContain('Saving…');
+  expect(button('toggle').props.modifiers).toContainEqual({ accessibilityValue: 'OUT, saving' });
+
+  mockPersisted = { ...mockPersisted!, punches: [predecessor, punch] };
+  await act(async () => commit.resolve({
+    nativeCommitDurationMs: 2,
+    outcome: 'changed',
+    predecessor,
+    punch,
+    trayPeriodId: 1,
+  }));
+  expect(text()).toContain('TRAYS ARE IN');
+  expect(text()).not.toContain('Saving…');
+  expect(button('toggle').props.modifiers).toContainEqual({ disabled: false });
+  expect(error()).toBeUndefined();
+
+  await act(async () => notifications.resolve(true));
+  expect(error()).toBeUndefined();
+});
+
+it('ignores duplicate toggles while the first commit is pending', async () => {
+  await mount();
+  const commit = deferred<never>();
+  mockEnsure.mockReturnValueOnce(commit.promise);
+  act(() => {
+    button('toggle').props.onPress!();
+    button('toggle').props.onPress!();
+  });
+  expect(mockEnsure).toHaveBeenCalledTimes(1);
+  await act(async () => commit.reject(new Error('write failed')));
+});
+
+it('persists the timestamp captured for the accepted toggle', async () => {
+  await mount();
+  await press('toggle');
+  const acceptedTimestamp = mockEnsure.mock.calls[0][1];
+  expect(typeof acceptedTimestamp).toBe('number');
+  expect(mockPersisted!.punches.at(-1)?.timestamp).toBe(acceptedTimestamp);
 });
 
 it('opens the treatment plan from the bundled teeth shortcut', async () => {
@@ -245,7 +306,7 @@ it('discards a read after blur and reloads on focus', async () => {
 it('handles already-in-state without another punch or a fabricated undo action', async () => {
   await mount();
   mockPersisted = { ...mockPersisted!, punches: [...mockPersisted!.punches, { id: 2, status: 'IN', timestamp: Date.now() }] };
-  mockEnsure.mockResolvedValueOnce({ outcome: 'already-in-state', status: 'IN', notificationStatus: 'not-needed' });
+  mockEnsure.mockResolvedValueOnce({ outcome: 'already-in-state', status: 'IN' });
   await press('toggle');
   expect(text()).toContain('TRAYS ARE IN');
   expect(mockPersisted!.punches).toHaveLength(2);
@@ -253,11 +314,41 @@ it('handles already-in-state without another punch or a fabricated undo action',
   expect(error()).toBeUndefined();
 });
 
+it('builds Undo from the predecessor returned by the committed native mutation', async () => {
+  await mount();
+  const displayedPredecessor = mockPersisted!.punches[0];
+  const authoritativePredecessor = {
+    id: 2,
+    status: 'OUT' as const,
+    timestamp: displayedPredecessor.timestamp + 1,
+  };
+  const punch = { id: 3, status: 'IN' as const, timestamp: Date.now() };
+  mockPersisted = {
+    ...mockPersisted!,
+    punches: [displayedPredecessor, authoritativePredecessor, punch],
+  };
+  mockEnsure.mockResolvedValueOnce({
+    nativeCommitDurationMs: 1,
+    outcome: 'changed',
+    predecessor: authoritativePredecessor,
+    punch,
+    trayPeriodId: 1,
+  });
+
+  await press('toggle');
+  await press('Undo');
+  expect(mockUndo.mock.calls[0][1]).toMatchObject({
+    predecessor: authoritativePredecessor,
+    punch,
+    trayPeriodId: 1,
+  });
+});
+
 it('shows missing treatment separately', async () => {
   await mount();
   mockEnsure.mockImplementationOnce(async () => {
     mockPersisted = null;
-    return { outcome: 'no-active-treatment', notificationStatus: 'not-needed' };
+    return { outcome: 'no-active-treatment' };
   });
   await press('toggle');
   expect(tree.root.findAllByType('CenteredState')[0].props.message).toContain('No active treatment');
@@ -265,8 +356,15 @@ it('shows missing treatment separately', async () => {
 
 it('keeps saved state and a reminder warning when reminder reconciliation fails', async () => {
   await mount();
-  const implementation = mockEnsure.getMockImplementation()!;
-  mockEnsure.mockImplementationOnce(async (...args: unknown[]) => ({ ...await implementation(...args), notificationStatus: 'failed' }));
+  mockReconcileNative.mockResolvedValueOnce(false);
+  await press('toggle');
+  expect(text()).toContain('TRAYS ARE IN');
+  expect(error()).toBe('Tracker saved, but reminders could not be refreshed.');
+});
+
+it('keeps saved state when the notification bridge rejects', async () => {
+  await mount();
+  mockReconcileNative.mockRejectedValueOnce(new Error('notification bridge failed'));
   await press('toggle');
   expect(text()).toContain('TRAYS ARE IN');
   expect(error()).toBe('Tracker saved, but reminders could not be refreshed.');

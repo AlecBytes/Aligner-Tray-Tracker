@@ -12,8 +12,14 @@ struct AlignerWearPunch: Sendable {
   let timestamp: Int64
 }
 
+struct AlignerWearChange: Sendable {
+  let predecessor: AlignerWearPunch
+  let punch: AlignerWearPunch
+  let trayPeriodId: Int64
+}
+
 enum AlignerWearMutation: Sendable {
-  case changed(AlignerWearPunch)
+  case changed(AlignerWearChange)
   case already(AlignerWearStatus)
   case noActiveTreatment
 }
@@ -242,7 +248,11 @@ enum AlignerTrackerStore {
     )
     try connection.execute("COMMIT")
     transactionFinished = true
-    return .changed(punch)
+    return .changed(AlignerWearChange(
+      predecessor: latestPunch,
+      punch: punch,
+      trayPeriodId: trayPeriodId
+    ))
   }
 
   static func loadNotificationSnapshot(

@@ -23,6 +23,40 @@ typealias AlignerNotificationReconciler = @Sendable () async throws -> Void
 actor AlignerTrackerWearStatusService {
   static let shared = AlignerTrackerWearStatusService()
 
+  func commitWearStatus(
+    _ desiredStatus: AlignerWearStatus,
+    timestamp: Int64,
+    emitChangeEvent: Bool,
+    databaseURL: URL? = nil
+  ) throws -> AlignerWearMutation {
+    let mutation = try AlignerTrackerStore.ensureWearStatus(
+      desiredStatus,
+      timestamp: timestamp,
+      databaseURL: databaseURL
+    )
+
+    guard case let .changed(change) = mutation else {
+      return mutation
+    }
+
+    if emitChangeEvent {
+      NotificationCenter.default.post(
+        name: alignerWearStatusChangedNotification,
+        object: nil,
+        userInfo: [
+          "status": change.punch.status.rawValue,
+          "timestamp": change.punch.timestamp,
+        ]
+      )
+    }
+
+    NotificationCenter.default.post(
+      name: alignerTrackerSnapshotNeedsRefreshNotification,
+      object: nil
+    )
+    return mutation
+  }
+
   func ensureWearStatus(
     _ desiredStatus: AlignerWearStatus,
     timestamp: Int64,
@@ -32,34 +66,19 @@ actor AlignerTrackerWearStatusService {
       try await AlignerTrackerNotificationCoordinator.shared.reconcile()
     }
   ) async throws -> AlignerWearStatusServiceResult {
-    let mutation = try AlignerTrackerStore.ensureWearStatus(
+    let mutation = try commitWearStatus(
       desiredStatus,
       timestamp: timestamp,
+      emitChangeEvent: emitChangeEvent,
       databaseURL: databaseURL
     )
 
-    guard case let .changed(punch) = mutation else {
+    guard case .changed = mutation else {
       return AlignerWearStatusServiceResult(
         mutation: mutation,
         notificationStatus: .notNeeded
       )
     }
-
-    if emitChangeEvent {
-      NotificationCenter.default.post(
-        name: alignerWearStatusChangedNotification,
-        object: nil,
-        userInfo: [
-          "status": punch.status.rawValue,
-          "timestamp": punch.timestamp,
-        ]
-      )
-    }
-
-    NotificationCenter.default.post(
-      name: alignerTrackerSnapshotNeedsRefreshNotification,
-      object: nil
-    )
 
     let notificationStatus: AlignerNotificationReconciliationResult
     do {

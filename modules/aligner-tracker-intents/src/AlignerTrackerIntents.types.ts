@@ -12,7 +12,9 @@ export type EnsureWearStatusResult =
   | {
       notificationStatus: Exclude<NotificationReconciliationStatus, 'not-needed'>;
       outcome: 'changed';
+      predecessor: WearPunch;
       punch: WearPunch;
+      trayPeriodId: number;
     }
   | {
       notificationStatus: 'not-needed';
@@ -23,6 +25,12 @@ export type EnsureWearStatusResult =
       notificationStatus: 'not-needed';
       outcome: 'no-active-treatment';
     };
+
+export type CommitWearStatusResult = { nativeCommitDurationMs: number } & (
+  | Omit<Extract<EnsureWearStatusResult, { outcome: 'changed' }>, 'notificationStatus'>
+  | Omit<Extract<EnsureWearStatusResult, { outcome: 'already-in-state' }>, 'notificationStatus'>
+  | Omit<Extract<EnsureWearStatusResult, { outcome: 'no-active-treatment' }>, 'notificationStatus'>
+);
 
 export type WearStatusChangedEvent = {
   status: WearStatus;

@@ -30,10 +30,35 @@ struct AlignerReminderReconciliation: Sendable {
   let schedule: [AlignerReminder]
 }
 
+typealias AlignerNotificationReconciliationOperation = @Sendable (Date) async throws -> Void
+
 actor AlignerTrackerNotificationCoordinator {
   static let shared = AlignerTrackerNotificationCoordinator()
+  private var reconciliationTail: Task<Void, Never>?
+  private let reconciliationOperation: AlignerNotificationReconciliationOperation
 
-  func reconcile(now: Date = Date()) async throws {
+  init(reconciliationOperation: AlignerNotificationReconciliationOperation? = nil) {
+    self.reconciliationOperation = reconciliationOperation ?? { now in
+      try await Self.reconcileImmediately(now: now)
+    }
+  }
+
+  func reconcile(now: Date? = nil) async throws {
+    let predecessor = reconciliationTail
+    let reconciliationOperation = reconciliationOperation
+    let work = Task {
+      if let predecessor {
+        await predecessor.value
+      }
+      try await reconciliationOperation(now ?? Date())
+    }
+    reconciliationTail = Task {
+      _ = await work.result
+    }
+    try await work.value
+  }
+
+  private static func reconcileImmediately(now: Date) async throws {
     let center = UNUserNotificationCenter.current()
     let authorization = await center.notificationSettings().authorizationStatus
     let canSchedule = authorization == .authorized
@@ -98,7 +123,7 @@ actor AlignerTrackerNotificationCoordinator {
     }
   }
 
-  private func identifier(for reminder: AlignerReminder) -> String {
+  private static func identifier(for reminder: AlignerReminder) -> String {
     switch reminder.kind {
     case .trayChange:
       return "aligner-tracker-tray-change"

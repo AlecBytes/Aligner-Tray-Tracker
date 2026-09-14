@@ -197,7 +197,13 @@ Migration:
 - `TrackerStatusControl` as a large native `Button` with custom Expo UI child content
 - Two small metric-summary composites built from native stacks and text
 - Native menu and Change Tray buttons, using Liquid Glass styles on iOS 26+ and bordered fallbacks on earlier versions
-- Existing one-second display refresh, SQLite state transitions, error recovery, and notification reconciliation remain in TypeScript
+- Existing one-second display refresh, error recovery, and mutation coordination remain in TypeScript; the foreground iOS toggle commits through the shared native store and starts native notification reconciliation after commit
+
+The large native button keeps the confirmed `TRAYS ARE IN/OUT` label visible while
+saving, uses native pressed feedback, and exposes a stable accessibility label with
+status and pending values. It changes the image, status, and timers together after
+SQLite confirms the commit. No optimistic projection, explicit haptic, or custom
+animation is part of the initial implementation.
 
 Migrate this screen last. It is the most visually specialized and highest-frequency screen. Do not create a Swift module for it initially; first prove that Expo UI layout, button hit areas, accessibility labels, tabular timers, and render cadence meet the performance and usability bar.
 

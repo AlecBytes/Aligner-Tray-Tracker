@@ -45,10 +45,24 @@ export function createTrackerRefreshCoordinator<T, Context>(callbacks: {
       lastContext = undefined;
       return ++revision;
     },
-    finishMutation(context?: Context) {
-      mutating = false;
+    async finishMutation(context?: Context) {
       lastContext = context;
-      return refresh(context);
+      if (!active) {
+        mutating = false;
+        return;
+      }
+
+      const token = ++revision;
+      callbacks.start();
+      try {
+        const value = await callbacks.read();
+        if (isCurrent(token)) callbacks.accept(value, context);
+      } catch {
+        if (isCurrent(token)) callbacks.fail(context);
+      } finally {
+        mutating = false;
+        if (isCurrent(token)) callbacks.settled();
+      }
     },
   };
 }

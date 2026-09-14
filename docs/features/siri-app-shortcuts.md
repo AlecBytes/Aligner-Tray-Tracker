@@ -348,6 +348,12 @@ scheduling fails afterward, keep the committed punch authoritative and tell the 
 that the trays were marked but reminders could not be refreshed. Normal application
 initialization retries notification reconciliation.
 
+The foreground Tracker uses a commit-only native bridge result so it can render the
+saved state before notification work finishes. A changed result includes the actual
+tray period, predecessor, and inserted punch so session Undo is based on the mutation
+that committed rather than an earlier screen snapshot. Siri and Watch continue to
+await reconciliation so their response can report a reminder warning.
+
 ---
 
 ## Data Model
@@ -441,6 +447,10 @@ The intent captures its timestamp at entry to `perform()`, then the native store
    conditional insert that rechecks the active tray and latest punch.
 6. Commits the punch before attempting notification reconciliation.
 
+Notification reconciliation requests are serialized. Each queued pass reads the
+latest committed tracker state when it executes, and a failed pass does not prevent
+later passes from running.
+
 Every pre-commit error rolls back without a partial mutation. The direct native
 connection is the App Intent equivalent of the exclusive user-mutation policy in
 `docs/sqlite-transactions.md`; no network or notification work belongs inside the
@@ -450,8 +460,8 @@ write transaction.
 
 The native store is coupled to the SQLite schema even though migrations are owned by
 TypeScript. It must accept only an explicitly reviewed `PRAGMA user_version` range.
-The current implementation accepts versions 4 through 6; version 6 is the current
-`DATABASE_VERSION`. Version 6 adds only the theme preference in settings and leaves
+The current implementation accepts versions 4 through 7; version 7 is the current
+`DATABASE_VERSION`. Version 7 leaves
 the native tracker queries compatible.
 
 Whenever a migration increments `DATABASE_VERSION`, even for columns unused by

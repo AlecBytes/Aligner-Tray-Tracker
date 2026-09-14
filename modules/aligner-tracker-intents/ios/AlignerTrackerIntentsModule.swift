@@ -50,6 +50,27 @@ public class AlignerTrackerIntentsModule: Module {
       return Self.bridgeResult(result)
     }
 
+    AsyncFunction("commitWearStatus") {
+      (statusValue: String, timestampValue: Double) async throws -> [String: Any] in
+      guard let status = AlignerWearStatus(rawValue: statusValue),
+            timestampValue.isFinite,
+            timestampValue > 0,
+            timestampValue <= Double(Int64.max) else {
+        throw AlignerTrackerStoreError.invalidTrackerState
+      }
+
+      let startedAt = ProcessInfo.processInfo.systemUptime
+      let mutation = try await AlignerTrackerWearStatusService.shared.commitWearStatus(
+        status,
+        timestamp: Int64(timestampValue.rounded(.down)),
+        emitChangeEvent: false
+      )
+      var bridged = Self.bridgeMutation(mutation)
+      bridged["nativeCommitDurationMs"] =
+        (ProcessInfo.processInfo.systemUptime - startedAt) * 1_000
+      return bridged
+    }
+
     AsyncFunction("reconcileNotifications") { () async -> Bool in
       do {
         try await AlignerTrackerNotificationCoordinator.shared.reconcile()
@@ -67,26 +88,35 @@ public class AlignerTrackerIntentsModule: Module {
   private static func bridgeResult(
     _ result: AlignerWearStatusServiceResult
   ) -> [String: Any] {
-    switch result.mutation {
-    case let .changed(punch):
+    var bridged = bridgeMutation(result.mutation)
+    bridged["notificationStatus"] = result.notificationStatus.rawValue
+    return bridged
+  }
+
+  private static func bridgeMutation(_ mutation: AlignerWearMutation) -> [String: Any] {
+    switch mutation {
+    case let .changed(change):
       return [
-        "notificationStatus": result.notificationStatus.rawValue,
         "outcome": "changed",
+        "trayPeriodId": change.trayPeriodId,
+        "predecessor": [
+          "id": change.predecessor.id,
+          "status": change.predecessor.status.rawValue,
+          "timestamp": change.predecessor.timestamp,
+        ],
         "punch": [
-          "id": punch.id,
-          "status": punch.status.rawValue,
-          "timestamp": punch.timestamp,
+          "id": change.punch.id,
+          "status": change.punch.status.rawValue,
+          "timestamp": change.punch.timestamp,
         ],
       ]
     case let .already(status):
       return [
-        "notificationStatus": AlignerNotificationReconciliationResult.notNeeded.rawValue,
         "outcome": "already-in-state",
         "status": status.rawValue,
       ]
     case .noActiveTreatment:
       return [
-        "notificationStatus": AlignerNotificationReconciliationResult.notNeeded.rawValue,
         "outcome": "no-active-treatment",
       ]
     }

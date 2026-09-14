@@ -278,6 +278,12 @@ Reconcile on app startup/resume to replenish pending reminders. Tray changes and
 relevant treatment-plan edits must cancel obsolete requests and rebuild from the
 current tray and effective plan. Do not add polling or continuous background work.
 
+On iOS, foreground IN/OUT, Undo, and Redo actions begin reconciliation after their
+SQLite change commits without holding the Tracker's visual-response or readback
+path open. Native reconciliation requests run serially and read the latest committed
+state when their turn begins. Failures surface as a reminder warning, never roll back
+tracker history, and do not stall later reconciliation attempts.
+
 Keep the TypeScript and native Swift policies in agreement, along with their
 shared parity fixtures. Preserve the native coordinator
 as the iOS scheduling path and the existing Expo notification path elsewhere.

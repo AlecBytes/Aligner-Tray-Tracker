@@ -6,8 +6,9 @@ import { AppState } from 'react-native';
 import { reconcileLocalNotifications } from '@/features/notifications/local-notifications';
 import {
   addWearStatusChangedListener,
-  ensureWearStatus,
+  commitWearStatus,
   isNativeWearStatusAvailable,
+  reconcileNativeNotifications,
   refreshWatchTrackerSnapshot,
 } from '@/features/siri/aligner-tracker-intents';
 import { createTrackerReadModel, getLatestWearPunch } from './tracker-calculations';
@@ -22,6 +23,10 @@ import {
   validateTrackerSessionHistory,
 } from './tracker-history-session';
 import type { TrackerSnapshot } from './tracker-model';
+import {
+  startTrackerToggleMeasurement,
+  type TrackerToggleMeasurement,
+} from './tracker-performance';
 import { createTrackerRefreshCoordinator } from './tracker-refresh-coordinator';
 import {
   getTrackerSnapshot,
@@ -36,12 +41,14 @@ const NO_TREATMENT = 'No active treatment was found. Complete treatment setup fi
 export function useIOSTracker() {
   const db = useSQLiteContext();
   const mounted = useRef(true);
+  const operationGeneration = useRef(0);
   const [snapshot, setSnapshot] = useState<TrackerSnapshot | null>(null);
   const [history, setHistory] = useState(getTrackerSessionHistory);
   const [now, setNow] = useState(Date.now);
   const [isLoading, setIsLoading] = useState(true);
   const [isMutating, setIsMutating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reminderWarning, setReminderWarning] = useState<string | null>(null);
   const [needsRetry, setNeedsRetry] = useState(false);
   const read = useCallback(async () => {
     const readAt = Date.now();
@@ -102,6 +109,25 @@ export function useIOSTracker() {
     }, [coordinator]),
   );
 
+  function reconcileAfterMutation(
+    operation: number,
+    native: boolean,
+    measurement?: TrackerToggleMeasurement,
+  ) {
+    const reconciliation = native
+      ? reconcileNativeNotifications()
+      : reconcileLocalNotifications(db).then(() => true, () => false);
+    const settle = (succeeded: boolean) => {
+      measurement?.mark('notification-complete', { succeeded: String(succeeded) });
+      if (mounted.current && operationGeneration.current === operation) {
+        setReminderWarning(
+          succeeded ? null : 'Tracker saved, but reminders could not be refreshed.',
+        );
+      }
+    };
+    void reconciliation.then(settle, () => settle(false));
+  }
+
   async function mutate(kind: 'toggle' | 'undo' | 'redo') {
     if (snapshot === null || needsRetry || isLoading) return;
     const latestPunch = getLatestWearPunch(snapshot.punches);
@@ -109,21 +135,33 @@ export function useIOSTracker() {
     if (kind === 'toggle' ? latestPunch === null : action === null) return;
     const token = coordinator.beginMutation();
     if (token === null) return;
+    const operation = ++operationGeneration.current;
+    const timestamp = Date.now();
+    const measurement = kind === 'toggle' ? startTrackerToggleMeasurement() : undefined;
+    measurement?.mark('handler-entry');
     setIsMutating(true);
     setError(null);
+    setReminderWarning(null);
     let context: RefreshContext = {};
     try {
-      const timestamp = Date.now();
       if (kind === 'toggle' && latestPunch !== null) {
         const status = createTrackerReadModel(snapshot, timestamp).currentStatus;
         const native = isNativeWearStatusAvailable();
         const result = native
-          ? await ensureWearStatus(status === 'IN' ? 'OUT' : 'IN', timestamp)
+          ? await commitWearStatus(status === 'IN' ? 'OUT' : 'IN', timestamp)
           : {
               outcome: 'changed' as const,
-              notificationStatus: 'not-needed' as const,
+              predecessor: latestPunch,
               punch: await toggleWearStatus(db, snapshot.trayPeriodId, status, timestamp),
+              trayPeriodId: snapshot.trayPeriodId,
             };
+        measurement?.mark(
+          'sqlite-commit-confirmed',
+          'nativeCommitDurationMs' in result
+            ? { nativeCommitDurationMs: result.nativeCommitDurationMs }
+            : undefined,
+        );
+        measurement?.mark('js-result-received');
         if (result.outcome === 'no-active-treatment') {
           context = { message: NO_TREATMENT };
           if (coordinator.isCurrent(token)) {
@@ -131,15 +169,10 @@ export function useIOSTracker() {
             setHistory(validateTrackerSessionHistory(null));
           }
         } else if (result.outcome === 'changed') {
-          context = {
-            saved: true,
-            message: result.notificationStatus === 'failed'
-              ? 'Tracker saved, but reminders could not be refreshed.'
-              : undefined,
-          };
+          context = { saved: true };
           if (coordinator.isCurrent(token)) {
             setSnapshot((current) =>
-              current === null || current.trayPeriodId !== snapshot.trayPeriodId
+              current === null || current.trayPeriodId !== result.trayPeriodId
                 ? current
                 : {
                     ...current,
@@ -150,13 +183,14 @@ export function useIOSTracker() {
                   },
             );
             setHistory(rememberTrackerToggle({
-              predecessor: latestPunch,
+              predecessor: result.predecessor,
               punch: result.punch,
-              trayPeriodId: snapshot.trayPeriodId,
+              trayPeriodId: result.trayPeriodId,
             }));
-            setNow(timestamp);
+            setNow(Date.now());
+            measurement?.mark('visual-state-scheduled');
           }
-          if (!native) void reconcileLocalNotifications(db);
+          reconcileAfterMutation(operation, native, measurement);
         }
         // already-in-state is a successful no-op; the readback validates history.
       } else if (action !== null) {
@@ -174,7 +208,7 @@ export function useIOSTracker() {
           }
         }
         context = { saved: true };
-        void reconcileLocalNotifications(db);
+        reconcileAfterMutation(operation, isNativeWearStatusAvailable());
         void refreshWatchTrackerSnapshot();
       }
     } catch {
@@ -184,15 +218,17 @@ export function useIOSTracker() {
           : `The tracker change could not be ${kind === 'undo' ? 'undone' : 'redone'}.`,
       };
     } finally {
-      // Release the mutation lock and read once, including any deferred refreshes.
-      const readback = coordinator.finishMutation(context);
+      // Keep the mutation lock through the authoritative readback.
+      await coordinator.finishMutation(context);
+      measurement?.mark('readback-complete');
       if (mounted.current) setIsMutating(false);
-      await readback;
     }
   }
 
   return {
-    snapshot, history, now, isLoading, isMutating, error, needsRetry,
+    snapshot, history, now, isLoading, isMutating,
+    error: error ?? reminderWarning,
+    needsRetry,
     actionsDisabled: isLoading || isMutating || needsRetry,
     refreshTracker: () => coordinator.refresh(),
     toggleTracker: () => mutate('toggle'),

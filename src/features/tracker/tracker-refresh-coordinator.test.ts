@@ -34,11 +34,16 @@ it('invalidates a read begun before a mutation and accepts only the post-commit 
 });
 
 it('rejects duplicate mutations until the current mutation finishes', async () => {
-  const { coordinator } = setup();
+  const { coordinator, read } = setup();
   await coordinator.activate();
+  const readback = deferred<string>();
+  read.mockReturnValueOnce(readback.promise);
   expect(coordinator.beginMutation()).not.toBeNull();
   expect(coordinator.beginMutation()).toBeNull();
-  await coordinator.finishMutation();
+  const finishing = coordinator.finishMutation();
+  expect(coordinator.beginMutation()).toBeNull();
+  readback.resolve('persisted');
+  await finishing;
   expect(coordinator.beginMutation()).not.toBeNull();
 });
 

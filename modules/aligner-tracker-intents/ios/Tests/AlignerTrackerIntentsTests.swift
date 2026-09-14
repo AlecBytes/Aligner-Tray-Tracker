@@ -250,6 +250,55 @@ final class AlignerTrackerStoreTests: XCTestCase {
     XCTAssertEqual(try punchCount(database), 0)
   }
 
+  func testForegroundCommitReturnsAuthoritativeUndoContextWithoutNotificationWork() async throws {
+    let database = try makeDatabase(initialStatus: "IN")
+    let mutation = try await AlignerTrackerWearStatusService.shared.commitWearStatus(
+      .outTrays,
+      timestamp: 2_000,
+      emitChangeEvent: false,
+      databaseURL: database
+    )
+    guard case let .changed(change) = mutation else {
+      return XCTFail("Expected a changed result.")
+    }
+    XCTAssertEqual(change.trayPeriodId, 1)
+    XCTAssertEqual(change.predecessor.id, 1)
+    XCTAssertEqual(change.predecessor.status, .inTrays)
+    XCTAssertEqual(change.predecessor.timestamp, 1_000)
+    XCTAssertEqual(change.punch.status, .outTrays)
+    XCTAssertEqual(change.punch.timestamp, 2_000)
+    XCTAssertEqual(try punchCount(database), 2)
+  }
+
+  func testNotificationQueueSerializesWorkAndContinuesAfterFailure() async throws {
+    let probe = NotificationQueueProbe()
+    let coordinator = AlignerTrackerNotificationCoordinator { date in
+      try await probe.run(Int(date.timeIntervalSince1970))
+    }
+
+    let first = Task { try await coordinator.reconcile(now: Date(timeIntervalSince1970: 1)) }
+    await probe.waitForEventCount(1)
+    let failed = Task { try await coordinator.reconcile(now: Date(timeIntervalSince1970: 2)) }
+    await Task.yield()
+    let eventsWhileFirstIsPending = await probe.events
+    XCTAssertEqual(eventsWhileFirstIsPending, ["start-1"])
+
+    await probe.releaseFirst()
+    try await first.value
+    do {
+      try await failed.value
+      XCTFail("Expected the middle reconciliation to fail.")
+    } catch {
+      // A failed pass must not stall the queue.
+    }
+    try await coordinator.reconcile(now: Date(timeIntervalSince1970: 3))
+    let completedEvents = await probe.events
+    XCTAssertEqual(
+      completedEvents,
+      ["start-1", "finish-1", "start-2", "start-3", "finish-3"]
+    )
+  }
+
   func testMultipleActivePeriodsFailWithoutWriting() throws {
     let database = try makeDatabase(
       activePeriodCount: 2,
@@ -540,11 +589,11 @@ final class AlignerTrackerStoreTests: XCTestCase {
     status: AlignerWearStatus,
     timestamp: Int64
   ) {
-    guard case let .changed(punch) = mutation else {
+    guard case let .changed(change) = mutation else {
       return XCTFail("Expected a changed result.")
     }
-    XCTAssertEqual(punch.status, status)
-    XCTAssertEqual(punch.timestamp, timestamp)
+    XCTAssertEqual(change.punch.status, status)
+    XCTAssertEqual(change.punch.timestamp, timestamp)
   }
 
   private func makeDatabase(
@@ -710,6 +759,41 @@ final class AlignerTrackerStoreTests: XCTestCase {
     defer { exsqlite3_close(database) }
     try execute(sql, database: database)
   }
+}
+
+private actor NotificationQueueProbe {
+  private var eventWaiters: [CheckedContinuation<Void, Never>] = []
+  private var firstRelease: CheckedContinuation<Void, Never>?
+  private(set) var events: [String] = []
+
+  func run(_ identifier: Int) async throws {
+    events.append("start-\(identifier)")
+    let waiters = eventWaiters
+    eventWaiters.removeAll()
+    waiters.forEach { $0.resume() }
+    if identifier == 1 {
+      await withCheckedContinuation { firstRelease = $0 }
+    }
+    if identifier == 2 {
+      throw NotificationQueueProbeError.expectedFailure
+    }
+    events.append("finish-\(identifier)")
+  }
+
+  func waitForEventCount(_ count: Int) async {
+    while events.count < count {
+      await withCheckedContinuation { eventWaiters.append($0) }
+    }
+  }
+
+  func releaseFirst() {
+    firstRelease?.resume()
+    firstRelease = nil
+  }
+}
+
+private enum NotificationQueueProbeError: Error {
+  case expectedFailure
 }
 
 final class AlignerTrackerReminderPolicyTests: XCTestCase {

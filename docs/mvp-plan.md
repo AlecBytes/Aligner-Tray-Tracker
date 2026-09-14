@@ -148,6 +148,17 @@ The IN/OUT action should remain the dominant interaction.
 
 Core tracker actions must never wait for the network.
 
+The Tracker accepts only one IN/OUT, Undo, or Redo mutation at a time. It captures
+the event timestamp when the accepted handler begins, keeps the confirmed state
+visible while SQLite is writing, and switches the visible state only after the
+write commits. Notification reconciliation begins after commit and does not delay
+the visible state change or roll back a saved punch.
+
+Undo is session-scoped and removes the exact latest toggle when its committed
+predecessor still matches. Redo restores that toggle's original status and
+timestamp. A new toggle clears Redo, and an external state change invalidates
+history that no longer matches SQLite.
+
 ---
 
 # Wear Tracking Model
@@ -598,6 +609,7 @@ Core actions should preserve these constraints:
 - minimal background execution
 - minimal SQLite writes
 - timestamp-derived durations
+- immediate native press feedback with committed-state UI updates
 - lightweight screen hierarchy
 - minimal dependencies
 - no unnecessary animation framework

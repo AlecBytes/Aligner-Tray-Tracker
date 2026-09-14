@@ -1,5 +1,6 @@
 export { default } from './src/AlignerTrackerIntentsModule';
 export type {
+  CommitWearStatusResult,
   EnsureWearStatusResult,
   NotificationReconciliationStatus,
   WearPunch,
