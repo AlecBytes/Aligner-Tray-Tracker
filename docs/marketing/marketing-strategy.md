@@ -6,7 +6,7 @@ Create a low-cost, focused marketing plan for Aligner Tracker that matches the p
 
 This is a marketing document, not a product feature specification, so it belongs at:
 
-`docs/marketing-strategy.md`
+`docs/marketing/marketing-strategy.md`
 
 ## Marketing Principle
 
