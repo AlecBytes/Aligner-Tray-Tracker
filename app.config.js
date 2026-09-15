@@ -16,6 +16,15 @@ export default ({ config }) => ({
       const pluginName = Array.isArray(plugin) ? plugin[0] : plugin;
       return cloudBackupEnabled || pluginName !== 'expo-apple-authentication';
     }),
+    [
+      'expo-audio',
+      {
+        microphonePermission: false,
+        recordAudioAndroid: false,
+        enableBackgroundPlayback: false,
+        enableBackgroundRecording: false,
+      },
+    ],
     ...(companionFeaturesEnabled ? ['./modules/aligner-tracker-intents/app.plugin.js', [
       '@bacons/apple-targets',
       {

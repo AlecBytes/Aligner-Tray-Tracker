@@ -6,7 +6,6 @@ import {
   accessibilityValue,
   aspectRatio,
   background,
-  buttonBorderShape,
   buttonStyle,
   contentTransition,
   controlSize,
@@ -24,10 +23,12 @@ import {
 } from '@expo/ui/swift-ui/modifiers';
 import { useAssets } from 'expo-asset';
 import { useRouter } from 'expo-router';
+import { trackerStatusControlStyle } from '../../../modules/tracker-status-control';
 import { AppLoadingScreen } from '@/components/app-loading-screen';
 import { ActionButton, CenteredState, isLiquidGlassPlatform, ValidationMessage } from '@/components/expo-ui-components';
 import { createTrackerReadModel, formatDuration, getLatestWearPunch } from '@/features/tracker/tracker-calculations';
 import { useIOSTracker } from '@/features/tracker/use-ios-tracker';
+import { useTrackerStatusFeedback } from '@/features/tracker/use-tracker-status-feedback.ios';
 import { useAppTheme } from '@/theme/use-app-theme';
 
 const trayInImageModule = require('../../../assets/images/tray-in.png');
@@ -101,6 +102,7 @@ export function TrackerScreen() {
     trayOutImageModule,
     teethImageModule,
   ]);
+  const beginTrackerStatusFeedback = useTrackerStatusFeedback();
   const {
     snapshot, history, now, isLoading, isMutating, error, needsRetry, actionsDisabled,
     refreshTracker, toggleTracker, undoTracker, redoTracker,
@@ -263,16 +265,11 @@ export function TrackerScreen() {
 
         <Button
           modifiers={[
-            buttonStyle(
-              isIn
-                ? liquidGlass
-                  ? 'glassProminent'
-                  : 'borderedProminent'
-                : liquidGlass
-                  ? 'glass'
-                  : 'bordered',
-            ),
-            buttonBorderShape('roundedRectangle', 18),
+            trackerStatusControlStyle({
+              faceColor: isIn ? theme.primary : theme.surface,
+              baseColor: isIn ? theme.primaryPressed : theme.border,
+              foregroundColor: isIn ? theme.onPrimary : theme.text,
+            }),
             disabled(actionsDisabled),
             frame({ maxWidth: Infinity, maxHeight: Infinity, minHeight: 124 }),
             accessibilityLabel('Aligner trays'),
@@ -283,7 +280,7 @@ export function TrackerScreen() {
                 : `Tap when trays are ${isIn ? 'removed' : 'inserted'}.`,
             ),
           ]}
-          onPress={() => void toggleTracker()}>
+          onPress={() => void toggleTracker(beginTrackerStatusFeedback())}>
           <VStack
             spacing={8}
             modifiers={[frame({ maxWidth: Infinity, maxHeight: Infinity, minHeight: 112 })]}>

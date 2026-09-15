@@ -2,7 +2,33 @@
 
 ## Status
 
-Planned. SDK capability verification, sound selection, and physical-device validation remain implementation work.
+Implemented on 2026-09-14. Automated validation, clean iOS prebuild, native-module
+autolinking resolution, and the production iOS JavaScript bundle pass. A macOS/Xcode
+native compile, physical-device visual/audio/haptic review, and before/after device
+performance measurements remain release validation work.
+
+## Implementation Record
+
+Expo SDK 57 `@expo/ui` exposes standard `Button` activation and predefined button
+styles, but it does not expose SwiftUI's `ButtonStyle.Configuration.isPressed` to
+TypeScript. The implementation therefore keeps the existing Expo UI `Button` and
+applies one feature-local custom modifier from
+`modules/tracker-status-control`. Its native SwiftUI `ButtonStyle` owns the pressed
+state, 5 pt lower lip, 3 pt depression, shadow compression, 175 ms ease-out return,
+and Reduce Motion behavior. The module is Apple-only and registered through Expo
+UI's public `ViewModifierRegistry` extension API.
+
+`use-ios-tracker.ts` reports a small per-activation outcome only after the accepted
+operation has a current, committed result. `use-tracker-status-feedback.ios.ts`
+owns the two prepared `expo-audio` players, Expo haptics, focus/background generation
+guard, and best-effort error isolation. No feedback is inferred from rendered status,
+and post-commit readback or reminder failures do not become persistence failures.
+
+The bundled IN and OUT cues are `toggle_002.wav` and `toggle_001.wav` from Kenney's
+Interface Sounds 1.0 pack. Both are CC0-1.0, mono 44.1 kHz 16-bit WAV files of
+approximately 141 ms and 158 ms. Full provenance is recorded in
+`assets/sounds/ASSET-LICENSES.md`. The Expo Audio config explicitly disables
+microphone permission, recording, and background playback/recording.
 
 ## Purpose
 

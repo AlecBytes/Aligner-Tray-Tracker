@@ -36,6 +36,10 @@ import {
 } from './tracker-repository';
 
 type RefreshContext = { saved?: boolean; message?: string };
+export type TrackerToggleOutcome =
+  | { kind: 'changed'; status: 'IN' | 'OUT' }
+  | { kind: 'failed' };
+type TrackerToggleOutcomeHandler = (outcome: TrackerToggleOutcome) => void;
 const NO_TREATMENT = 'No active treatment was found. Complete treatment setup first.';
 
 export function useIOSTracker() {
@@ -114,9 +118,6 @@ export function useIOSTracker() {
     native: boolean,
     measurement?: TrackerToggleMeasurement,
   ) {
-    const reconciliation = native
-      ? reconcileNativeNotifications()
-      : reconcileLocalNotifications(db).then(() => true, () => false);
     const settle = (succeeded: boolean) => {
       measurement?.mark('notification-complete', { succeeded: String(succeeded) });
       if (mounted.current && operationGeneration.current === operation) {
@@ -125,10 +126,22 @@ export function useIOSTracker() {
         );
       }
     };
+    let reconciliation: Promise<boolean>;
+    try {
+      reconciliation = native
+        ? reconcileNativeNotifications()
+        : reconcileLocalNotifications(db).then(() => true, () => false);
+    } catch {
+      settle(false);
+      return;
+    }
     void reconciliation.then(settle, () => settle(false));
   }
 
-  async function mutate(kind: 'toggle' | 'undo' | 'redo') {
+  async function mutate(
+    kind: 'toggle' | 'undo' | 'redo',
+    onToggleOutcome?: TrackerToggleOutcomeHandler,
+  ) {
     if (snapshot === null || needsRetry || isLoading) return;
     const latestPunch = getLatestWearPunch(snapshot.punches);
     const action = kind === 'undo' ? history.undoAction : history.redoAction;
@@ -143,6 +156,14 @@ export function useIOSTracker() {
     setError(null);
     setReminderWarning(null);
     let context: RefreshContext = {};
+    let togglePersistencePending = kind === 'toggle';
+    const emitToggleOutcome = (outcome: TrackerToggleOutcome) => {
+      try {
+        onToggleOutcome?.(outcome);
+      } catch {
+        // Supplemental feedback cannot participate in the tracker mutation boundary.
+      }
+    };
     try {
       if (kind === 'toggle' && latestPunch !== null) {
         const status = createTrackerReadModel(snapshot, timestamp).currentStatus;
@@ -155,6 +176,7 @@ export function useIOSTracker() {
               punch: await toggleWearStatus(db, snapshot.trayPeriodId, status, timestamp),
               trayPeriodId: snapshot.trayPeriodId,
             };
+        togglePersistencePending = false;
         measurement?.mark(
           'sqlite-commit-confirmed',
           'nativeCommitDurationMs' in result
@@ -189,6 +211,7 @@ export function useIOSTracker() {
             }));
             setNow(Date.now());
             measurement?.mark('visual-state-scheduled');
+            emitToggleOutcome({ kind: 'changed', status: result.punch.status });
           }
           reconcileAfterMutation(operation, native, measurement);
         }
@@ -212,6 +235,9 @@ export function useIOSTracker() {
         void refreshWatchTrackerSnapshot();
       }
     } catch {
+      if (kind === 'toggle' && togglePersistencePending && coordinator.isCurrent(token)) {
+        emitToggleOutcome({ kind: 'failed' });
+      }
       context = {
         message: kind === 'toggle'
           ? 'The tracker could not be updated.'
@@ -231,7 +257,7 @@ export function useIOSTracker() {
     needsRetry,
     actionsDisabled: isLoading || isMutating || needsRetry,
     refreshTracker: () => coordinator.refresh(),
-    toggleTracker: () => mutate('toggle'),
+    toggleTracker: (onOutcome?: TrackerToggleOutcomeHandler) => mutate('toggle', onOutcome),
     undoTracker: () => mutate('undo'),
     redoTracker: () => mutate('redo'),
   };

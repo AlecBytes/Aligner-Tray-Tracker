@@ -3,9 +3,9 @@ import { TrackerScreen } from './tracker-screen.ios';
 import { clearTrackerSessionHistory } from './tracker-history-session';
 import type { TrackerSnapshot } from './tracker-model';
 
-let mockFocus: () => () => void;
-let mockBlur: () => void;
-let mockForeground: (state: string) => void;
+let mockFocusCallbacks: (() => () => void)[] = [];
+let mockFocusCleanups: (() => void)[] = [];
+let mockAppStateListeners: ((state: string) => void)[] = [];
 let mockExternal: () => void;
 let mockPersisted: TrackerSnapshot | null;
 const mockRead = jest.fn(async () => mockPersisted);
@@ -14,15 +14,34 @@ const mockReconcileNative = jest.fn();
 const mockUndo = jest.fn();
 const mockRedo = jest.fn();
 const mockPush = jest.fn();
+const mockSetAudioMode = jest.fn();
+const mockImpact = jest.fn();
+const mockNotification = jest.fn();
+const mockInPlayer = {
+  isLoaded: true,
+  pause: jest.fn(),
+  play: jest.fn(),
+  seekTo: jest.fn(async () => undefined),
+  volume: 1,
+};
+const mockOutPlayer = {
+  isLoaded: true,
+  pause: jest.fn(),
+  play: jest.fn(),
+  seekTo: jest.fn(async () => undefined),
+  volume: 1,
+};
+let mockAudioPlayerCall = 0;
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush }),
   useFocusEffect: (callback: () => () => void) => {
     const react = jest.requireActual('react') as typeof React;
     react.useEffect(() => {
-      mockFocus = callback;
-      mockBlur = callback();
-      return () => mockBlur();
+      mockFocusCallbacks.push(callback);
+      const cleanup = callback();
+      mockFocusCleanups.push(cleanup);
+      return cleanup;
     }, [callback]);
   },
 }));
@@ -32,12 +51,33 @@ jest.mock('expo-sqlite', () => {
 });
 jest.mock('react-native', () => {
   const native = jest.requireActual('react-native');
-  native.AppState.addEventListener = (_: string, listener: typeof mockForeground) => {
-    mockForeground = listener;
-    return { remove: jest.fn() };
+  Object.defineProperty(native.AppState, 'currentState', {
+    configurable: true,
+    value: 'active',
+  });
+  native.AppState.addEventListener = (_: string, listener: (state: string) => void) => {
+    mockAppStateListeners.push(listener);
+    return {
+      remove: () => {
+        mockAppStateListeners = mockAppStateListeners.filter(item => item !== listener);
+      },
+    };
   };
   return native;
 });
+jest.mock('expo-audio', () => ({
+  setAudioModeAsync: (...args: unknown[]) => mockSetAudioMode(...args),
+  useAudioPlayer: () => [mockInPlayer, mockOutPlayer][mockAudioPlayerCall++ % 2],
+}));
+jest.mock('expo-haptics', () => ({
+  ImpactFeedbackStyle: { Rigid: 'rigid' },
+  NotificationFeedbackType: { Error: 'error' },
+  impactAsync: (...args: unknown[]) => mockImpact(...args),
+  notificationAsync: (...args: unknown[]) => mockNotification(...args),
+}));
+jest.mock('../../../modules/tracker-status-control', () => ({
+  trackerStatusControlStyle: (value: unknown) => ({ trackerStatusControlStyle: value }),
+}));
 jest.mock('@expo/ui/swift-ui', () => ({
   Button: 'Button', Host: 'Host', HStack: 'HStack', Image: 'Image', Spacer: 'Spacer', Text: 'Text', VStack: 'VStack',
 }));
@@ -64,7 +104,16 @@ jest.mock('@/components/expo-ui-components', () => ({
   ActionButton: 'ActionButton', CenteredState: 'CenteredState', ValidationMessage: 'ValidationMessage',
   isLiquidGlassPlatform: () => true,
 }));
-jest.mock('@/theme/use-app-theme', () => ({ useAppTheme: () => ({ primary: 'purple', surface: 'white' }) }));
+jest.mock('@/theme/use-app-theme', () => ({
+  useAppTheme: () => ({
+    border: 'gray',
+    onPrimary: 'white',
+    primary: 'purple',
+    primaryPressed: 'dark-purple',
+    surface: 'white',
+    text: 'black',
+  }),
+}));
 jest.mock('@/features/notifications/local-notifications', () => ({ reconcileLocalNotifications: jest.fn() }));
 jest.mock('@/features/siri/aligner-tracker-intents', () => ({
   isNativeWearStatusAvailable: () => true,
@@ -111,9 +160,31 @@ function accessibleButton(label: string) {
   )!;
 }
 const press = (label: string) => act(async () => { button(label).props.onPress!(); });
+const emitAppState = (state: string) => {
+  for (const listener of [...mockAppStateListeners]) listener(state);
+};
+const blurScreen = () => {
+  const cleanups = [...mockFocusCleanups];
+  mockFocusCleanups = [];
+  for (const cleanup of cleanups) cleanup();
+};
+const focusScreen = () => {
+  mockFocusCleanups = mockFocusCallbacks.map(callback => callback());
+};
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockFocusCallbacks = [];
+  mockFocusCleanups = [];
+  mockAppStateListeners = [];
+  mockAudioPlayerCall = 0;
+  mockInPlayer.isLoaded = true;
+  mockInPlayer.volume = 1;
+  mockOutPlayer.isLoaded = true;
+  mockOutPlayer.volume = 1;
+  mockSetAudioMode.mockResolvedValue(undefined);
+  mockImpact.mockResolvedValue(undefined);
+  mockNotification.mockResolvedValue(undefined);
   mockRead.mockReset().mockImplementation(async () => mockPersisted);
   mockEnsure.mockReset().mockImplementation(async (status: 'IN' | 'OUT', timestamp: number) => {
     const predecessor = mockPersisted!.punches[mockPersisted!.punches.length - 1];
@@ -136,7 +207,10 @@ beforeEach(() => {
     punches: [{ id: 1, status: 'OUT', timestamp: Date.now() - 3600000 }],
   };
 });
-afterEach(async () => { if (tree) await act(async () => tree.unmount()); });
+afterEach(async () => {
+  blurScreen();
+  if (tree) await act(async () => tree.unmount());
+});
 async function mount() { await act(async () => { tree = renderer.create(<TrackerScreen />); }); }
 
 it('shows the decorative tray image for the current tracker state', async () => {
@@ -166,6 +240,13 @@ it('shows the decorative tray image for the current tracker state', async () => 
   expect(image.props.modifiers).toContainEqual({ frame: { width: 260, height: 195 } });
   expect(duration().props.modifiers).toContainEqual({ opacity: 0 });
   expect(duration().props.modifiers).toContainEqual({ accessibilityHidden: true });
+  expect(button('toggle').props.modifiers).toContainEqual({
+    trackerStatusControlStyle: {
+      baseColor: expect.any(String),
+      faceColor: expect.any(String),
+      foregroundColor: expect.any(String),
+    },
+  });
 });
 
 it('keeps confirmed state while committing, then renders the commit before notifications finish', async () => {
@@ -248,8 +329,8 @@ it('keeps IN after Menu navigation, then records OUT on the next tap', async () 
   expect(text()).toContain('TRAYS ARE IN');
   await press('Menu');
   expect(mockPush).toHaveBeenCalledWith('/menu');
-  await act(async () => mockBlur());
-  await act(async () => { mockBlur = mockFocus(); });
+  await act(async () => blurScreen());
+  await act(async () => focusScreen());
   expect(text()).toContain('TRAYS ARE IN');
   await press('toggle');
   expect(mockEnsure.mock.calls.map(call => call[0])).toEqual(['IN', 'OUT']);
@@ -263,7 +344,7 @@ it('ignores out-of-order refreshes and their history invalidation', async () => 
   await press('toggle');
   const oldRead = deferred<TrackerSnapshot | null>();
   mockRead.mockReturnValueOnce(oldRead.promise);
-  await act(async () => mockForeground('active'));
+  await act(async () => emitAppState('active'));
   await act(async () => mockExternal());
   await act(async () => oldRead.resolve(stale));
   expect(text()).toContain('TRAYS ARE IN');
@@ -283,7 +364,7 @@ it.each(['toggle', 'Undo', 'Redo'])('coalesces refresh events during %s and read
   });
   await press(kind);
   const readCount = mockRead.mock.calls.length;
-  await act(async () => { mockExternal(); mockForeground('active'); mockExternal(); });
+  await act(async () => { mockExternal(); emitAppState('active'); mockExternal(); });
   expect(mockRead).toHaveBeenCalledTimes(readCount);
   await act(async () => gate.resolve());
   expect(mockRead).toHaveBeenCalledTimes(readCount + 1);
@@ -296,10 +377,10 @@ it('discards a read after blur and reloads on focus', async () => {
   const late = deferred<TrackerSnapshot | null>();
   mockRead.mockReturnValueOnce(late.promise);
   await act(async () => mockExternal());
-  await act(async () => mockBlur());
+  await act(async () => blurScreen());
   await act(async () => late.resolve(null));
   expect(text()).toContain('TRAYS ARE OUT');
-  await act(async () => { mockBlur = mockFocus(); });
+  await act(async () => focusScreen());
   expect(text()).toContain('TRAYS ARE OUT');
 });
 
@@ -376,6 +457,189 @@ it('reports a failed save and reloads persisted state', async () => {
   await press('toggle');
   expect(text()).toContain('TRAYS ARE OUT');
   expect(error()).toBe('The tracker could not be updated.');
+});
+
+it('emits one matching success haptic and sound for each confirmed transition', async () => {
+  await mount();
+
+  await press('toggle');
+  expect(mockImpact).toHaveBeenCalledWith('rigid');
+  expect(mockImpact).toHaveBeenCalledTimes(1);
+  expect(mockInPlayer.play).toHaveBeenCalledTimes(1);
+  expect(mockOutPlayer.play).not.toHaveBeenCalled();
+
+  await press('toggle');
+  expect(mockImpact).toHaveBeenCalledTimes(2);
+  expect(mockOutPlayer.play).toHaveBeenCalledTimes(1);
+  expect(mockInPlayer.play).toHaveBeenCalledTimes(1);
+  expect(mockInPlayer.pause).toHaveBeenCalled();
+  expect(mockOutPlayer.pause).toHaveBeenCalled();
+  expect(mockInPlayer.seekTo).toHaveBeenCalledWith(0);
+  expect(mockOutPlayer.seekTo).toHaveBeenCalledWith(0);
+});
+
+it('emits error feedback without success audio when persistence rejects', async () => {
+  await mount();
+  mockEnsure.mockRejectedValueOnce(new Error('write failed'));
+
+  await press('toggle');
+
+  expect(mockNotification).toHaveBeenCalledWith('error');
+  expect(mockImpact).not.toHaveBeenCalled();
+  expect(mockInPlayer.play).not.toHaveBeenCalled();
+  expect(mockOutPlayer.play).not.toHaveBeenCalled();
+});
+
+it.each(['already-in-state', 'no-active-treatment'] as const)(
+  'does not emit feedback for %s',
+  async outcome => {
+    await mount();
+    mockEnsure.mockResolvedValueOnce(
+      outcome === 'already-in-state'
+        ? { outcome, status: 'IN' }
+        : { outcome },
+    );
+
+    await press('toggle');
+
+    expect(mockImpact).not.toHaveBeenCalled();
+    expect(mockNotification).not.toHaveBeenCalled();
+    expect(mockInPlayer.play).not.toHaveBeenCalled();
+    expect(mockOutPlayer.play).not.toHaveBeenCalled();
+  },
+);
+
+it('does not repeat or reclassify feedback when post-commit work fails', async () => {
+  await mount();
+  mockReconcileNative.mockRejectedValueOnce(new Error('notification bridge failed'));
+  mockRead.mockRejectedValueOnce(new Error('readback failed'));
+
+  await press('toggle');
+
+  expect(mockImpact).toHaveBeenCalledTimes(1);
+  expect(mockInPlayer.play).toHaveBeenCalledTimes(1);
+  expect(mockNotification).not.toHaveBeenCalled();
+});
+
+it('keeps confirmation successful when reminder reconciliation throws synchronously', async () => {
+  await mount();
+  mockReconcileNative.mockImplementationOnce(() => {
+    throw new Error('notification bridge unavailable');
+  });
+
+  await press('toggle');
+
+  expect(text()).toContain('TRAYS ARE IN');
+  expect(error()).toBe('Tracker saved, but reminders could not be refreshed.');
+  expect(mockImpact).toHaveBeenCalledTimes(1);
+  expect(mockInPlayer.play).toHaveBeenCalledTimes(1);
+  expect(mockNotification).not.toHaveBeenCalled();
+});
+
+it('suppresses a stale confirmation after leaving and returning before commit', async () => {
+  await mount();
+  const commit = deferred<{
+    outcome: 'changed';
+    predecessor: TrackerSnapshot['punches'][number];
+    punch: TrackerSnapshot['punches'][number];
+    trayPeriodId: number;
+  }>();
+  const predecessor = mockPersisted!.punches[0];
+  const punch = { id: 2, status: 'IN' as const, timestamp: Date.now() };
+  mockEnsure.mockReturnValueOnce(commit.promise);
+
+  act(() => button('toggle').props.onPress!());
+  await act(async () => blurScreen());
+  await act(async () => focusScreen());
+  mockPersisted = { ...mockPersisted!, punches: [predecessor, punch] };
+  await act(async () => commit.resolve({ outcome: 'changed', predecessor, punch, trayPeriodId: 1 }));
+
+  expect(mockImpact).not.toHaveBeenCalled();
+  expect(mockNotification).not.toHaveBeenCalled();
+  expect(mockInPlayer.play).not.toHaveBeenCalled();
+});
+
+it('suppresses a stale confirmation after the app backgrounds before commit', async () => {
+  await mount();
+  const commit = deferred<{
+    outcome: 'changed';
+    predecessor: TrackerSnapshot['punches'][number];
+    punch: TrackerSnapshot['punches'][number];
+    trayPeriodId: number;
+  }>();
+  const predecessor = mockPersisted!.punches[0];
+  const punch = { id: 2, status: 'IN' as const, timestamp: Date.now() };
+  mockEnsure.mockReturnValueOnce(commit.promise);
+
+  act(() => button('toggle').props.onPress!());
+  await act(async () => emitAppState('background'));
+  mockPersisted = { ...mockPersisted!, punches: [predecessor, punch] };
+  await act(async () => commit.resolve({ outcome: 'changed', predecessor, punch, trayPeriodId: 1 }));
+
+  expect(mockImpact).not.toHaveBeenCalled();
+  expect(mockNotification).not.toHaveBeenCalled();
+  expect(mockInPlayer.play).not.toHaveBeenCalled();
+});
+
+it('suppresses a stale confirmation after unmount', async () => {
+  await mount();
+  const commit = deferred<{
+    outcome: 'changed';
+    predecessor: TrackerSnapshot['punches'][number];
+    punch: TrackerSnapshot['punches'][number];
+    trayPeriodId: number;
+  }>();
+  const predecessor = mockPersisted!.punches[0];
+  const punch = { id: 2, status: 'IN' as const, timestamp: Date.now() };
+  mockEnsure.mockReturnValueOnce(commit.promise);
+
+  act(() => button('toggle').props.onPress!());
+  await act(async () => tree.unmount());
+  expect(mockInPlayer.pause).toHaveBeenCalled();
+  expect(mockOutPlayer.pause).toHaveBeenCalled();
+  tree = null as unknown as typeof tree;
+  mockPersisted = { ...mockPersisted!, punches: [predecessor, punch] };
+  await act(async () => commit.resolve({ outcome: 'changed', predecessor, punch, trayPeriodId: 1 }));
+
+  expect(mockImpact).not.toHaveBeenCalled();
+  expect(mockNotification).not.toHaveBeenCalled();
+  expect(mockInPlayer.play).not.toHaveBeenCalled();
+});
+
+it('keeps a saved transition successful when audio and haptics fail', async () => {
+  mockImpact.mockRejectedValueOnce(new Error('haptic unavailable'));
+  mockInPlayer.play.mockImplementationOnce(() => {
+    throw new Error('audio unavailable');
+  });
+  await mount();
+
+  await press('toggle');
+
+  expect(text()).toContain('TRAYS ARE IN');
+  expect(error()).toBeUndefined();
+  expect(mockNotification).not.toHaveBeenCalled();
+});
+
+it('skips audio when its session configuration is unavailable', async () => {
+  mockSetAudioMode.mockRejectedValueOnce(new Error('audio session unavailable'));
+  await mount();
+
+  await press('toggle');
+
+  expect(mockImpact).toHaveBeenCalledTimes(1);
+  expect(mockInPlayer.play).not.toHaveBeenCalled();
+  expect(text()).toContain('TRAYS ARE IN');
+});
+
+it('skips a sound that is not loaded at confirmation time', async () => {
+  mockInPlayer.isLoaded = false;
+  await mount();
+
+  await press('toggle');
+
+  expect(mockImpact).toHaveBeenCalledTimes(1);
+  expect(mockInPlayer.play).not.toHaveBeenCalled();
+  expect(text()).toContain('TRAYS ARE IN');
 });
 
 it.each([true, false])('offers Retry when readback fails (save succeeded: %s)', async saved => {
