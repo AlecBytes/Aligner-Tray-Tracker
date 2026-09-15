@@ -2,7 +2,7 @@
 
 ## Status
 
-Planned.
+Planned. SDK capability verification, sound selection, and physical-device validation remain implementation work.
 
 ## Purpose
 
@@ -116,7 +116,9 @@ Touch-down is only visual acknowledgement; it does not represent a persisted IN/
 
 ### Return Animation
 
-After activation resolves, return the button face to its resting raised position with a short ease-out transition.
+The depressed appearance tracks the native pressed state, independently of saving. On release or cancellation, return the face to its resting raised position with a short ease-out transition. A slow save must not leave the face stuck down.
+
+Preserve native activation rules: touch-down alone never saves. Dragging away or otherwise canceling without activation produces no write, sound, or haptic. Disabled controls do not start a new press effect. VoiceOver activation invokes the same action without requiring touch-down.
 
 Target duration:
 
@@ -128,16 +130,22 @@ Do not add bounce, spring overshoot, wobble, parallax, or decorative repeated mo
 
 The existing persistence behavior remains authoritative.
 
-Required behavior:
+Native pressed appearance, the mutation lock, and committed wear state are independent. Animation completion must never gate persistence, state updates, or control availability.
 
-1. finger touches the existing Tray IN/OUT button
-2. button visually depresses immediately
-3. activation invokes the existing local tracker toggle
-4. duplicate/conflicting toggle actions remain blocked while the mutation is pending
-5. SQLite commits the new wear state
-6. the existing tracker read model updates from committed state
-7. the button returns to its raised state
-8. the matching success haptic and IN/OUT sound are triggered
+| Event / outcome | Required behavior | Supplemental feedback |
+|---|---|---|
+| Enabled touch-down | Depress immediately; no write | None |
+| Release with activation | Invoke the existing toggle once; return face to rest; retain mutation lock through authoritative readback | Wait for confirmed change |
+| Cancellation before activation | Return to rest; no write | None |
+| Confirmed `changed` result | Apply the returned committed punch through the existing flow | One success haptic and sound matching the returned punch status |
+| `already-in-state` | Preserve existing no-op/readback behavior | None; no new transition occurred |
+| `no-active-treatment` | Preserve existing missing-treatment handling | No success feedback |
+| Persistence rejects | Preserve existing error/recovery behavior; do not project requested state | One error haptic; no success sound |
+| Readback or reminder reconciliation fails after commit | Preserve the saved change and existing warning/retry behavior | Do not reclassify the save as failed or repeat confirmation |
+
+The integration points are [the iOS button](../../src/features/tracker/tracker-screen.ios.tsx) and [the tracker mutation flow](../../src/features/tracker/use-ios-tracker.ts). The mutation flow currently handles errors internally and can complete without a change. Resolution of `toggleTracker()` alone is not proof of a successful transition.
+
+Attach feedback to the accepted button operation's confirmed outcome. Select the sound from the returned committed status, not an inverted pre-tap value. Preserve the coordinator's duplicate-action and stale-result guards. A small outcome handoff is allowed; repository and transaction semantics remain unchanged.
 
 The status text, artwork, timers, and other committed-state UI must continue to reflect successful persisted state rather than pretending a requested state was saved before SQLite succeeds.
 
@@ -147,14 +155,20 @@ Audio and haptic work must remain outside the SQLite transaction and must never 
 
 ## Success Feedback
 
-After a successful committed IN/OUT transition, coordinate three forms of feedback:
+After a confirmed transition caused by this button, coordinate feedback:
 
 - the existing visible state updates
-- the button returns to its raised resting position
+- any release animation finishes independently
 - one success haptic occurs
 - the matching IN or OUT sound plays
 
 These should feel like one concise confirmation event rather than several separate effects.
+
+Request success feedback promptly after the confirmed change, independently of release animation, authoritative readback, and reminder reconciliation. Do not wait for animation completion or a display-frame callback. Audio and haptic dispatch are independent best-effort operations.
+
+Feedback belongs to this button activation only. Initial loading, rerenders, timer ticks, Undo, Redo, Edit last, Change Tray, and external state changes must not trigger these new effects. Do not watch the current IN/OUT status in a render effect to infer success.
+
+If the Tracker loses focus, unmounts, or the app backgrounds before dispatch, skip supplemental feedback. Never replay stale confirmations on return. An accepted save still completes through the existing mutation flow.
 
 Do not play success feedback merely because the user touched the button. It confirms a successful tracker change.
 
@@ -163,13 +177,13 @@ Do not play success feedback merely because the user touched the button. It conf
 If the existing tracker mutation fails:
 
 - do not present the requested IN/OUT state as committed
-- preserve/restore the prior committed tracker state
+- retain committed state and recover through existing authoritative readback; do not write an old snapshot over a concurrent change
 - return the button to its resting raised appearance
 - preserve the existing tracker error presentation
 - trigger an error haptic
 - do not play either normal IN or OUT success sound
 
-Audio or haptic failures must never create or transform a tracker persistence failure.
+Audio or haptic failures must never create or transform a tracker persistence failure. Handle each effect separately outside the persistence error boundary, including asynchronous rejections. Unavailable feedback does not produce a tracker error.
 
 ## Haptic Feedback
 
@@ -241,7 +255,7 @@ Do not ship arbitrary placeholder clicks simply to satisfy the requirement.
 
 Prefer approximately 80-180 ms per sound. Keep each effect roughly 250 ms or shorter unless physical-device testing shows a slightly longer tail materially improves the feel.
 
-The exact recordings/assets may be selected during implementation/design review, but the product behavior above is settled.
+The exact recordings/assets may be selected during implementation/design review, but the product behavior above is settled. Record asset sources, redistribution rights/licenses, and required attribution. Review the pair at comparable perceived volume; reject clipping, abrupt cutoffs, and excessive leading silence.
 
 ### Playback Policy
 
@@ -262,6 +276,10 @@ Configure these nonessential UI sounds so that:
 - they do not require microphone permission
 
 Sound playback is best-effort. A sound failure must not delay, roll back, or otherwise affect a successful wear-state change.
+
+Prepare and reuse players outside the tap handler without blocking Tracker usability. If a sound is not ready at confirmation time, skip it rather than play a late confirmation. Start the chosen effect from its beginning and stop any previous button effect; never build a playback queue or delay legitimate tracker actions to prevent overlap.
+
+Stop button audio on blur/background and release players when their owning lifecycle ends. Returning to the Tracker may prepare audio again but must not replay prior events. Audio-session configuration must coexist with other app audio features.
 
 This upgrade does not add an in-app sound preference. Silent Mode remains the primary user control for these UI sounds.
 
@@ -289,6 +307,9 @@ Requirements:
 - pending/saving state remains available to accessibility as it is today
 - audio and haptics are never the sole confirmation of state
 - the visible state remains understandable when sound is unavailable and haptics are suppressed
+- Reduce Motion uses immediate pressed/resting changes without animated displacement
+- preserve Dynamic Type legibility, VoiceOver focus, and contrast across supported themes, light/dark mode, Increase Contrast, and Reduce Transparency
+- decorative layers do not become separate accessibility elements
 - no flashing or repeated decorative animation
 
 This upgrade should enhance the existing accessible control rather than replace its semantics with a custom gesture surface.
@@ -306,7 +327,9 @@ Implementation order:
 3. preserve its current native Button semantics, hit target, disabled state, and accessibility behavior
 4. add no custom native implementation merely for convenience
 
-If the required touch-down visual state cannot be expressed through the supported Expo UI surface, document the verified capability gap before introducing any feature-local native bridge.
+Before implementation, read the exact [Expo SDK 57 docs](https://docs.expo.dev/versions/v57.0.0/) and [SwiftUI docs](https://docs.expo.dev/versions/v57.0.0/sdk/ui/swift-ui/), then verify the installed package surface. This proposal does not establish that custom pressed-state styling is already exposed.
+
+If the required touch-down state is unsupported, document the verified capability gap and a compatible approach before implementing it. A feature-local native bridge must still satisfy the project's Expo UI-only presentation rule. This document does not authorize an exception to `AGENTS.md`.
 
 Any such bridge must be narrowly scoped to upgrading this existing button and must not become a general animation/design system.
 
@@ -345,11 +368,24 @@ Requirements:
 - do not await audio/haptic completion before showing already-committed tracker state
 - audio/haptic errors must be isolated from tracker persistence
 
-Re-measure the existing IN -> OUT and OUT -> IN performance benchmark after implementation.
+Capture before/after measurements for both directions using [the performance plan](../performance.md). Record device, OS, build, dataset, median, and p95 where practical. Measure native press response, commit, committed-state display, and readback/control availability separately. The 150–200 ms return animation is outside the sub-100 ms commit/display budget and must not block it. Scheduling React state alone does not prove that the display updated.
 
 ## Testing
 
 Test this as an upgrade to the existing Tracker button, not as a new workflow.
+
+### Focused Automated Coverage
+
+Extend existing tracker tests at the operation/feedback boundary to verify:
+
+- one accepted `changed` operation requests one matching sound and success haptic
+- blocked activation, no-op results, and unrelated refreshes emit no feedback
+- rejected persistence emits error feedback only
+- audio/haptic failures cannot affect saved state or produce persistence errors
+- readback/reminder failures after commit do not emit an error haptic or duplicate success
+- stale completions after blur/unmount do not emit feedback
+
+Mock effect dispatch for these checks. Sound quality, system audio policy, and native interaction require device validation. Run the project validation suite, including `npm run check:ios-ui-purity`.
 
 ### Regression / Existing Behavior
 
@@ -369,6 +405,9 @@ Verify:
 
 - the existing button clearly but subtly appears raised
 - touch-down produces immediate depression feedback
+- drag-away/cancellation restores the face without saving or emitting feedback
+- slow/failed saves do not leave the face depressed
+- VoiceOver activation works without touch-down and Reduce Motion removes animated displacement
 - the lower lip/shadow sell the depth without making the UI look glossy or dated
 - pressing does not shift surrounding layout
 - IN and OUT retain identical geometry
