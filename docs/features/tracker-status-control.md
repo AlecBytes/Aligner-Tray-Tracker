@@ -1,159 +1,193 @@
-# Tracker Status Control
+# Tray IN/OUT Button Feedback Upgrade
 
 ## Status
 
 Planned.
 
-This document defines the production/default interaction and visual treatment for the large IN/OUT control on the iOS Tracker screen.
-
-A more elaborate or flashy version of the control is intentionally deferred to a separate future planning session and experimental branch. That experiment must not expand the scope of this feature.
-
 ## Purpose
 
-The Tracker status control is the highest-frequency and most important interaction in the app. It should feel immediate, premium, physical, and trustworthy without becoming visually distracting or changing the underlying wear-tracking model.
+The iOS Main Tracker already has a large Tray IN/OUT button that is the primary control for recording wear-state changes.
 
-This feature adds restrained 3D depth, coordinated haptic feedback, and short local audio feedback while preserving the existing local-first SQLite behavior.
+This feature does **not** add a new tracker control or redesign the tracking workflow. It upgrades the existing Tray IN/OUT button with higher-quality visual, haptic, and audio feedback while preserving its current behavior, layout role, persistence semantics, accessibility, and surrounding tracker UI.
 
-## Product Goals
+The production direction is a restrained, premium physical-button feel. A more elaborate/flashy version will be explored later in a separate planning session and experimental branch.
 
-- Make the main IN/OUT control feel like a physical button rather than a flat touch target.
-- Acknowledge touch immediately without pretending a state change has been persisted before SQLite succeeds.
-- Make successful IN and OUT transitions recognizable through coordinated visual, haptic, and audio feedback.
-- Preserve the existing fast, one-tap tracking workflow.
-- Keep the implementation lightweight and local-only.
-- Avoid novelty effects that would become annoying during repeated daily use.
+## Existing Behavior to Preserve
 
-## Scope
+The current iOS Tracker already provides a dominant Tray IN/OUT button that:
 
-V1 applies to the large status control on the iOS Main Tracker.
+- shows `TRAYS ARE IN` or `TRAYS ARE OUT`
+- shows the existing tray artwork
+- shows the current OUT duration when trays are out
+- shows the existing helper text such as `Tap when removed` or `Tap when inserted`
+- invokes the existing local tracker toggle flow
+- prevents conflicting tracker actions while a mutation is pending
+- updates the visible tracker from committed local state
+- exposes the current accessibility label, value, and hint behavior
+- participates in the existing Undo, Edit last, Redo, timer, notification-reconciliation, and Change Tray workflows
 
-Preserve:
+All of that remains the product baseline.
 
-- the control's current location and dominant size
-- the current `TRAYS ARE IN` / `TRAYS ARE OUT` status text
-- the existing tray artwork
-- the OUT duration display
-- the existing helper text
-- the current tracker accessibility label/value/hint behavior
-- the current SQLite mutation and notification-reconciliation flow
-- the current Undo, Edit last, Redo, timer, and Change Tray behavior
+## Upgrade Scope
 
-Android, web, Apple Watch, Siri, and other surfaces are out of scope for this visual/feedback treatment unless separately planned.
+Upgrade only the feedback and physical feel of the existing Tray IN/OUT button in the iOS Main Tracker.
 
-## Visual Direction
+The upgrade consists of:
 
-Use a restrained raised 3D treatment rather than a glossy or highly skeuomorphic design.
+1. restrained 3D visual depth in the resting state
+2. immediate visual press/depression feedback on touch
+3. a short return-to-rest animation after activation resolves
+4. a crisp success haptic after a successful IN/OUT persistence operation
+5. an error haptic if the persistence operation fails
+6. a short, polished local IN sound after a successful transition to IN
+7. a short, polished local OUT sound after a successful transition to OUT
 
-The control should read as a slightly elevated physical surface composed of:
+This is a UI/feedback polish feature, not a tracker-domain feature.
 
-1. a raised front face
-2. a darker lower/base layer visible mainly along the bottom and lower side edges
-3. a subtle upper-edge highlight
-4. a broad, soft cast shadow
-5. very mild top-to-bottom tonal shading where it can be achieved cleanly with the existing native UI stack
+## Explicitly Unchanged
 
-The lower/base layer is the most important depth cue. It should create a small visible lower lip when the button is raised.
+Do not change:
 
-Do not change the control's overall position or hit target between IN and OUT states.
+- what tapping the button means
+- the existing IN/OUT wear-punch model
+- SQLite as the local source of truth
+- the existing tracker mutation/repository behavior
+- notification reconciliation behavior
+- the timing calculations
+- the button's location on the Tracker
+- its role as the dominant interactive element
+- the existing tray imagery and primary status copy
+- Undo / Redo / Edit last behavior
+- Change Tray behavior
+- navigation
+- the surrounding Tracker layout
+- Android, web, Apple Watch, or Siri behavior
 
-## Visual States
+Do not add a confirmation dialog, hold-to-confirm interaction, delayed commit, countdown, debounce delay, or second tap requirement.
 
-### Resting
+## Visual Upgrade
 
-The control appears raised above its base.
+### Design Direction
 
-Target appearance:
+Make the existing button look slightly raised and physically pressable without turning it into a glossy or heavily skeuomorphic control.
 
-- approximately 5 pt of apparent elevation
-- lower lip clearly but subtly visible
-- soft shadow below the control
-- understated upper highlight
-- no pulsing, glow, shimmer, or idle animation
+Use a layered treatment consisting of:
 
-The exact pixel values may be adjusted during physical-device tuning, but the result should remain restrained.
+- the existing button face/content
+- a darker lower/base layer visible mostly along the bottom and lower side edges
+- a subtle upper-edge highlight
+- a broad, soft cast shadow
+- very mild tonal shading where it can be achieved cleanly with the existing native UI stack
 
-### Touch Down
+The darker lower layer should create a small visible lower lip. That lower lip is the primary depth cue.
 
-Touch acknowledgement must be immediate.
+The result should look premium and tactile while remaining consistent with the otherwise clean native iOS Tracker.
 
-When the user presses the control:
+### Resting State
 
-- move the visible face downward by approximately 3 pt
-- compress/tighten the shadow
+When untouched, the existing Tray IN/OUT button should appear slightly elevated.
+
+Target direction:
+
+- about 5 pt of apparent elevation
+- subtle lower lip
+- soft shadow
+- restrained top highlight
+- no glow, pulse, shimmer, wobble, or continuous idle animation
+
+Exact visual values may be tuned on a physical iPhone.
+
+### Pressed State
+
+When the user touches the existing button:
+
+- depress the visible face by approximately 3 pt
+- tighten/compress the shadow
 - hide most of the lower lip
-- optionally darken the face very slightly
-- do not change the persisted IN/OUT state yet
-- do not change the status artwork/text merely because the finger is down
+- optionally darken the face slightly
+- keep the surrounding layout fixed
+- keep the same overall hit target
 
-The visual effect should resemble physically depressing a raised button.
+The effect should visually resemble pressing a physical button into its base.
 
-### Saving
+Touch-down feedback should be immediate. It must not wait for SQLite.
 
-Releasing the press starts the existing tracker mutation.
+Touch-down is only visual acknowledgement; it does not represent a persisted IN/OUT state change.
 
-While the mutation is pending:
+### Return Animation
 
-- prevent a second tracker toggle, preserving the existing mutation guard
-- keep the control visually engaged/depressed until the mutation resolves when practical with the native button implementation
-- preserve the existing saving accessibility state and user-visible saving feedback
-- do not introduce any artificial minimum delay
+After activation resolves, return the button face to its resting raised position with a short ease-out transition.
 
-The control is pending only for the real persistence duration.
+Target duration:
 
-### Success
+- approximately 150-200 ms
 
-After SQLite successfully commits the new wear state:
+Do not add bounce, spring overshoot, wobble, parallax, or decorative repeated motion in this production version.
 
-- update the status text, tray artwork, timer/read-model values, and accessibility value together from the committed state
-- return the face to its raised position using a short ease-out transition
-- target approximately 150–200 ms for the return transition
-- trigger the success haptic
-- play the matching IN or OUT sound
+## State and Persistence Semantics
 
-The successful visual return, haptic, and sound should feel coordinated as one confirmation event.
+The existing persistence behavior remains authoritative.
 
-### Failure
+Required behavior:
 
-If the tracker mutation fails:
+1. finger touches the existing Tray IN/OUT button
+2. button visually depresses immediately
+3. activation invokes the existing local tracker toggle
+4. duplicate/conflicting toggle actions remain blocked while the mutation is pending
+5. SQLite commits the new wear state
+6. the existing tracker read model updates from committed state
+7. the button returns to its raised state
+8. the matching success haptic and IN/OUT sound are triggered
 
-- do not show the requested state as if it succeeded
-- restore the original committed state
-- return the control to its raised appearance
-- preserve the existing error presentation
+The status text, artwork, timers, and other committed-state UI must continue to reflect successful persisted state rather than pretending a requested state was saved before SQLite succeeds.
+
+Do not introduce an artificial minimum delay. Preserve the existing project's sub-100 ms IN/OUT toggle performance goal.
+
+Audio and haptic work must remain outside the SQLite transaction and must never determine whether persistence succeeds.
+
+## Success Feedback
+
+After a successful committed IN/OUT transition, coordinate three forms of feedback:
+
+- the existing visible state updates
+- the button returns to its raised resting position
+- one success haptic occurs
+- the matching IN or OUT sound plays
+
+These should feel like one concise confirmation event rather than several separate effects.
+
+Do not play success feedback merely because the user touched the button. It confirms a successful tracker change.
+
+## Failure Feedback
+
+If the existing tracker mutation fails:
+
+- do not present the requested IN/OUT state as committed
+- preserve/restore the prior committed tracker state
+- return the button to its resting raised appearance
+- preserve the existing tracker error presentation
 - trigger an error haptic
-- do not play either normal success sound
+- do not play either normal IN or OUT success sound
 
-Audio or haptic failures must never change the result of the tracker mutation.
-
-## State Semantics
-
-SQLite remains authoritative.
-
-The press animation is immediate visual acknowledgement, not optimistic persistence.
-
-The actual IN/OUT state, status artwork, timers, and read-model values change only after the existing SQLite write succeeds.
-
-Do not add an artificial delay, debounce window, confirmation countdown, or deferred database write. The existing local toggle path should remain as fast as possible and continue targeting the project's sub-100 ms IN/OUT performance budget.
-
-Do not move audio or haptic work into the SQLite transaction.
+Audio or haptic failures must never create or transform a tracker persistence failure.
 
 ## Haptic Feedback
 
-Use `expo-haptics` for V1 rather than a custom Core Haptics implementation or third-party haptics SDK.
+Use the official Expo haptics package for this upgrade rather than introducing a custom Core Haptics implementation or third-party haptics SDK.
 
-### Successful Toggle
+### Successful IN/OUT Change
 
-Use one crisp impact after the SQLite mutation succeeds:
+Use one concise mechanical-feeling impact:
 
 - `Haptics.ImpactFeedbackStyle.Rigid`
 
-The intent is a concise mechanical confirmation rather than a heavy vibration.
+Tune the result on a physical iPhone. The goal is a crisp click-like confirmation, not a heavy vibration.
 
-Do not fire the success haptic on initial touch-down because a touch-down does not prove persistence succeeded.
+Do not fire the success haptic on initial touch-down.
 
-### Failed Toggle
+### Failed IN/OUT Change
 
-If the tracker mutation fails, use:
+Use:
 
 - `Haptics.NotificationFeedbackType.Error`
 
@@ -161,261 +195,246 @@ Do not also fire the normal success haptic.
 
 ### System Behavior
 
-Haptic feedback is enhancement-only.
+Haptics are supplemental feedback only.
 
-If iOS suppresses haptics because of system settings or device state, tracking must continue normally. Do not add custom fallback vibration behavior.
+If iOS suppresses haptics because of device/system state, the tracker must continue working normally.
 
-V1 does not add an in-app haptics preference. Respect the device's system-level behavior.
+Do not add a custom fallback vibration.
+
+This upgrade does not add an in-app haptic preference.
 
 ## Audio Feedback
 
-Use two short, bundled local sound effects from the same sonic family.
+Add two short, high-quality bundled sound effects specifically for the existing Tray IN/OUT button.
+
+They should sound related, subtle, and intentional rather than like generic notification sounds.
 
 ### IN Sound
 
-The sound should suggest a soft, precise seat/lock action.
+The successful transition to IN should use a soft, precise seat/lock-style sound.
 
 Direction:
 
 - crisp but quiet
-- slightly higher in tone than the OUT sound
-- no musical melody
+- slightly higher in tone than OUT
+- short mechanical/tactile character
 - no spoken audio
+- no melody
 - no notification-style chime
 
 ### OUT Sound
 
-The sound should suggest a soft release/unseat action.
+The successful transition to OUT should use a soft release/unseat-style sound.
 
 Direction:
 
 - crisp but quiet
-- slightly lower in tone than the IN sound
-- clearly related to the IN sound
-- no dramatic pop or alert tone
+- slightly lower in tone than IN
+- clearly from the same sonic family as the IN sound
+- no dramatic pop or alert sound
 
-### Sound Length
+### Asset Quality
 
-Prefer approximately 80–180 ms per sound.
+The final app should use intentionally selected production-quality assets.
 
-Keep each sound at or below roughly 250 ms unless physical-device testing shows a slightly longer tail materially improves quality.
+Do not ship arbitrary placeholder clicks simply to satisfy the requirement.
+
+Prefer approximately 80-180 ms per sound. Keep each effect roughly 250 ms or shorter unless physical-device testing shows a slightly longer tail materially improves the feel.
+
+The exact recordings/assets may be selected during implementation/design review, but the product behavior above is settled.
 
 ### Playback Policy
 
-Use `expo-audio` for V1.
+Use `expo-audio` for local playback.
 
-The sound files must:
+The two sounds must:
 
-- ship with the app as local bundled assets
+- ship locally with the app
 - require no network access
-- be loaded/prepared before the user needs them where practical
-- remain small enough that they do not meaningfully affect app size or startup
+- be prepared before they are needed where practical
+- remain small and lightweight
 
-Configure UI-feedback audio so that:
+Configure these nonessential UI sounds so that:
 
-- it does not play through iPhone Silent Mode (`playsInSilentMode: false`)
-- it mixes with other audio rather than pausing or ducking music, podcasts, or other playback (`interruptionMode: 'mixWithOthers'`)
-- it does not request background playback
-- it does not request microphone permission
+- iPhone Silent Mode suppresses them
+- they mix with existing music/podcast playback instead of interrupting it
+- they do not require background audio
+- they do not require microphone permission
 
-Playback should be best-effort. A sound-player failure must not block, delay, roll back, or mark a successful tracker mutation as failed.
+Sound playback is best-effort. A sound failure must not delay, roll back, or otherwise affect a successful wear-state change.
 
-V1 does not add an in-app sound preference. Silent Mode is the primary user control for these nonessential UI sounds.
+This upgrade does not add an in-app sound preference. Silent Mode remains the primary user control for these UI sounds.
 
-## Dependency Policy
+## IN vs OUT Visual Consistency
 
-The feature may add the official Expo packages required for the agreed feedback behavior:
+The current IN and OUT states may retain their different theme colors/emphasis and content, but the upgraded button must use the same:
+
+- outer geometry
+- position
+- hit target
+- apparent elevation
+- press distance
+- animation timing
+
+Do not move or resize the button when its state changes. Preserve muscle memory.
+
+## Accessibility
+
+Preserve the existing native button semantics and current accessibility behavior.
+
+Requirements:
+
+- current status remains available through the accessibility value
+- the existing hint continues to explain when to tap the button
+- pending/saving state remains available to accessibility as it is today
+- audio and haptics are never the sole confirmation of state
+- the visible state remains understandable when sound is unavailable and haptics are suppressed
+- no flashing or repeated decorative animation
+
+This upgrade should enhance the existing accessible control rather than replace its semantics with a custom gesture surface.
+
+## iOS UI / Architecture Constraints
+
+The current iOS Tracker uses `@expo/ui/swift-ui` and must continue satisfying the project's iOS UI-purity rule.
+
+Do not reintroduce React Native visual primitives such as `Pressable`, `View`, or `Animated.View` into the iOS Tracker for this upgrade.
+
+Implementation order:
+
+1. verify the exact Expo SDK 57 `@expo/ui/swift-ui` capabilities needed for pressed-state styling, offset, shadow, background, shape, and animation
+2. upgrade the existing native SwiftUI button through Expo UI composition/modifiers where possible
+3. preserve its current native Button semantics, hit target, disabled state, and accessibility behavior
+4. add no custom native implementation merely for convenience
+
+If the required touch-down visual state cannot be expressed through the supported Expo UI surface, document the verified capability gap before introducing any feature-local native bridge.
+
+Any such bridge must be narrowly scoped to upgrading this existing button and must not become a general animation/design system.
+
+## Dependencies
+
+This upgrade may add the official Expo packages needed for the agreed feedback:
 
 - `expo-haptics`
 - `expo-audio`
 
-Install them with the Expo version-aware installer so their versions match the project's Expo SDK.
+Install them with the Expo version-aware installer appropriate to the project's Expo SDK.
 
 Do not add:
 
 - a third-party animation library for this feature
 - a third-party haptics SDK
-- a third-party audio/sound-effect SDK
-- analytics or telemetry for button interactions
-
-Use the existing native Expo UI / SwiftUI presentation layer for the visible iOS control.
-
-## Native UI Constraint
-
-The iOS Tracker must continue satisfying the project's iOS UI purity rule.
-
-Do not reintroduce React Native visual primitives such as `Pressable`, `View`, or `Animated.View` into the iOS Tracker to implement the effect.
-
-Implementation order:
-
-1. verify the exact Expo SDK 57 `@expo/ui/swift-ui` capabilities for native pressed-state, offset, shadow, background, shape, and animation behavior
-2. implement the effect through Expo UI composition/modifiers if the required behavior is available
-3. keep the existing SwiftUI `Button` semantics, hit target, accessibility, and disabled behavior
-4. do not add custom native code merely for convenience
-
-If exact touch-down state cannot be expressed through the supported Expo UI surface, document the verified capability gap before introducing a custom SwiftUI/local Expo module. Any such native bridge should be the smallest feature-local implementation possible and must not become a general animation system.
-
-## Interaction Timing
-
-The control should feel immediate.
-
-Required sequence:
-
-```text
-finger down
-  -> visual face depresses immediately
-finger up / activation
-  -> existing SQLite toggle begins
-  -> duplicate toggle is blocked while pending
-SQLite commit succeeds
-  -> committed tracker state becomes visible
-  -> face returns to raised position
-  -> rigid success haptic
-  -> matching IN/OUT sound
-```
-
-Failure sequence:
-
-```text
-finger down
-  -> visual face depresses immediately
-finger up / activation
-  -> existing SQLite toggle begins
-SQLite commit fails
-  -> old committed state remains/restores
-  -> face returns to raised position
-  -> error haptic
-  -> existing error UI remains visible
-  -> no normal IN/OUT sound
-```
-
-Feedback operations should not be awaited in a way that delays the visible committed state.
-
-## IN vs OUT Presentation
-
-IN and OUT may use different existing theme colors/emphasis, but they must retain the same:
-
-- outer geometry
-- location
-- hit target
-- visual elevation
-- press distance
-- animation timing
-
-The distinction should come primarily from state color, artwork/content, and the paired sounds rather than moving or resizing the control.
-
-## Accessibility
-
-Preserve the current native button semantics.
-
-Requirements:
-
-- status remains available through the accessibility value
-- the hint continues to explain the physical action to take
-- pending/saving state remains announced or exposed as it is today
-- sound and haptics are supplemental and never the only indication of success or failure
-- the visual state must remain understandable with audio unavailable and haptics suppressed
-- do not use rapid flashing or repeated animation
-
-The small press translation is functional feedback, not decorative motion. Do not add bounce, spring overshoot, wobble, parallax, or repeated motion in V1.
+- a third-party sound-effects SDK
+- analytics or telemetry for button taps
 
 ## Performance and Reliability
 
-Preserve the project's existing IN/OUT performance target:
+The upgrade must preserve the existing tracker performance target:
 
-`Tap -> SQLite write completes -> correct tracker state visible` should remain under 100 ms on the reference device when practical.
+`Tap -> SQLite write completes -> correct tracker state visible`
+
+Target: under 100 ms on the project's reference device when practical.
 
 Requirements:
 
-- no network request on the toggle path
-- no artificial delay before persistence
-- no additional SQLite writes for animation, audio, or haptic state
+- no network request on the IN/OUT path
+- no artificial persistence delay
+- no extra SQLite writes for visual, audio, or haptic feedback
 - no polling
 - no persistent animation loop
-- no audio initialization on every tap if it can be prepared once for the Tracker lifecycle
-- audio/haptic exceptions must not escape into the tracker mutation path
+- do not initialize/load audio from scratch on every tap if it can be prepared once for the Tracker lifecycle
+- do not await audio/haptic completion before showing already-committed tracker state
+- audio/haptic errors must be isolated from tracker persistence
 
-Measure the normal toggle path after implementation to confirm the polish did not create a meaningful regression.
+Re-measure the existing IN -> OUT and OUT -> IN performance benchmark after implementation.
 
 ## Testing
 
-### Functional
+Test this as an upgrade to the existing Tracker button, not as a new workflow.
+
+### Regression / Existing Behavior
 
 Verify on a physical iPhone:
 
-- IN -> OUT persists once and produces the OUT confirmation feedback
-- OUT -> IN persists once and produces the IN confirmation feedback
+- the existing Tray IN/OUT button remains in the same location
+- the same tap still creates exactly one appropriate wear-state transition
+- existing `TRAYS ARE IN` / `TRAYS ARE OUT` content remains correct
+- tray artwork and OUT duration remain correct
+- Undo, Redo, Edit last, timers, notifications, and Change Tray still behave as before
 - rapid repeated taps cannot create duplicate punches while a mutation is pending
-- state text/artwork/timers do not switch before persistence succeeds
-- injected/real persistence failure leaves the prior committed state intact
-- failure produces an error haptic and no success sound
+- failed persistence leaves the prior committed state intact
 
-### Audio
+### Visual Upgrade
 
 Verify:
 
-- both sounds are clearly distinguishable but feel related
-- the sounds are restrained at normal media volume
-- Silent Mode suppresses the sounds
-- music/podcast playback is not paused or ducked
-- repeated normal tracker use does not create overlapping or queued sound playback
-- entering/leaving the Tracker repeatedly does not leak audio players/resources
+- the existing button clearly but subtly appears raised
+- touch-down produces immediate depression feedback
+- the lower lip/shadow sell the depth without making the UI look glossy or dated
+- pressing does not shift surrounding layout
+- IN and OUT retain identical geometry
+- light mode and dark mode both look intentional
+- the smallest supported iPhone viewport still fits the non-scrolling Tracker layout
 
 ### Haptics
 
 Verify:
 
-- the rigid success impact feels crisp rather than heavy
-- the haptic occurs after successful persistence
-- failed persistence uses error feedback instead
-- suppressed/unavailable haptics have no effect on functionality
+- successful IN and OUT changes use one crisp rigid impact
+- the success haptic occurs only for a successful persistence operation
+- a failed persistence operation uses error feedback instead
+- suppressed/unavailable haptics do not affect tracker behavior
 
-### Visual
+### Audio
 
 Verify:
 
-- raised depth is visible in light and dark mode
-- the lower lip/shadow do not reduce text/artwork readability
-- touch-down feels immediate
-- the pressed state does not shift surrounding layout
-- IN and OUT occupy exactly the same geometry
-- the control remains usable on the smallest supported iPhone viewport
+- IN and OUT sounds are distinct but clearly related
+- both sound polished and restrained at normal volume
+- Silent Mode suppresses them
+- music or podcast playback is not interrupted or ducked
+- repeated ordinary use does not produce overlapping/queued sound effects
+- navigating away from and back to the Tracker does not leak player resources
 
 ### Performance
 
-Re-measure the existing IN -> OUT and OUT -> IN toggle benchmark in a release-like build on the reference device.
+Re-run the existing IN -> OUT and OUT -> IN benchmark in a release-like build on the reference device.
 
-If the feature materially regresses the existing budget, profile the feedback path before changing architecture.
+If this upgrade materially regresses the existing budget, profile the feedback path before adding architectural complexity.
 
 ## Out of Scope
 
-V1 does not include:
+This production upgrade does not include:
 
+- a new tracker control
+- a new tracking workflow
+- changes to the wear-punch model
+- changes to persistence ordering
+- optimistic committed-state projection
+- delayed/queued persistence
+- a hold-to-confirm interaction
+- a confirmation dialog
 - custom Core Haptics patterns
-- synchronized authored audio-haptic pattern files
-- flashy glow or lighting effects
-- bounce/spring overshoot
+- synchronized authored audio/haptic pattern files
+- flashy lighting or glow effects
 - particles
-- 3D perspective/parallax
+- perspective/parallax
+- bounce/spring overshoot
 - animated backgrounds
 - continuous idle animation
-- user-selectable button styles
 - sound packs
+- selectable button styles
 - haptic intensity settings
-- sound settings beyond respecting Silent Mode
-- changes to the wear-tracking data model
-- delayed/queued persistence
-- optimistic committed-state projection
+- additional sound settings
 
-## Future Experimental Branch
+## Future Experimental Button
 
-A separate future planning session will define an experimental, more elaborate/flashy tracker control.
+A separate future planning session will explore a more elaborate/flashy version of the existing Tray IN/OUT button.
 
-That work should occur on a separate branch so it can be compared directly against this restrained production design.
+That work should occur on a separate experimental branch so it can be compared directly with this restrained production upgrade.
 
-Potential experimental directions may include richer motion, lighting, custom haptic patterns, more pronounced depth, or other premium effects, but none are approved requirements yet.
+Possible directions such as richer lighting, motion, custom haptics, stronger depth, or other premium effects remain intentionally undecided.
 
-Do not implement any of those ideas as part of this feature.
+Do not implement those ideas as part of this feature.
 
 ## Implementation Handoff
 
@@ -427,4 +446,6 @@ Before implementation, read:
 - `docs/features/expo-ui-swiftui-migration.md`
 - this document
 
-Preserve the existing tracker repositories, SQLite mutation semantics, read-model calculations, notification reconciliation, accessibility behavior, and iOS UI purity boundary.
+Implementation should modify the existing iOS Tray IN/OUT button rather than creating a parallel control or new tracker abstraction.
+
+Preserve the existing tracker repositories, SQLite mutation semantics, read-model calculations, notification reconciliation, accessibility behavior, and iOS UI-purity boundary.
