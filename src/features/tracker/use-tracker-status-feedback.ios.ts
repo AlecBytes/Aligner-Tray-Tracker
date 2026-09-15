@@ -1,4 +1,4 @@
-import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
+import { preload, setAudioModeAsync, useAudioPlayer } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef } from 'react';
@@ -8,6 +8,9 @@ import type { TrackerToggleOutcome } from './use-ios-tracker';
 
 const trayInSound = require('../../../assets/sounds/tray-in.wav');
 const trayOutSound = require('../../../assets/sounds/tray-out.wav');
+
+let audioModeConfigured = false;
+let audioModePreparation: Promise<boolean> | null = null;
 
 function runBestEffort(effect: () => void | Promise<void>) {
   try {
@@ -20,15 +23,48 @@ function runBestEffort(effect: () => void | Promise<void>) {
   }
 }
 
+runBestEffort(() => preload(trayInSound));
+runBestEffort(() => preload(trayOutSound));
+
+function prepareAudioMode() {
+  if (audioModeConfigured) return Promise.resolve(true);
+  if (audioModePreparation) return audioModePreparation;
+
+  try {
+    audioModePreparation = setAudioModeAsync({
+      allowsRecording: false,
+      interruptionMode: 'mixWithOthers',
+      playsInSilentMode: false,
+      shouldPlayInBackground: false,
+    }).then(
+      () => {
+        audioModeConfigured = true;
+        audioModePreparation = null;
+        return true;
+      },
+      () => {
+        audioModePreparation = null;
+        return false;
+      },
+    );
+  } catch {
+    audioModePreparation = null;
+    return Promise.resolve(false);
+  }
+  return audioModePreparation;
+}
+
 export function useTrackerStatusFeedback() {
-  const inPlayer = useAudioPlayer(trayInSound, { keepAudioSessionActive: false });
-  const outPlayer = useAudioPlayer(trayOutSound, { keepAudioSessionActive: false });
+  const inPlayer = useAudioPlayer(trayInSound, { keepAudioSessionActive: true });
+  const outPlayer = useAudioPlayer(trayOutSound, { keepAudioSessionActive: true });
   const audioModeReady = useRef(false);
   const focused = useRef(false);
   const appActive = useRef(AppState.currentState === 'active');
   const generation = useRef(0);
+  const playbackSequence = useRef(0);
 
   const stopPlayers = useCallback(() => {
+    playbackSequence.current += 1;
     for (const player of [inPlayer, outPlayer]) {
       runBestEffort(() => player.pause());
       runBestEffort(() => player.seekTo(0));
@@ -37,18 +73,10 @@ export function useTrackerStatusFeedback() {
 
   useEffect(() => {
     let cancelled = false;
-    audioModeReady.current = false;
-    void setAudioModeAsync({
-      allowsRecording: false,
-      interruptionMode: 'mixWithOthers',
-      playsInSilentMode: false,
-      shouldPlayInBackground: false,
-    }).then(
-      () => {
-        if (!cancelled) audioModeReady.current = true;
-      },
-      () => undefined,
-    );
+    audioModeReady.current = audioModeConfigured;
+    void prepareAudioMode().then((ready) => {
+      if (!cancelled) audioModeReady.current = ready;
+    });
     return () => {
       cancelled = true;
       audioModeReady.current = false;
@@ -90,6 +118,8 @@ export function useTrackerStatusFeedback() {
         return;
       }
 
+      const playbackAttempt = ++playbackSequence.current;
+
       if (outcome.kind === 'failed') {
         runBestEffort(() =>
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error),
@@ -106,11 +136,29 @@ export function useTrackerStatusFeedback() {
 
       runBestEffort(() => otherPlayer.pause());
       runBestEffort(() => player.pause());
-      runBestEffort(() => player.seekTo(0));
-      runBestEffort(() => {
-        player.volume = outcome.status === 'IN' ? 0.28 : 0.34;
-      });
-      runBestEffort(() => player.play());
+      void (async () => {
+        try {
+          await player.seekTo(0);
+        } catch {
+          return;
+        }
+
+        if (
+          playbackSequence.current !== playbackAttempt ||
+          generation.current !== acceptedGeneration ||
+          !focused.current ||
+          !appActive.current ||
+          !audioModeReady.current ||
+          !player.isLoaded
+        ) {
+          return;
+        }
+
+        runBestEffort(() => {
+          player.volume = outcome.status === 'IN' ? 0.28 : 0.34;
+        });
+        runBestEffort(() => player.play());
+      })();
     };
   }, [inPlayer, outPlayer]);
 }

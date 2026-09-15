@@ -65,10 +65,19 @@ jest.mock('react-native', () => {
   };
   return native;
 });
-jest.mock('expo-audio', () => ({
-  setAudioModeAsync: (...args: unknown[]) => mockSetAudioMode(...args),
-  useAudioPlayer: () => [mockInPlayer, mockOutPlayer][mockAudioPlayerCall++ % 2],
-}));
+jest.mock('expo-audio', () => {
+  const preloadedSources: unknown[] = [];
+  return {
+    preloadedSources,
+    preload: (source: unknown) => {
+      preloadedSources.push(source);
+      return Promise.resolve();
+    },
+    setAudioModeAsync: (...args: unknown[]) => mockSetAudioMode(...args),
+    useAudioPlayer: jest.fn((..._args: unknown[]) =>
+      [mockInPlayer, mockOutPlayer][mockAudioPlayerCall++ % 2]),
+  };
+});
 jest.mock('expo-haptics', () => ({
   ImpactFeedbackStyle: { Rigid: 'rigid' },
   NotificationFeedbackType: { Error: 'error' },
@@ -212,6 +221,32 @@ afterEach(async () => {
   if (tree) await act(async () => tree.unmount());
 });
 async function mount() { await act(async () => { tree = renderer.create(<TrackerScreen />); }); }
+
+it('skips unavailable initial audio setup and retries until it succeeds', async () => {
+  mockSetAudioMode
+    .mockImplementationOnce(() => {
+      throw new Error('audio mode unavailable');
+    })
+    .mockRejectedValueOnce(new Error('audio mode unavailable'));
+  await mount();
+  await press('toggle');
+  expect(mockImpact).toHaveBeenCalledTimes(1);
+  expect(mockInPlayer.play).not.toHaveBeenCalled();
+
+  await act(async () => tree.unmount());
+  tree = null as unknown as typeof tree;
+  await mount();
+  await press('toggle');
+  expect(mockOutPlayer.play).not.toHaveBeenCalled();
+
+  await act(async () => tree.unmount());
+  tree = null as unknown as typeof tree;
+  await mount();
+  await press('toggle');
+
+  expect(mockSetAudioMode).toHaveBeenCalledTimes(3);
+  expect(mockInPlayer.play).toHaveBeenCalledTimes(1);
+});
 
 it('shows the decorative tray image for the current tracker state', async () => {
   await mount();
@@ -478,6 +513,114 @@ it('emits one matching success haptic and sound for each confirmed transition', 
   expect(mockOutPlayer.seekTo).toHaveBeenCalledWith(0);
 });
 
+it('preloads both effects and keeps their iOS audio sessions active', async () => {
+  await mount();
+  const audio = jest.requireMock('expo-audio') as {
+    preloadedSources: unknown[];
+    useAudioPlayer: jest.Mock;
+  };
+
+  expect(audio.preloadedSources).toHaveLength(2);
+  expect(audio.useAudioPlayer).toHaveBeenNthCalledWith(
+    1,
+    expect.any(Number),
+    { keepAudioSessionActive: true },
+  );
+  expect(audio.useAudioPlayer).toHaveBeenNthCalledWith(
+    2,
+    expect.any(Number),
+    { keepAudioSessionActive: true },
+  );
+});
+
+it('waits for rewind before playing a confirmation sound', async () => {
+  const rewind = deferred<undefined>();
+  mockInPlayer.seekTo.mockReturnValueOnce(rewind.promise);
+  await mount();
+
+  await press('toggle');
+  expect(mockInPlayer.seekTo).toHaveBeenCalledWith(0);
+  expect(mockInPlayer.play).not.toHaveBeenCalled();
+
+  await act(async () => rewind.resolve(undefined));
+  expect(mockInPlayer.play).toHaveBeenCalledTimes(1);
+});
+
+it('does not play when rewind rejects', async () => {
+  mockInPlayer.seekTo.mockRejectedValueOnce(new Error('rewind unavailable'));
+  await mount();
+
+  await press('toggle');
+
+  expect(mockImpact).toHaveBeenCalledTimes(1);
+  expect(mockInPlayer.play).not.toHaveBeenCalled();
+  expect(text()).toContain('TRAYS ARE IN');
+});
+
+it('cancels a pending replay when the screen blurs', async () => {
+  const rewind = deferred<undefined>();
+  mockInPlayer.seekTo.mockReturnValueOnce(rewind.promise);
+  await mount();
+
+  await press('toggle');
+  await act(async () => blurScreen());
+  await act(async () => rewind.resolve(undefined));
+
+  expect(mockInPlayer.play).not.toHaveBeenCalled();
+});
+
+it('cancels a pending replay when the app backgrounds', async () => {
+  const rewind = deferred<undefined>();
+  mockInPlayer.seekTo.mockReturnValueOnce(rewind.promise);
+  await mount();
+
+  await press('toggle');
+  await act(async () => emitAppState('background'));
+  await act(async () => rewind.resolve(undefined));
+
+  expect(mockInPlayer.play).not.toHaveBeenCalled();
+});
+
+it('cancels a pending replay when the screen unmounts', async () => {
+  const rewind = deferred<undefined>();
+  mockInPlayer.seekTo.mockReturnValueOnce(rewind.promise);
+  await mount();
+
+  await press('toggle');
+  await act(async () => tree.unmount());
+  tree = null as unknown as typeof tree;
+  await act(async () => rewind.resolve(undefined));
+
+  expect(mockInPlayer.play).not.toHaveBeenCalled();
+});
+
+it('lets a newer confirmation supersede a pending replay', async () => {
+  const firstRewind = deferred<undefined>();
+  mockInPlayer.seekTo.mockReturnValueOnce(firstRewind.promise);
+  await mount();
+
+  await press('toggle');
+  await press('toggle');
+  expect(mockOutPlayer.play).toHaveBeenCalledTimes(1);
+
+  await act(async () => firstRewind.resolve(undefined));
+  expect(mockInPlayer.play).not.toHaveBeenCalled();
+});
+
+it('lets a newer failed activation supersede a pending replay', async () => {
+  const firstRewind = deferred<undefined>();
+  mockInPlayer.seekTo.mockReturnValueOnce(firstRewind.promise);
+  await mount();
+
+  await press('toggle');
+  mockEnsure.mockRejectedValueOnce(new Error('write failed'));
+  await press('toggle');
+  await act(async () => firstRewind.resolve(undefined));
+
+  expect(mockNotification).toHaveBeenCalledWith('error');
+  expect(mockInPlayer.play).not.toHaveBeenCalled();
+});
+
 it('emits error feedback without success audio when persistence rejects', async () => {
   await mount();
   mockEnsure.mockRejectedValueOnce(new Error('write failed'));
@@ -620,14 +763,15 @@ it('keeps a saved transition successful when audio and haptics fail', async () =
   expect(mockNotification).not.toHaveBeenCalled();
 });
 
-it('skips audio when its session configuration is unavailable', async () => {
+it('reuses successful audio session configuration across mounts', async () => {
   mockSetAudioMode.mockRejectedValueOnce(new Error('audio session unavailable'));
   await mount();
 
   await press('toggle');
 
   expect(mockImpact).toHaveBeenCalledTimes(1);
-  expect(mockInPlayer.play).not.toHaveBeenCalled();
+  expect(mockSetAudioMode).not.toHaveBeenCalled();
+  expect(mockInPlayer.play).toHaveBeenCalledTimes(1);
   expect(text()).toContain('TRAYS ARE IN');
 });
 

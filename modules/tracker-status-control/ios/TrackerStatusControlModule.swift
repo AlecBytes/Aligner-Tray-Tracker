@@ -39,7 +39,7 @@ private struct TrackerStatusButtonStyle: ButtonStyle {
   let baseColor: Color
   let foregroundColor: Color
 
-  @Environment(\.accessibilityContrast) private var accessibilityContrast
+  @Environment(\.colorSchemeContrast) private var colorSchemeContrast
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
@@ -49,8 +49,8 @@ private struct TrackerStatusButtonStyle: ButtonStyle {
     let baseOffset: CGFloat = isPressed ? 1 : 5
     let shadowRadius: CGFloat = isPressed ? 2 : 8
     let shadowY: CGFloat = isPressed ? 1 : 5
-    let shadowOpacity = accessibilityContrast == .increased ? 0.34 : 0.22
-    let highlightOpacity = accessibilityContrast == .increased
+    let shadowOpacity = colorSchemeContrast == .increased ? 0.34 : 0.22
+    let highlightOpacity = colorSchemeContrast == .increased
       ? 0.42
       : (reduceTransparency ? 0.30 : 0.22)
 
