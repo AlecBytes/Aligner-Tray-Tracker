@@ -119,11 +119,11 @@ computer:
 
 ## Build and release to production
 
-Version 1.0 excludes paid features, Cloud Backup, Apple Watch, and Siri/App
-Shortcuts. Production omits the Watch target and Siri declaration plugins and
-disables companion activation in the native module. Phone notifications retain
-their existing native implementation. Development and preview retain these
-future features for testing.
+Version 1.0 includes free color themes and excludes paid features, Cloud Backup,
+Apple Watch, and Siri/App Shortcuts. Production omits the Watch target and Siri
+declaration plugins and disables companion activation in the native module.
+Phone notifications retain their existing native implementation. Development
+and preview retain the deferred features for testing.
 
 A production EAS build creates the signed App Store binary. It does not publish
 the app or submit it for App Review. The resulting build must first be uploaded
@@ -187,8 +187,9 @@ EXPO_PUBLIC_SUPPORT_MODE=disabled
 ```
 
 Do not add RevenueCat or Supabase production variables for this release. Paid
-access and cloud code remain in the repository for future work, while production
-menus, routes, and cloud initialization are disabled.
+access and cloud code remain in the repository for future work, while their
+production menus, routes, and initialization are disabled. Themes remain visible
+and functional because they do not depend on paid-access configuration.
 
 ### Upload to TestFlight
 
@@ -244,6 +245,10 @@ The commercial and entitlement contract is defined in
 [Themes](features/themes.md). The application reads product identifiers and
 localized prices from RevenueCat rather than hard-coding them.
 
+Themes are free and do not read any paid-access variable or entitlement. The
+configuration below applies only to Premium Support and future features that are
+explicitly designated as paid.
+
 Paid access uses these public build variables:
 
 | Variable | Values or purpose |
@@ -264,10 +269,11 @@ only for deterministic mock testing:
 EXPO_PUBLIC_PAID_ACCESS_MODE=mock npm start
 ```
 
-Preview and production select Apple. Supply their matching Apple public key and
-policy URLs through EAS environment configuration. Production rejects mock,
-Test Store, and mismatched key prefixes. Missing or invalid purchase
-configuration makes purchase options unavailable without affecting tracking.
+Preview selects Apple. A future paid-access production release must also select
+Apple and supply the matching Apple public key and policy URLs through EAS
+environment configuration. Production rejects mock, Test Store, and mismatched
+key prefixes. Missing or invalid purchase configuration makes purchase options
+unavailable without affecting tracking or themes.
 
 Because `react-native-purchases` is a native dependency, rebuild the development
 client after installing or changing it:
@@ -296,17 +302,17 @@ Both environments require entitlement `aligner_tray_tracker_pro`. The Test
 Store name is a development catalog exception, not a fallback to whichever
 offering is current.
 
-To exercise the Test Store catalog:
+To exercise the Test Store catalog through the premium purchase flow:
 
 ```sh
 npm start -- --clear
 ```
 
-Reload the iOS development client, open **Menu → Themes**, tap a locked color,
-and complete a Test Store purchase. Confirm that the selected theme applies,
-then test the other colors and **Restore Purchases**.
+Reload the iOS development client, open the premium purchase flow, and complete
+a Test Store purchase. Confirm Premium Support access, then test **Restore
+Purchases**. Theme selection is not part of purchase verification.
 
-For offline theme UI testing, run:
+For deterministic offline paid-access UI testing, run:
 
 ```sh
 EXPO_PUBLIC_PAID_ACCESS_MODE=mock npm start -- --clear

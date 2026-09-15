@@ -38,11 +38,7 @@ export default function MainLayout() {
         <Stack.Screen name="statistics/graphs/[graph]" options={{ title: 'Graph' }} />
         <Stack.Screen name="share-progress" options={{ title: 'Share Progress' }} />
         <Stack.Screen name="support" options={{ title: 'Support Aligner Tracker' }} />
-        <Stack.Screen
-          name="themes"
-          redirect={!releaseFeatures.paidAccess}
-          options={{ title: 'Themes' }}
-        />
+        <Stack.Screen name="themes" options={{ title: 'Themes' }} />
         <Stack.Screen
           name="premium"
           redirect={!releaseFeatures.paidAccess}

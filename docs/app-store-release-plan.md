@@ -8,6 +8,7 @@ Reviewed September 11, 2026. Target: iPhone, iOS 16.4+, version 1.0.
 - Internal TestFlight installation was verified on a physical iPhone.
 - This confirms the candidate can be distributed through TestFlight; it does not by itself publish the app to the App Store or complete public App Review.
 - Remaining release work is physical-device verification, store metadata/privacy/support completion, and confirming the public App Store version's review and release status in App Store Connect.
+- The free-themes change made after this candidate requires a new production build and impacted device verification before submission.
 
 The next evidence to record is the result of the device verification matrix against this exact TestFlight build. Keep the build number, device, iOS version, commit, and test date with that evidence.
 
@@ -26,9 +27,9 @@ The next evidence to record is the result of the device verification matrix agai
 
 The app has enough functionality for an initial release. Focus remaining work on reliability, support/privacy, and proving the signed build on physical devices. Additional tracker features are not the missing ingredient.
 
-Confirmed 1.0 scope: ship the existing local tracker, corrections, treatment plans/history, statistics/graphs, notifications, Share Progress, and Help as a free, local-only iPhone app. Paid features, Cloud Backup, Apple Watch, and Siri/App Shortcuts are deferred to future updates and disabled in production.
+Confirmed 1.0 scope: ship the existing local tracker, corrections, treatment plans/history, statistics/graphs, notifications, Share Progress, Help, and all six color themes as a free, local-only iPhone app. Paid features, Cloud Backup, Apple Watch, and Siri/App Shortcuts are deferred to future updates and disabled in production.
 
-The future commercial decision in [Paid Access](features/paid-access.md) remains unchanged, but it does not apply to version 1.0. Production configuration explicitly disables RevenueCat, paid-theme and Premium Support entry points, Cloud Backup entry points, direct paid/cloud routes, and cloud initialization. Development and preview builds retain those foundations for continued work.
+The future commercial decision in [Paid Access](features/paid-access.md) remains in place for expressly paid features, but it does not apply to themes or version 1.0. Production configuration explicitly disables RevenueCat, Premium Support entry points, Cloud Backup entry points, direct paid/cloud routes, and cloud initialization. Themes remain visible and functional in every iOS build configuration.
 
 ## What exists, and what the review established
 
@@ -37,7 +38,8 @@ The future commercial decision in [Paid Access](features/paid-access.md) remains
 | Local tracker | Setup, IN/OUT, tray changes, treatment versioning, corrections, statistics and SQLite migrations/repository tests | Substantially implemented; retain and harden |
 | iOS presentation | SwiftUI screen implementations; dependency-aware UI purity guard | Guard passes; visual/accessibility testing still required |
 | Notifications | Settings, native coordinator, shared Swift/TypeScript policy fixtures | Implemented; automated parity result and physical delivery need verification |
-| Paid access | RevenueCat iOS adapter, access lifecycle tests, paywall, themes and Premium Support | Integration exists for future work; excluded from production 1.0 |
+| Themes | Six local color palettes with persisted selection | Free and included in production 1.0 |
+| Paid access | RevenueCat iOS adapter, access lifecycle tests, paywall and Premium Support | Integration exists for future work; excluded from production 1.0 |
 | Cloud | Apple sign-in, manual snapshots, empty-install restore | Partial future implementation; excluded from production 1.0 |
 | Siri / Watch | Local Swift module, App Intents, XCTest source, Watch target and connectivity code | Real implementations, not just roadmap ideas; native build/device evidence still needed |
 | Release configuration | Bundle ID, EAS project, production profile, remote build numbering and processed TestFlight candidate | Internal TestFlight installation verified on a physical iPhone; public release status and final device evidence remain |
@@ -104,6 +106,7 @@ Use the production candidate through TestFlight, with an older/smaller supported
 | Overdue reminder horizon | Verify the documented 14-notification batch and replenishment on resume; do not imply unlimited delivery without reopening |
 | Reset confirmation/cancel, restart after reset | Predictable destruction only after confirmation; correct empty-install state |
 | Largest text, VoiceOver, light/dark, keyboard | Core action remains reachable; state is understandable without color alone; forms keep focused fields visible |
+| Themes in paid-disabled production, including offline and restart | All six palettes remain selectable and the saved palette remains effective without billing access |
 | Statistics, graphs and Share Progress | Known fixture totals agree; sharing preview/output and cancellation work on-device |
 
 Record real-device baselines in [performance.md](performance.md), including device, OS, candidate, commit, dataset and date. Use fresh and approximately one-year histories. Existing targets: startup <1.5 s, resume <500 ms, IN/OUT <100 ms, tray change <150 ms, statistics <250 ms. Capture median/p95 and app/bundle size; investigate misses or explicitly accept a revised budget. Desktop Jest timings are not device performance evidence.
@@ -114,7 +117,7 @@ Done when: the candidate survives several days of normal wear tracking, all appl
 
 ### Paid features — deferred from 1.0
 
-Production 1.0 must use `EXPO_PUBLIC_PAID_ACCESS_MODE=disabled`, hide Themes and Premium Support entry points, and redirect direct paid-feature routes. RevenueCat configuration and purchase verification are not release requirements for 1.0.
+Production 1.0 must use `EXPO_PUBLIC_PAID_ACCESS_MODE=disabled`, hide Premium Support and premium purchase entry points, and redirect direct paid-feature routes. Themes remain available and must not consult this setting. RevenueCat configuration and purchase verification are not release requirements for 1.0.
 
 Before paid features ship in a future release:
 
@@ -122,7 +125,7 @@ Before paid features ship in a future release:
 - Complete Apple agreements/tax/banking and product configuration. Put monthly/annual in one subscription group at the same service level; use a non-consumable for lifetime, per the existing purchase specification.
 - Test purchase/restore for each product, reinstall, renewal/expiry, cancellation, pending/failed payment, offline cached access, refunds/revocations, lifetime plus expired subscription, and subscription management after lifetime purchase. Record actual Apple sandbox/TestFlight evidence separately from simulations.
 - Verify localized full prices, billing periods, renewal disclosures, Terms, Privacy, Restore Purchases and Manage Subscription. No cloud account should be necessary. Billing failure must not block core tracking.
-- Verify Premium Support is actually deliverable and paid access unlocks the promised current benefits. Subscription review requires ongoing value; explain the current service rather than relying on future feature promises. Static themes alone may be a weak subscription justification; this is a review risk, not a finding that Apple has rejected the product. [Apple subscription guidance, 3.1.2](https://developer.apple.com/app-store/review/guidelines/)
+- Verify Premium Support is actually deliverable and paid access unlocks every promised current benefit. Subscription review requires ongoing value; explain the current service rather than relying on unspecified future feature promises. Themes are free and must not be presented as subscription value. [Apple subscription guidance, 3.1.2](https://developer.apple.com/app-store/review/guidelines/)
 - Follow the existing release work tracked in the spec as #40–#43; their live issue status was not checked here.
 
 Do not silently change prices or established future purchase rights when paid access is resumed.
@@ -166,7 +169,7 @@ If included, verify Watch signing/provisioning, artwork and applicable store ass
 | First substantive update | Cloud account deletion + verified manual backup/restore, if deferred | Valuable data protection, but core utility is already local; release the complete account lifecycle together |
 | Following cloud increment | Automatic foreground backup, tiered retention and trusted orphan cleanup | Follow the existing phased spec; preserve restore discovery before automatic uploads |
 | Independent update | Verified Watch companion; Siri if deferred | Additional entry points create native/device test obligations but are not required for phone tracking |
-| Later | Seasonal/animated themes, expanded graphs/sharing, optional consumable tips | Existing utility and color themes are enough; production tips are currently disabled |
+| Later | Free Seasonal/Animated themes, expanded graphs/sharing, optional consumable tips | Existing utility and free color themes are enough; production tips are currently disabled |
 | Explicit future project | Multi-device sync, Android/web release | Separate architecture/product decisions and platform QA; do not fold into 1.0 |
 
 Avoid delaying release for analytics, engagement mechanics, new chart libraries, broad refactors or speculative performance infrastructure. Optimize measured problems. Existing implemented statistics/history/sharing need verification, not replacement.

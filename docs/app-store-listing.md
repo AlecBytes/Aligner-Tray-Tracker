@@ -2,7 +2,7 @@
 
 Status: 1.0 Prepare for Submission
 Target: iPhone, iOS 16.4+
-Last updated: September 12, 2026
+Last updated: September 14, 2026
 
 This document is the working source for the version 1.0 App Store listing. Keep
 all copy and screenshots aligned with the production binary. Version 1.0 is a
@@ -44,6 +44,7 @@ Features include:
 - Statistics and graphs for reviewing progress
 - Configurable local reminders to put trays back in and change trays
 - Share Progress for sharing selected treatment information
+- Six free color themes stored locally on your iPhone
 - Help and Getting Started guidance
 
 Your core treatment records are stored locally on your iPhone. Aligner Tracker does not diagnose conditions, prescribe treatment, or replace advice from your orthodontist or other clinician.
@@ -81,7 +82,7 @@ Recommended sequence:
 3. **History and corrections:** recorded IN / OUT times and editing controls.
 4. **Statistics:** a useful graph or summary with a realistic sample history.
 5. **Reminders:** notification settings for putting trays back in and changing trays.
-6. **Share Progress or Help:** the sharing preview, or the Help / Getting Started screen.
+6. **Themes, Share Progress, or Help:** the free color picker, sharing preview, or Help / Getting Started screen.
 
 Use the first three frames to explain the core value even if a viewer never
 swipes further. Avoid screenshots of empty states, permission prompts, debug

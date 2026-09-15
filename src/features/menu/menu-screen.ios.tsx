@@ -54,13 +54,11 @@ export function MenuScreen() {
     <Host seedColor={theme.primary} style={{ flex: 1 }}>
       <Form>
         <Section>
-          {releaseFeatures.paidAccess ? (
-            <NavigationRow
-              label="Themes"
-              onPress={() => router.push('/themes' as never)}
-              systemImage="paintpalette"
-            />
-          ) : null}
+          <NavigationRow
+            label="Themes"
+            onPress={() => router.push('/themes' as never)}
+            systemImage="paintpalette"
+          />
           {releaseFeatures.cloudBackup ? (
             <NavigationRow
               label="Cloud Backup"
