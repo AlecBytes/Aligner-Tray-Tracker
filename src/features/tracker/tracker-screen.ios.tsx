@@ -1,9 +1,8 @@
-import { Button, Host, HStack, Image, Spacer, Text, VStack } from '@expo/ui/swift-ui';
+import { Button, Host, HStack, Image, RNHostView, Spacer, Text, VStack } from '@expo/ui/swift-ui';
 import {
   accessibilityHidden,
   accessibilityHint,
   accessibilityLabel,
-  accessibilityValue,
   aspectRatio,
   background,
   buttonStyle,
@@ -16,14 +15,13 @@ import {
   lineLimit,
   minimumScaleFactor,
   monospacedDigit,
-  opacity,
   padding,
   resizable,
   shapes,
 } from '@expo/ui/swift-ui/modifiers';
 import { useAssets } from 'expo-asset';
 import { useRouter } from 'expo-router';
-import { trackerStatusControlStyle } from '../../../modules/tracker-status-control';
+import { ExperimentalTrayButton } from './experimental-tray-button.ios';
 import { AppLoadingScreen } from '@/components/app-loading-screen';
 import { ActionButton, CenteredState, isLiquidGlassPlatform, ValidationMessage } from '@/components/expo-ui-components';
 import { createTrackerReadModel, formatDuration, getLatestWearPunch } from '@/features/tracker/tracker-calculations';
@@ -34,8 +32,6 @@ import { useAppTheme } from '@/theme/use-app-theme';
 const trayInImageModule = require('../../../assets/images/tray-in.png');
 const trayOutImageModule = require('../../../assets/images/tray-out.png');
 const teethImageModule = require('../../../assets/images/teeth.png');
-const trayInImageAspectRatio = 1448 / 1086;
-const trayOutImageAspectRatio = 1188 / 681;
 const teethImageAspectRatio = 1;
 
 function TimeMetric({
@@ -129,7 +125,6 @@ export function TrackerScreen() {
   const latestPunch = getLatestWearPunch(currentSnapshot.punches);
   const isIn = tracker.currentStatus === 'IN';
   const trayImage = trackerAssets?.[isIn ? 0 : 1];
-  const trayImageAspectRatio = isIn ? trayInImageAspectRatio : trayOutImageAspectRatio;
   const currentOutDuration = formatDuration(tracker.currentOutSeconds);
   const daysRemainingLabel = `${tracker.daysRemaining} ${
     Math.abs(tracker.daysRemaining) === 1 ? 'day' : 'days'
@@ -263,63 +258,18 @@ export function TrackerScreen() {
           />
         </HStack>
 
-        <Button
-          modifiers={[
-            trackerStatusControlStyle({
-              faceColor: isIn ? theme.primary : theme.surface,
-              baseColor: isIn ? theme.primaryPressed : theme.border,
-              foregroundColor: isIn ? theme.onPrimary : theme.text,
-            }),
-            disabled(actionsDisabled),
-            frame({ maxWidth: Infinity, maxHeight: Infinity, minHeight: 124 }),
-            accessibilityLabel('Aligner trays'),
-            accessibilityValue(`${tracker.currentStatus}${isMutating ? ', saving' : ''}`),
-            accessibilityHint(
-              isMutating
-                ? 'Saving the tracker change.'
-                : `Tap when trays are ${isIn ? 'removed' : 'inserted'}.`,
-            ),
-          ]}
-          onPress={() => void toggleTracker(beginTrackerStatusFeedback())}>
-          <VStack
-            spacing={8}
-            modifiers={[frame({ maxWidth: Infinity, maxHeight: Infinity, minHeight: 112 })]}>
-            <Spacer />
-            {trayImage?.localUri ? (
-              <Image
-                uiImage={trayImage.localUri}
-                modifiers={[
-                  resizable(),
-                  aspectRatio({ ratio: trayImageAspectRatio, contentMode: 'fit' }),
-                  frame({ width: 260, height: 195 }),
-                  accessibilityHidden(),
-                ]}
-              />
-            ) : null}
-            <Text
-              modifiers={[
-                font({ textStyle: 'title2', weight: 'bold' }),
-                minimumScaleFactor(0.75),
-                lineLimit(1),
-              ]}>
-              {`TRAYS ARE ${tracker.currentStatus}`}
-            </Text>
-            <Text
-              modifiers={[
-                font({ textStyle: 'title', weight: 'bold' }),
-                monospacedDigit(),
-                contentTransition('numericText'),
-                minimumScaleFactor(0.75),
-                lineLimit(1),
-                opacity(isIn ? 0 : 1),
-                accessibilityHidden(isIn),
-              ]}>
-              {currentOutDuration}
-            </Text>
-            <Text>{isMutating ? 'Saving…' : isIn ? 'Tap when removed' : 'Tap when inserted'}</Text>
-            <Spacer />
-          </VStack>
-        </Button>
+        <VStack modifiers={[frame({ maxWidth: Infinity, maxHeight: Infinity, minHeight: 124 })]}>
+          <RNHostView>
+            <ExperimentalTrayButton
+              status={tracker.currentStatus}
+              saving={isMutating}
+              disabled={actionsDisabled}
+              imageUri={trayImage?.localUri ?? undefined}
+              outDuration={currentOutDuration}
+              onPress={() => void toggleTracker(beginTrackerStatusFeedback())}
+            />
+          </RNHostView>
+        </VStack>
 
         <HStack spacing={10}>
           <TimeMetric

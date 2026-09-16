@@ -1,4 +1,5 @@
 import React from 'react';
+import { Image as NativeImage, Text as NativeText, View as NativeView } from 'react-native';
 import { TrackerScreen } from './tracker-screen.ios';
 import { clearTrackerSessionHistory } from './tracker-history-session';
 import type { TrackerSnapshot } from './tracker-model';
@@ -84,11 +85,8 @@ jest.mock('expo-haptics', () => ({
   impactAsync: (...args: unknown[]) => mockImpact(...args),
   notificationAsync: (...args: unknown[]) => mockNotification(...args),
 }));
-jest.mock('../../../modules/tracker-status-control', () => ({
-  trackerStatusControlStyle: (value: unknown) => ({ trackerStatusControlStyle: value }),
-}));
 jest.mock('@expo/ui/swift-ui', () => ({
-  Button: 'Button', Host: 'Host', HStack: 'HStack', Image: 'Image', Spacer: 'Spacer', Text: 'Text', VStack: 'VStack',
+  RNHostView: 'RNHostView', Button: 'Button', Host: 'Host', HStack: 'HStack', Image: 'Image', Spacer: 'Spacer', Text: 'Text', VStack: 'VStack',
 }));
 jest.mock('@expo/ui/swift-ui/modifiers', () => ({
   ...Object.fromEntries([
@@ -140,11 +138,11 @@ jest.mock('./tracker-repository', () => ({
   redoWearStatus: (...args: unknown[]) => mockRedo(...args),
 }));
 
-type TestNode = { props: { label?: string; onPress?: () => void; message?: string; children?: unknown; modifiers?: Record<string, unknown>[]; uiImage?: string } };
+type TestNode = { props: { label?: string; onPress?: () => void; onPressIn?: (event: unknown) => void; onPressOut?: (event: unknown) => void; message?: string; children?: unknown; modifiers?: Record<string, unknown>[]; uiImage?: string; source?: { uri: string }; style?: { opacity?: number }; disabled?: boolean; accessibilityValue?: { text: string }; testID?: string; onLayout?: (event: unknown) => void } };
 const renderer = jest.requireActual('react-test-renderer') as {
   act: (callback: () => void | Promise<void>) => Promise<void>;
   create: (element: React.ReactElement) => {
-    root: { findAllByType: (type: string) => TestNode[] };
+    root: { findAll: (predicate: (node: TestNode) => boolean) => TestNode[]; findAllByType: (type: unknown) => TestNode[] };
     unmount: () => void;
   };
 };
@@ -156,12 +154,13 @@ function deferred<T>() {
   const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; });
   return { promise, resolve, reject };
 }
-const text = () => tree.root.findAllByType('Text').map(node => node.props.children).join(' ');
+const text = () => [...tree.root.findAllByType('Text'), ...tree.root.findAllByType(NativeText)].map(node => node.props.children).join(' ');
 const error = () => tree.root.findAllByType('ValidationMessage')[0]?.props.message;
 function button(label: string) {
-  return tree.root.findAllByType('Button').find(node => label === 'toggle'
-    ? node.props.modifiers?.some(modifier => modifier.accessibilityLabel === 'Aligner trays')
-    : node.props.label === label)!;
+  if (label === 'toggle') {
+    return tree.root.findAll(node => node.props.testID === 'experimental-tray-button' && typeof node.props.onPress === 'function')[0]!;
+  }
+  return tree.root.findAllByType('Button').find(node => node.props.label === label)!;
 }
 function accessibleButton(label: string) {
   return tree.root.findAllByType('Button').find(node =>
@@ -250,38 +249,16 @@ it('skips unavailable initial audio setup and retries until it succeeds', async 
 
 it('shows the decorative tray image for the current tracker state', async () => {
   await mount();
-  const trayImage = () => tree.root.findAllByType('Image').find(
-    node => node.props.uiImage?.startsWith('file:///tray-'),
-  )!;
-  const duration = () => tree.root.findAllByType('Text').find(
-    node => node.props.modifiers?.some(modifier => modifier.opacity !== undefined),
-  )!;
-  let image = trayImage();
-  expect(image.props.uiImage).toBe('file:///tray-out.png');
-  expect(image.props.modifiers).toContainEqual({
-    aspectRatio: { ratio: 1188 / 681, contentMode: 'fit' },
+  await act(async () => {
+    tree.root.findAllByType(NativeView).find(node => node.props.onLayout)!.props.onLayout!({ nativeEvent: { layout: { height: 380 } } });
   });
-  expect(image.props.modifiers).toContainEqual({ frame: { width: 260, height: 195 } });
-  expect(image.props.modifiers).toContainEqual({ accessibilityHidden: undefined });
-  expect(duration().props.modifiers).toContainEqual({ opacity: 1 });
-  expect(duration().props.modifiers).toContainEqual({ accessibilityHidden: false });
-
+  const trayImage = () => tree.root.findAllByType(NativeImage).find(node => node.props.source?.uri?.startsWith('file:///tray-'))!;
+  const duration = () => tree.root.findAllByType(NativeText).find(node => node.props.style?.opacity !== undefined)!;
+  expect(trayImage().props.source?.uri).toBe('file:///tray-out.png');
+  expect(duration().props.style?.opacity).toBe(1);
   await press('toggle');
-  image = trayImage();
-  expect(image.props.uiImage).toBe('file:///tray-in.png');
-  expect(image.props.modifiers).toContainEqual({
-    aspectRatio: { ratio: 1448 / 1086, contentMode: 'fit' },
-  });
-  expect(image.props.modifiers).toContainEqual({ frame: { width: 260, height: 195 } });
-  expect(duration().props.modifiers).toContainEqual({ opacity: 0 });
-  expect(duration().props.modifiers).toContainEqual({ accessibilityHidden: true });
-  expect(button('toggle').props.modifiers).toContainEqual({
-    trackerStatusControlStyle: {
-      baseColor: expect.any(String),
-      faceColor: expect.any(String),
-      foregroundColor: expect.any(String),
-    },
-  });
+  expect(trayImage().props.source?.uri).toBe('file:///tray-in.png');
+  expect(duration().props.style?.opacity).toBe(0);
 });
 
 it('keeps confirmed state while committing, then renders the commit before notifications finish', async () => {
@@ -302,7 +279,7 @@ it('keeps confirmed state while committing, then renders the commit before notif
   act(() => button('toggle').props.onPress!());
   expect(text()).toContain('TRAYS ARE OUT');
   expect(text()).toContain('Saving…');
-  expect(button('toggle').props.modifiers).toContainEqual({ accessibilityValue: 'OUT, saving' });
+  expect(button('toggle').props.accessibilityValue).toEqual({ text: 'OUT, saving' });
 
   mockPersisted = { ...mockPersisted!, punches: [predecessor, punch] };
   await act(async () => commit.resolve({
@@ -314,7 +291,7 @@ it('keeps confirmed state while committing, then renders the commit before notif
   }));
   expect(text()).toContain('TRAYS ARE IN');
   expect(text()).not.toContain('Saving…');
-  expect(button('toggle').props.modifiers).toContainEqual({ disabled: false });
+  expect(button('toggle').props.disabled).toBe(false);
   expect(error()).toBeUndefined();
 
   await act(async () => notifications.resolve(true));
@@ -793,8 +770,22 @@ it.each([true, false])('offers Retry when readback fails (save succeeded: %s)', 
   await press('toggle');
   expect(error()).toContain('displayed state may be outdated');
   expect(error()).toContain(saved ? 'Tracker saved' : 'could not be updated');
-  expect(button('toggle').props.modifiers).toContainEqual({ disabled: true });
+  expect(button('toggle').props.disabled).toBe(true);
   await press('Retry');
-  expect(button('toggle').props.modifiers).toContainEqual({ disabled: false });
+  expect(button('toggle').props.disabled).toBe(false);
   expect(error() ?? '').not.toContain('outdated');
+});
+
+
+it('does not record a cancelled gesture or wait for the release animation', async () => {
+  await mount();
+  const event = { nativeEvent: {} };
+  await act(async () => {
+    button('toggle').props.onPressIn!(event);
+    button('toggle').props.onPressOut!(event);
+  });
+  expect(mockEnsure).not.toHaveBeenCalled();
+  expect(mockImpact).not.toHaveBeenCalled();
+  await press('toggle');
+  expect(mockEnsure).toHaveBeenCalledTimes(1);
 });
