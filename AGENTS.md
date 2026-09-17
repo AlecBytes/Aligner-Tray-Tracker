@@ -79,3 +79,13 @@ Do not implement future roadmap features unless explicitly requested.
 - The Expo UI `Host` and its outer sizing style are the approved SwiftUI bridge. Expo Router/native navigation and status-bar infrastructure are also allowed.
 - React Native runtime imports on iOS are limited to approved non-visual platform APIs such as `Linking`, `AppState`, `Platform`, and `useColorScheme`. Add another API to the validation allowlist only when it is verified to be non-visual.
 - Keep `npm run check:ios-ui-purity` in the project validation suite. The guard must resolve shared runtime dependencies, not only inspect `.ios.tsx` files directly.
+
+## Experimental tray button branch exception
+
+For `experiment/tray-button-3d`, the main tray IN/OUT control may host
+`react-native-really-awesome-button` through Expo UI `RNHostView`. Only
+`src/features/tracker/experimental-tray-button.ios.tsx` may use React Native
+`View`, `Text`, and `Image` for this control, plus the non-visual
+`AccessibilityInfo` API. All other iOS UI rules and graph validation remain in
+force. See `docs/experiments/tray-button-3d.md`. This exception is experimental,
+not approval to expand React Native UI elsewhere.
