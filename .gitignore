@@ -53,3 +53,6 @@ example
 
 # local editor workspace
 /docs/aligner-tray-tracker.code-workspace
+
+# local visual review artifacts
+/screenshot_tests/
