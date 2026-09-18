@@ -13,7 +13,8 @@
         "EXPO_PUBLIC_SUPPORT_MODE": "mock",
         "EXPO_PUBLIC_PAID_ACCESS_MODE": "test-store",
         "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY": "test_biVNuNEpgMcBaWxsUrKvilcdDvi"
-      }
+      },
+      "channel": "development"
     },
     "preview": {
       "distribution": "internal",
@@ -22,7 +23,8 @@
         "EXPO_PUBLIC_APP_VARIANT": "preview",
         "EXPO_PUBLIC_SUPPORT_MODE": "disabled",
         "EXPO_PUBLIC_PAID_ACCESS_MODE": "apple"
-      }
+      },
+      "channel": "preview"
     },
     "production": {
       "autoIncrement": true,
@@ -33,7 +35,8 @@
         "EXPO_PUBLIC_CLOUD_BACKUP_MODE": "disabled",
         "EXPO_PUBLIC_SUPPORT_MODE": "disabled",
         "EXPO_PUBLIC_PAID_ACCESS_MODE": "disabled"
-      }
+      },
+      "channel": "production"
     }
   },
   "submit": {

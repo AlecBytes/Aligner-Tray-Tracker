@@ -12,8 +12,10 @@
       "bundleIdentifier": "com.alecsbytes.alignertraytracker",
       "usesAppleSignIn": true,
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      }
+        "ITSAppUsesNonExemptEncryption": false,
+        "AlignerTrackerCompanionFeaturesEnabled": true
+      },
+      "deploymentTarget": "16.4"
     },
     "android": {
       "adaptiveIcon": {
@@ -23,7 +25,9 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "permissions": [
-        "android.permission.SCHEDULE_EXACT_ALARM"
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
       ],
       "predictiveBackGestureEnabled": false
     },
@@ -71,6 +75,12 @@
         "projectId": "6e2c069a-68b7-4612-91a9-3d29a3bbcc09"
       }
     },
-    "owner": "alecs-bytes"
+    "owner": "alecs-bytes",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/6e2c069a-68b7-4612-91a9-3d29a3bbcc09"
+    }
   }
 }
