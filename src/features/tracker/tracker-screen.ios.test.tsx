@@ -101,7 +101,7 @@ jest.mock('expo-asset', () => ({
     [
       { localUri: 'file:///tray-in.png' },
       { localUri: 'file:///tray-out.png' },
-      { localUri: 'file:///teeth.png' },
+      { localUri: 'file:///trays.png' },
     ],
     undefined,
   ],
@@ -318,10 +318,10 @@ it('persists the timestamp captured for the accepted toggle', async () => {
   expect(mockPersisted!.punches.at(-1)?.timestamp).toBe(acceptedTimestamp);
 });
 
-it('opens the treatment plan from the bundled teeth shortcut', async () => {
+it('opens the treatment plan from the bundled trays shortcut', async () => {
   await mount();
   const image = tree.root.findAllByType('Image').find(
-    node => node.props.uiImage === 'file:///teeth.png',
+    node => node.props.uiImage === 'file:///trays.png',
   )!;
   const treatmentPlanButton = accessibleButton('Open treatment plan');
 
