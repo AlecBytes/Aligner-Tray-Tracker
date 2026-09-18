@@ -1,32 +1,32 @@
 import { AppLoadingScreen } from '@/components/app-loading-screen';
-import { Button, Host, HStack, Image, RNHostView, Spacer, Text, VStack } from '@expo/ui/swift-ui';
-import {
-  accessibilityHidden,
-  accessibilityHint,
-  accessibilityLabel,
-  aspectRatio,
-  background,
-  buttonStyle,
-  contentTransition,
-  controlSize,
-  disabled,
-  font,
-  foregroundStyle,
-  frame,
-  lineLimit,
-  minimumScaleFactor,
-  monospacedDigit,
-  padding,
-  resizable,
-  shapes,
-} from '@expo/ui/swift-ui/modifiers';
-import { useAssets } from 'expo-asset';
-import { useRouter } from 'expo-router';
-import { ExperimentalTrayButton } from './experimental-tray-button.ios';
 import { ActionButton, CenteredState, isLiquidGlassPlatform, ValidationMessage } from '@/components/expo-ui-components';
 import { formatDuration } from '@/features/tracker/tracker-calculations';
 import { useTrackerStatusFeedback } from '@/features/tracker/use-tracker-status-feedback.ios';
 import { useAppTheme } from '@/theme/use-app-theme';
+import { Button, Host, HStack, Image, RNHostView, Spacer, Text, VStack } from '@expo/ui/swift-ui';
+import {
+    accessibilityHidden,
+    accessibilityHint,
+    accessibilityLabel,
+    aspectRatio,
+    background,
+    buttonStyle,
+    contentTransition,
+    controlSize,
+    disabled,
+    font,
+    foregroundStyle,
+    frame,
+    lineLimit,
+    minimumScaleFactor,
+    monospacedDigit,
+    padding,
+    resizable,
+    shapes,
+} from '@expo/ui/swift-ui/modifiers';
+import { useAssets } from 'expo-asset';
+import { useRouter } from 'expo-router';
+import { ExperimentalTrayButton } from './experimental-tray-button.ios';
 
 import type { TrackerPresentationProps } from './tracker-presentation-model';
 const trayInImageModule = require('../../../assets/images/tray-in.png');

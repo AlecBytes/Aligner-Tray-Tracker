@@ -1,8 +1,8 @@
 import React from 'react';
 import { Image as NativeImage, Text as NativeText, View as NativeView } from 'react-native';
-import { TrackerScreen } from './tracker-screen.ios';
 import { clearTrackerSessionHistory } from './tracker-history-session';
 import type { TrackerSnapshot } from './tracker-model';
+import { TrackerScreen } from './tracker-screen.ios';
 
 let mockFocusCallbacks: (() => () => void)[] = [];
 let mockFocusCleanups: (() => void)[] = [];
