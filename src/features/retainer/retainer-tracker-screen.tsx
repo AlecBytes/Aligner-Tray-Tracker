@@ -1,14 +1,27 @@
-import { Button, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
-import { retainerDuration, useRetainer } from './use-retainer';
+import { TrackerPresentation, TrackerUnavailable } from '@/features/tracker/tracker-presentation';
+import { createRetainerTrackerModel } from './retainer-tracker-model';
+import { useRetainer } from './use-retainer';
+
+/** Retainer data controller for the shared, platform-specific tracker presentation. */
 export function RetainerTrackerScreen() {
-  const { snapshot, now, error, busy, toggle } = useRetainer(); const router = useRouter();
-  const [latest, previous] = snapshot?.punches ?? [];
-  return <View style={{ flex: 1, justifyContent: 'space-evenly', padding: 24 }}>
-    <Button title="Menu" onPress={() => router.push('/menu')} /><Text>RETAINER MODE</Text>
-    <Button title={`Retainers are ${latest?.status ?? 'OUT'}`} disabled={busy || !latest} onPress={() => void toggle()} />
-    <Text>{latest?.status === 'IN' ? retainerDuration(now - latest.timestamp) : previous?.status === 'IN' ? `Last wear: ${retainerDuration(latest.timestamp - previous.timestamp)}` : 'No wear recorded'}</Text>
-    {error ? <Text>{error}</Text> : null}
-    <Button title="Edit In/Out Times" onPress={() => router.push('/edit-times')} />
-  </View>;
+  const { snapshot, history, now, error, busy, isLoading, needsRetry, reload, toggle, undo, redo } = useRetainer();
+  if (!snapshot) return <TrackerUnavailable loading={isLoading} error={error} retry={reload} />;
+  const latest = snapshot.punches[0];
+  return <TrackerPresentation
+    status={latest.status}
+    retainer={createRetainerTrackerModel(snapshot, now)}
+    latestPunch={latest}
+    canEdit={latest.origin !== 'lifecycle'}
+    canUndo={history.undoAction !== null}
+    canRedo={history.redoAction !== null}
+    isLoading={isLoading}
+    isMutating={busy}
+    actionsDisabled={busy || needsRetry}
+    error={error}
+    needsRetry={needsRetry}
+    refreshTracker={reload}
+    toggleTracker={toggle}
+    undoTracker={undo}
+    redoTracker={redo}
+  />;
 }

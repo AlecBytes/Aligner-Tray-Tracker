@@ -1,9 +1,12 @@
+import { useEffect } from 'react';
+import { clearRetainerHistory } from '@/features/retainer/retainer-history-session';
 import { TrackerScreen } from '@/features/tracker/tracker-screen';
 import { RetainerTrackerScreen } from '@/features/retainer/retainer-tracker-screen';
 import { useTrackingMode } from '@/features/retainer/use-tracking-mode';
 import { AppLoadingScreen } from '@/components/app-loading-screen';
 export default function TrackerRoute() {
   const { mode, error } = useTrackingMode();
+  useEffect(() => { if (mode && mode.kind !== 'retainer') clearRetainerHistory(); }, [mode]);
   if (!mode || error) return <AppLoadingScreen message={error ?? 'Checking local data…'} />;
   return mode.kind === 'retainer' ? <RetainerTrackerScreen /> : <TrackerScreen />;
 }

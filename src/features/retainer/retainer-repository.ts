@@ -12,7 +12,9 @@ export type RetainerSettings = {
 export type RetainerPunch = { id: number; retainer_period_id: number; status: WearStatus; timestamp: number; origin: 'manual' | 'automatic' | 'lifecycle' | 'correction'; auto_out_suppressed: number };
 export type RetainerPeriod = { id: number; treatment_id: number; started_at: number; ended_at: number | null };
 const listeners = new Set<() => void>();
-export function notifyTrackingChanged() { listeners.forEach((listener) => listener()); }
+export function notifyTrackingChanged() {
+  listeners.forEach((listener) => { try { listener(); } catch { /* Observers cannot roll back committed state. */ } });
+}
 export function subscribeTracking(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; }
 
 export async function getTrackingMode(db: Reader): Promise<TrackingMode> {
@@ -101,18 +103,57 @@ export async function disableRetainerMode(db: SQLiteDatabase, now = Date.now()) 
   });
   notifyTrackingChanged();
 }
-export async function toggleRetainers(db: SQLiteDatabase, expectedId: number, now = Date.now()) {
-  await withUserMutationTransaction(db, async (tx) => {
+export async function toggleRetainers(db: SQLiteDatabase, expected: number | RetainerPunch, now = Date.now()) {
+  const expectedId = typeof expected === 'number' ? expected : expected.id;
+  const result = await withUserMutationTransaction(db, async (tx) => {
     const before = await getRetainerSnapshot(tx);
-    if (!before || before.punches[0]?.id !== expectedId) throw new Error('Retainer state changed. Please try again.');
+    if (!before || before.punches[0]?.id !== expectedId || (typeof expected !== 'number' && !retainerPunchMatches(before.punches[0], expected))) throw new Error('Retainer state changed. Please try again.');
     await reconcileInTransaction(tx, now);
     const snapshot = await getRetainerSnapshot(tx);
     if (!snapshot) throw new Error('Retainer Mode is not active.');
     const latest = snapshot.punches[0];
     // A due assumed OUT satisfies a tap to remove, rather than toggling back IN.
-    if (latest.id !== expectedId) return;
+    if (latest.id !== expectedId) return { snapshot, action: null };
     if (now <= latest.timestamp) throw new Error('Please try again after the last recorded time.');
-    await tx.runAsync("INSERT INTO retainer_wear_punches(retainer_period_id,status,timestamp) VALUES (?,?,?)", snapshot.period.id, latest.status === 'IN' ? 'OUT' : 'IN', now);
+    const inserted = await tx.runAsync("INSERT INTO retainer_wear_punches(retainer_period_id,status,timestamp) VALUES (?,?,?)", snapshot.period.id, latest.status === 'IN' ? 'OUT' : 'IN', now);
+    const punch: RetainerPunch = { id: inserted.lastInsertRowId, retainer_period_id: snapshot.period.id, status: latest.status === 'IN' ? 'OUT' : 'IN', timestamp: now, origin: 'manual', auto_out_suppressed: 0 };
+    return { snapshot: { ...snapshot, punches: [punch, ...snapshot.punches].slice(0, 3) }, action: { periodId: snapshot.period.id, punch, predecessor: latest } };
   });
   notifyTrackingChanged();
+  return result;
+}
+
+export type RetainerToggleAction = { periodId: number; punch: RetainerPunch; predecessor: RetainerPunch };
+export function retainerPunchMatches(actual: RetainerPunch | undefined, expected: RetainerPunch) {
+  return actual !== undefined && actual.id === expected.id && actual.retainer_period_id === expected.retainer_period_id
+    && actual.timestamp === expected.timestamp && actual.status === expected.status
+    && actual.origin === expected.origin && actual.auto_out_suppressed === expected.auto_out_suppressed;
+}
+export function undonePredecessor(action: RetainerToggleAction): RetainerPunch {
+  return action.punch.status === 'OUT' ? { ...action.predecessor, auto_out_suppressed: 1 } : action.predecessor;
+}
+export async function undoRetainerToggle(db: SQLiteDatabase, action: RetainerToggleAction) {
+  const snapshot = await withUserMutationTransaction(db, async (tx) => {
+    const current = await getRetainerSnapshot(tx);
+    if (!current || current.period.id !== action.periodId || action.punch.origin !== 'manual'
+      || !retainerPunchMatches(current.punches[0], action.punch)
+      || !retainerPunchMatches(current.punches[1], action.predecessor)) throw new Error('Retainer history changed. Please try again.');
+    await tx.runAsync('DELETE FROM retainer_wear_punches WHERE id=? AND retainer_period_id=?', action.punch.id, action.periodId);
+    if (action.punch.status === 'OUT') await tx.runAsync('UPDATE retainer_wear_punches SET auto_out_suppressed=1 WHERE id=?', action.predecessor.id);
+    return (await getRetainerSnapshot(tx))!;
+  });
+  notifyTrackingChanged();
+  return snapshot;
+}
+export async function redoRetainerToggle(db: SQLiteDatabase, action: RetainerToggleAction) {
+  const result = await withUserMutationTransaction(db, async (tx) => {
+    const current = await getRetainerSnapshot(tx);
+    if (!current || current.period.id !== action.periodId || action.punch.origin !== 'manual'
+      || !retainerPunchMatches(current.punches[0], undonePredecessor(action))) throw new Error('Retainer history changed. Please try again.');
+    await tx.runAsync('UPDATE retainer_wear_punches SET auto_out_suppressed=? WHERE id=?', action.predecessor.auto_out_suppressed, action.predecessor.id);
+    const inserted = await tx.runAsync("INSERT INTO retainer_wear_punches(retainer_period_id,status,timestamp,origin,auto_out_suppressed) VALUES (?,?,?,'manual',?)", action.periodId, action.punch.status, action.punch.timestamp, action.punch.auto_out_suppressed);
+    return { snapshot: (await getRetainerSnapshot(tx))!, action: { ...action, punch: { ...action.punch, id: inserted.lastInsertRowId } } };
+  });
+  notifyTrackingChanged();
+  return result;
 }

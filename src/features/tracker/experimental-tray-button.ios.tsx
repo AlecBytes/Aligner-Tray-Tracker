@@ -10,11 +10,13 @@ type Props = {
   disabled: boolean;
   imageUri?: string;
   outDuration: string;
+  subject?: 'Trays' | 'Retainers';
+  showDuration?: boolean;
   onPress: () => void;
 };
 
 /** Branch-only React Native island inside the tracker's SwiftUI RNHostView. */
-export function ExperimentalTrayButton({ status, saving, disabled, imageUri, outDuration, onPress }: Props) {
+export function ExperimentalTrayButton({ status, saving, disabled, imageUri, outDuration, subject = 'Trays', showDuration = status === 'OUT', onPress }: Props) {
   const theme = useAppTheme();
   const [height, setHeight] = useState(124);
   const [reduceMotion, setReduceMotion] = useState(true);
@@ -37,7 +39,7 @@ export function ExperimentalTrayButton({ status, saving, disabled, imageUri, out
   const isIn = status === 'IN';
   const isDisabled = disabled || saving;
   const color = isIn ? theme.onPrimary : theme.text;
-  const hint = saving ? 'Saving the tracker change.' : `Tap when trays are ${isIn ? 'removed' : 'inserted'}.`;
+  const hint = saving ? 'Saving the tracker change.' : `Tap when ${subject.toLowerCase()} are ${isIn ? 'removed' : 'inserted'}.`;
   // Outer bevel (3 + 2) and recessed seat (1 + 3) stay inside the allocation.
   const rimInset = 9;
   const buttonHeight = Math.max(0, height - rimInset * 2);
@@ -92,7 +94,7 @@ export function ExperimentalTrayButton({ status, saving, disabled, imageUri, out
             onPress: () => { if (!isDisabled) onPress(); },
             accessible: true,
             accessibilityRole: 'button',
-            accessibilityLabel: 'Aligner trays',
+            accessibilityLabel: subject === 'Trays' ? 'Aligner trays' : 'Retainers',
             accessibilityValue: { text: `${status}${saving ? ', saving' : ''}` },
             accessibilityHint: hint,
             accessibilityState: { disabled: isDisabled, busy: saving },
@@ -104,9 +106,9 @@ export function ExperimentalTrayButton({ status, saving, disabled, imageUri, out
                 style={{ width: '100%', maxWidth: 260, height: imageHeight }} />
             ) : null}
             <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}
-              style={{ color, fontSize: 22, fontWeight: '700' }}>{`TRAYS ARE ${status}`}</Text>
+              style={{ color, fontSize: 22, fontWeight: '700' }}>{`${subject.toUpperCase()} ARE ${status}`}</Text>
             <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}
-              style={{ color, fontSize: 28, fontWeight: '700', fontVariant: ['tabular-nums'], opacity: isIn ? 0 : 1 }}>
+              style={{ color, fontSize: 28, fontWeight: '700', fontVariant: ['tabular-nums'], opacity: showDuration ? 1 : 0 }}>
               {outDuration}
             </Text>
             <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}
