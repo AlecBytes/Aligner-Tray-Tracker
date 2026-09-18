@@ -52,7 +52,7 @@ physical-iPhone workflows.
 
 | Profile | Installed name | Bundle identifier | Requires Metro |
 | --- | --- | --- | --- |
-| Development | Aligner Tracker (Dev) | `com.alecsbytes.alignertraytracker.dev` | Yes |
+| Development | Aligner Tracker (Dev) | `com.alecsbytes.alignertraytracker.dev` | For local development; no for published updates |
 | Preview | Aligner Tracker | `com.alecsbytes.alignertraytracker` | No |
 
 The builds can remain installed on the same device. iOS treats them as separate
@@ -116,6 +116,93 @@ computer:
 
 4. Open the EAS install link on the registered iPhone and install the build.
 5. Launch **Aligner Tracker** normally.
+
+## Publish JavaScript and asset changes with EAS Update
+
+This npm/CNG project has `expo-updates` installed. The update URL and
+`runtimeVersion: { "policy": "appVersion" }` are configured in
+[`app.json`](../app.json); [`eas.json`](../eas.json) assigns the `development`,
+`preview`, and `production` channels to the corresponding build profiles.
+
+An installed build must already include EAS Update configuration and have a
+compatible native runtime. JavaScript, TypeScript, and asset changes can ship
+over the air. Native module, Swift, Watch target, entitlement, or native config
+changes require a new build. With the current `appVersion` policy, increment
+`expo.version` when native compatibility changes; incrementing only the iOS
+build number does not create a new update runtime.
+
+### Check the environment before publishing
+
+Run commands from the repository root in a second terminal. Metro can remain
+running; publishing creates its own bundle from the current working tree,
+including uncommitted changes.
+
+```sh
+eas whoami
+eas env:list preview
+```
+
+Run `eas login` if needed. SDK 57 requires `--environment` when publishing.
+EAS Update does not select a build profile or automatically apply its `env`
+block, and `--environment` skips local `.env` files. Before publishing, ensure
+the hosted EAS environment contains the matching values from
+`build.<profile>.env` in `eas.json`, plus the integration variables needed by
+that variant. Use the Expo dashboard's project environment settings to add or
+correct them. Hosted values have not been verified as part of this setup.
+
+For preview, the checked-in profile currently requires:
+
+```text
+APP_VARIANT=preview
+EXPO_PUBLIC_APP_VARIANT=preview
+EXPO_PUBLIC_SUPPORT_MODE=disabled
+EXPO_PUBLIC_PAID_ACCESS_MODE=apple
+```
+
+For development and production, check `eas env:list development` or
+`eas env:list production` against the respective profile. In particular,
+production 1.0 must preserve the disabled Cloud Backup, paid access, and support
+flags documented below.
+
+### Publish to the installed preview build
+
+Review the changes and validate them, then replace the example message with a
+description of the update:
+
+```sh
+git diff --stat
+npm run validate
+eas update --channel preview --message "Describe the preview changes" --environment preview --platform ios
+```
+
+The commands target iOS because it is the supported product platform. To publish
+a separate update for the development build, use its matching environment:
+
+```sh
+eas update --channel development --message "Describe the development changes" --environment development --platform ios
+```
+
+After verifying the changes and the production environment, publish a production
+update with:
+
+```sh
+eas update --channel production --message "Describe the production changes" --environment production --platform ios
+```
+
+### Test a published update
+
+- **Preview or production release build:** connect the device to the internet,
+  force close and reopen the app, allow the update to download, then force close
+  and reopen it a second time to apply it. Check the changed behavior.
+- **Development build:** return to the development launcher and load the
+  published update through its **Extensions** tab. Testing the Metro session
+  exercises local code, not the published update; Metro does not need to stop.
+- If the update is unavailable, check the build's channel, platform, and runtime
+  version against the published update. A build made before EAS Update was
+  configured needs to be rebuilt before it can receive updates.
+
+References: [EAS Update setup](https://docs.expo.dev/eas-update/getting-started/)
+and [EAS environment usage](https://docs.expo.dev/eas/environment-variables/usage/).
 
 ## Build and release to production
 
