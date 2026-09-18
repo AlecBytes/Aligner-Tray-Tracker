@@ -19,6 +19,7 @@ function invalidSnapshot(): never {
 export function validateRestorableBackupSnapshotV1(
   envelope: BackupSnapshotEnvelopeV1,
 ) {
+  if (envelope.schemaVersion === 2) return validateRestorableV2(envelope);
   const { payload } = envelope;
   if (payload.treatments.length !== 1) invalidSnapshot();
   if (
@@ -105,7 +106,7 @@ export async function validateDownloadedBackupSnapshot(
   ) {
     invalidSnapshot();
   }
-  if (!recoveryPoint.supported || recoveryPoint.schemaVersion !== BACKUP_SNAPSHOT_SCHEMA_VERSION) {
+  if (!recoveryPoint.supported || ![1, BACKUP_SNAPSHOT_SCHEMA_VERSION].includes(recoveryPoint.schemaVersion)) {
     throw new CloudRestoreOperationError('incompatible');
   }
 
@@ -136,4 +137,44 @@ export async function validateDownloadedBackupSnapshot(
   const contentHash = await computeBackupSnapshotContentHash(envelope);
   if (contentHash !== recoveryPoint.contentHash) invalidSnapshot();
   return validateRestorableBackupSnapshotV1(envelope);
+}
+
+function validateRestorableV2(envelope: BackupSnapshotEnvelopeV1) {
+  const p = envelope.payload; const data = p.retainerData;
+  if (!data || !p.treatments.length) invalidSnapshot();
+  const activeTreatments = p.treatments.filter((t) => t.completedAt === null);
+  const activeTrays = p.trayPeriods.filter((t) => t.endedAt === null);
+  const activeRetainers = data.periods.filter((t) => t.ended_at === null);
+  if (activeTreatments.length > 1 || activeTrays.length !== activeTreatments.length || activeRetainers.length > 1 || (activeRetainers.length && activeTreatments.length)) invalidSnapshot();
+  for (const treatment of p.treatments) {
+    const trays = p.trayPeriods.filter((t) => t.treatmentId === treatment.id).sort((a,b) => a.startedAt-b.startedAt || a.id-b.id);
+    const plans = p.treatmentPlanVersions.filter((t) => t.treatmentId === treatment.id);
+    if (!trays.length || !plans.length || (treatment.completedAt != null && treatment.completedAt < treatment.createdAt)) invalidSnapshot();
+    if (treatment.completedAt === null && trays.at(-1)?.endedAt !== null) invalidSnapshot();
+    for (let index = 0; index < trays.length; index++) {
+      const tray = trays[index]; const previous = trays[index-1];
+      if (tray.startedAt < treatment.createdAt || (previous && (previous.endedAt === null || previous.endedAt > tray.startedAt))) invalidSnapshot();
+      if (treatment.completedAt != null && (tray.endedAt === null || tray.endedAt > treatment.completedAt)) invalidSnapshot();
+      const punches = p.wearPunches.filter((w) => w.trayPeriodId === tray.id).sort((a,b) => a.timestamp-b.timestamp || a.id-b.id);
+      validateTimeline(punches, tray.startedAt, tray.endedAt);
+    }
+  }
+  for (const period of data.periods) {
+    const treatment = p.treatments.find((t) => t.id === period.treatment_id);
+    if (!treatment || treatment.completedAt == null || period.started_at < treatment.completedAt || (period.ended_at !== null && period.ended_at < period.started_at)) invalidSnapshot();
+    const punches = data.punches.filter((w) => w.retainer_period_id === period.id).sort((a,b) => a.timestamp-b.timestamp || a.id-b.id);
+    validateTimeline(punches, period.started_at, period.ended_at);
+    if (punches[0].status !== 'OUT' || punches[0].timestamp !== period.started_at || (period.ended_at !== null && punches.at(-1)?.status !== 'OUT')) invalidSnapshot();
+  }
+  if (data.punches.some((w) => !data.periods.some((t) => t.id === w.retainer_period_id))) invalidSnapshot();
+  const intervals = [...p.treatments.map((t) => ({ start: t.createdAt, end: t.completedAt ?? null })), ...data.periods.map((t) => ({ start: t.started_at, end: t.ended_at }))].sort((a,b) => a.start-b.start);
+  for (let i=1;i<intervals.length;i++) if (intervals[i-1].end === null || intervals[i-1].end! > intervals[i].start) invalidSnapshot();
+  return envelope;
+}
+function validateTimeline(punches: { status: string; timestamp: number }[], start: number, end: number | null) {
+  if (!punches.length) invalidSnapshot();
+  for (let i=0;i<punches.length;i++) {
+    const punch = punches[i]; const previous = punches[i-1];
+    if (punch.timestamp < start || (end !== null && punch.timestamp > end) || (previous && (previous.timestamp >= punch.timestamp || previous.status === punch.status))) invalidSnapshot();
+  }
 }

@@ -679,3 +679,52 @@ Retainer Mode should feel like the natural continuation of Aligner Tracker after
 The user should still have one obvious action: mark whether the appliance is IN or OUT.
 
 The mode should reduce the chance of forgetting nighttime retainers while requiring almost no daily maintenance.
+
+## Implemented V1 Decisions
+
+- SQLite schema 8 explicitly records treatment completion and stores retainer periods,
+  punches, and preferences separately. The active records determine the mode; there
+  is no independently persisted enabled flag.
+- Retainer periods begin with an immutable OUT anchor. The current retainer period
+  supports Edit In/Out Times, including missing intervals and confirmed deletions.
+  Corrections preserve chronology and suppress automatic OUT for the affected IN
+  session. A newly recorded tracker IN starts a new automatic-OUT opportunity.
+- Automatic settings apply prospectively from their saved effective timestamp.
+  Unchanged settings reconcile missed cutoffs on resume using the first qualifying
+  local cutoff, never the resume timestamp. Disabling automation changes no punches.
+- An automatic OUT retains the session's next morning reminder because physical
+  removal remains unconfirmed. Manual OUT cancels it. Reminder requests cover a
+  bounded 14-day horizon and are replenished by foreground reconciliation.
+- Completed-treatment plan history and statistics remain read-only and scoped to
+  the latest course. Statistics stop at its completion timestamp. Older courses
+  remain stored; selecting among them is deferred.
+- Siri and Watch do not track retainers in V1. They explain that retainer tracking
+  is available on the iPhone and clear obsolete tray state.
+- New backups use snapshot schema 2 and include completion, retention history,
+  settings, and correction/automation metadata. Schema 1 snapshots remain supported
+  with their original canonical bytes and checksums. Restore remains restricted to
+  empty installations, including when local history exists but setup is required.
+
+### Release Verification
+
+Run `npm run validate`. On macOS, build the updated native app and run the
+`AlignerTrackerIntents` pod's `Tests` XCTest test specification. A JavaScript update
+alone is insufficient because schema compatibility and Siri/Watch code changed.
+
+On a physical iPhone using test data:
+
+1. Cancel and confirm enabling Retainer Mode while aligners are IN. Verify the
+   completed treatment remains in history and the retainer tracker starts OUT.
+2. Track several IN/OUT sessions offline; reopen the app and correct an event.
+3. Set automatic OUT a few minutes ahead and the morning reminder later. Verify
+   both foreground and suspended/resumed cutoff behavior, the saved timestamp,
+   and delivery of the retained morning reminder.
+4. Delete the assumed OUT and reopen the app; verify it is not recreated. Record
+   a new IN and verify automation applies to the new session.
+5. Cancel and confirm disabling Retainer Mode. Abandon setup, restart, then create
+   a refinement course and verify it is separate from the completed treatment.
+6. Test denied notification permissions, Dynamic Type, VoiceOver, and small-screen
+   layout. In companion-enabled builds, test Siri/Watch while retention is active.
+7. With cloud backup enabled, restore schema 1 and schema 2 snapshots onto empty
+   test installations, including a retainer-mode snapshot and preserved history
+   with setup still required.

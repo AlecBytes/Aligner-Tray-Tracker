@@ -113,8 +113,8 @@ describe('notification policy parity fixtures', () => {
         fixture.nowMs,
         utcReminderCalendar,
       );
-      const kindCounts = reminders.reduce<Record<ReminderKind, number>>(
-        (counts, current) => ({ ...counts, [current.kind]: counts[current.kind] + 1 }),
+      const kindCounts = reminders.reduce<Partial<Record<ReminderKind, number>>>(
+        (counts, current) => ({ ...counts, [current.kind]: (counts[current.kind] ?? 0) + 1 }),
         { 'out-too-long': 0, 'tray-change': 0, 'tray-change-overdue': 0 },
       );
 

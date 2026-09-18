@@ -1,3 +1,4 @@
+import { useTimelineRepository, useTimelineScope } from '@/features/edit-times/timeline-context';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
@@ -12,7 +13,7 @@ import {
   parseLocalDateKey,
 } from '@/features/edit-times/edit-times-dates';
 import type { EditableWearPunch } from '@/features/edit-times/edit-times-model';
-import { getWearPunchesForDay } from '@/features/edit-times/edit-times-repository';
+
 import { radius, spacing } from '@/theme/tokens';
 import { useAppTheme } from '@/theme/use-app-theme';
 
@@ -26,8 +27,10 @@ function firstParameter(value: string | string[] | undefined) {
 }
 
 export function DailyPunchHistoryScreen() {
+  const { getWearPunchesForDay } = useTimelineRepository();
   const db = useSQLiteContext();
   const router = useRouter();
+  const scope = useTimelineScope();
   const theme = useAppTheme();
   const params = useLocalSearchParams<{ date?: string | string[] }>();
   const dateKey = firstParameter(params.date);
@@ -41,7 +44,7 @@ export function DailyPunchHistoryScreen() {
       throw new Error('Invalid date.');
     }
     return getWearPunchesForDay(db, dayStart, addLocalDays(dayStart, 1));
-  }, [dayStart, db]);
+  }, [dayStart, db, getWearPunchesForDay]);
 
   useFocusEffect(
     useCallback(() => {
@@ -108,7 +111,7 @@ export function DailyPunchHistoryScreen() {
               onPress={() =>
                 router.push({
                   pathname: '/edit-times/event',
-                  params: { id: String(punch.id) },
+                  params: { ...scope, id: String(punch.id) },
                 })
               }
               style={({ pressed }) => [
@@ -130,7 +133,7 @@ export function DailyPunchHistoryScreen() {
         <Pressable
           accessibilityRole="button"
           onPress={() =>
-            router.push({ pathname: '/edit-times/add', params: { date: dateKey } })
+            router.push({ pathname: '/edit-times/add', params: { ...scope, date: dateKey } })
           }
           style={({ pressed }) => [
             styles.addButton,

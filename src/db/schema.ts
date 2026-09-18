@@ -3,6 +3,7 @@ export type DatabaseId = number;
 export type WearStatus = 'IN' | 'OUT';
 
 export type Treatment = {
+  completedAt: number | null;
   createdAt: number;
   id: DatabaseId;
 };

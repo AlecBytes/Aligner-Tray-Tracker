@@ -23,6 +23,7 @@ export type StatisticsWearPunch = {
 };
 
 export type StatisticsSnapshot = {
+  completedAt?: number | null;
   planVersions: StatisticsPlanVersion[];
   punches: StatisticsWearPunch[];
   trayPeriods: StatisticsTrayPeriod[];

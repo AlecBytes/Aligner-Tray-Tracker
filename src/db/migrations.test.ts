@@ -12,6 +12,7 @@ function createDatabaseMock(
 ) {
   const execAsync = jest.fn(async () => undefined);
   const getFirstAsync = jest.fn(async (sql: string) => {
+    if (sql.includes('COUNT(*) AS count FROM treatments')) return { count: 1 };
     if (sql === 'PRAGMA user_version') {
       return { user_version: userVersion };
     }
@@ -34,8 +35,8 @@ describe('database migrations', () => {
 
     await migrateDatabase(db);
 
-    expect(DATABASE_VERSION).toBe(7);
-    expect(withTransactionAsync).toHaveBeenCalledTimes(6);
+    expect(DATABASE_VERSION).toBe(8);
+    expect(withTransactionAsync).toHaveBeenCalledTimes(7);
     expect(execAsync).toHaveBeenCalledWith(
       expect.stringContaining('ADD COLUMN out_reminder_enabled'),
     );
@@ -70,7 +71,7 @@ describe('database migrations', () => {
 
     await migrateDatabase(db);
 
-    expect(withTransactionAsync).toHaveBeenCalledTimes(5);
+    expect(withTransactionAsync).toHaveBeenCalledTimes(6);
     expect(execAsync).toHaveBeenCalledWith(
       expect.stringContaining('ADD COLUMN out_persistent_reminder_interval_minutes'),
     );
@@ -88,7 +89,7 @@ describe('database migrations', () => {
 
     await migrateDatabase(db);
 
-    expect(withTransactionAsync).toHaveBeenCalledTimes(4);
+    expect(withTransactionAsync).toHaveBeenCalledTimes(5);
     expect(execAsync).toHaveBeenCalledWith(expect.stringContaining('app_installation'));
     expect(execAsync).toHaveBeenCalledWith('PRAGMA user_version = 4');
     expect(execAsync).toHaveBeenCalledWith(
@@ -102,7 +103,7 @@ describe('database migrations', () => {
 
     await migrateDatabase(db);
 
-    expect(withTransactionAsync).toHaveBeenCalledTimes(3);
+    expect(withTransactionAsync).toHaveBeenCalledTimes(4);
     expect(execAsync).toHaveBeenCalledWith(
       expect.stringContaining('CREATE UNIQUE INDEX IF NOT EXISTS tray_periods_one_active_per_treatment_idx'),
     );
@@ -115,7 +116,7 @@ describe('database migrations', () => {
   it('adds theme and overdue preferences for version 5 databases', async () => {
     const { db, execAsync, withTransactionAsync } = createDatabaseMock(5);
     await migrateDatabase(db);
-    expect(withTransactionAsync).toHaveBeenCalledTimes(2);
+    expect(withTransactionAsync).toHaveBeenCalledTimes(3);
     expect(execAsync).toHaveBeenCalledWith(expect.stringContaining('selected_theme_key'));
     expect(execAsync).toHaveBeenCalledWith('PRAGMA user_version = 6');
   });

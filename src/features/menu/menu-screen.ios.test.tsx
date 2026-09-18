@@ -4,6 +4,7 @@ import { MenuScreen } from './menu-screen.ios';
 
 const mockPush = jest.fn();
 
+jest.mock('@/features/retainer/use-tracking-mode', () => ({ useTrackingMode: () => ({ mode: { kind: 'treatment', treatmentId: 1 } }) }));
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, replace: jest.fn() }),
 }));

@@ -8,6 +8,8 @@ import {
   validateBackupSnapshotEnvelope,
 } from '@/features/cloud-backup/backup-snapshot';
 
+const retainerDefaults = { bedtime_enabled: 1, bedtime_minutes: 1320, morning_enabled: 1, morning_minutes: 420, automatic_enabled: 0, automatic_minutes: 420, automatic_effective_at: 0 };
+
 jest.mock('expo-crypto', () => {
   const nodeCrypto = jest.requireActual('crypto');
   return {
@@ -164,16 +166,18 @@ function createSnapshotDatabase(fixture: SnapshotFixture, reverseResults = false
         reverseResults ? [...rows].reverse() : [...rows];
       const getAllAsync = jest.fn(async (sql: string) => {
         transactionQueries.push(sql);
+        if (sql.includes('FROM retainer_')) return [];
         if (sql.includes('FROM treatment_plan_versions')) {
           return order(snapshot.treatmentPlanVersions);
         }
         if (sql.includes('FROM tray_periods')) return order(snapshot.trayPeriods);
         if (sql.includes('FROM wear_punches')) return order(snapshot.wearPunches);
-        if (sql.includes('FROM treatments')) return order(snapshot.treatments);
+        if (sql.includes('FROM treatments')) return order(snapshot.treatments.map((t) => ({ ...t, completed_at: null })));
         throw new Error(`Unexpected snapshot query: ${sql}`);
       });
       const getFirstAsync = jest.fn(async (sql: string) => {
         transactionQueries.push(sql);
+        if (sql.includes('FROM retainer_settings')) return retainerDefaults;
         if (sql.includes('FROM settings')) {
           return snapshot.settings === null ? null : { ...snapshot.settings };
         }
@@ -219,15 +223,16 @@ describe('backup snapshot serialization', () => {
     expect(database.withExclusiveTransactionAsync).toHaveBeenCalledTimes(1);
     expect(database.parentGetAllAsync).not.toHaveBeenCalled();
     expect(database.parentGetFirstAsync).not.toHaveBeenCalled();
-    expect(database.transactionQueries).toHaveLength(5);
+    expect(database.transactionQueries).toHaveLength(8);
     expect(database.transactionQueries.every((sql) => !sql.includes('SELECT *'))).toBe(true);
     expect(database.transactionQueries.join('\n')).not.toContain('app_installation');
     expect(database.transactionQueries.join('\n')).not.toContain('notifications_enabled');
     expect(envelope).toEqual({
-      schemaVersion: 1,
+      schemaVersion: 2,
       sourceAppVersion: '1.0.0-β',
       payload: {
-        treatments: [{ id: 7, createdAt: 1_700_000_000_000 }],
+        retainerData: { periods: [], punches: [], settings: retainerDefaults },
+        treatments: [{ id: 7, createdAt: 1_700_000_000_000, completedAt: null }],
         treatmentPlanVersions: [
           {
             id: 11,
@@ -389,6 +394,7 @@ describe('backup snapshot serialization', () => {
     });
 
     expect(parseSnapshot(snapshot.json).payload).toEqual({
+      retainerData: { periods: [], punches: [], settings: retainerDefaults },
       treatments: [],
       treatmentPlanVersions: [],
       trayPeriods: [],
@@ -430,7 +436,7 @@ describe('backup snapshot validation', () => {
   it('accepts the current schema and rejects an unsupported schema version', () => {
     expect(validateBackupSnapshotEnvelope(validEnvelope)).toEqual(validEnvelope);
     expect(() =>
-      validateBackupSnapshotEnvelope({ ...validEnvelope, schemaVersion: 2 }),
+      validateBackupSnapshotEnvelope({ ...validEnvelope, schemaVersion: 3 }),
     ).toThrow(BackupSnapshotValidationError);
   });
 

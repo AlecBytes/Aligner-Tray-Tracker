@@ -2,6 +2,7 @@ import React from 'react';
 
 import MainLayout from '../app/(main)/_layout';
 
+jest.mock('@/features/retainer/use-tracking-mode', () => ({ useTrackingMode: () => ({ mode: { kind: 'treatment', treatmentId: 1 } }) }));
 jest.mock('expo-router', () => {
   const Stack = ({ children }: React.PropsWithChildren) => children;
   Stack.Screen = 'StackScreen';

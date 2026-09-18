@@ -12,11 +12,11 @@ struct WatchTrackerView: View {
             .font(.caption)
             .foregroundStyle(.secondary)
         }
-      } else if let snapshot = model.snapshot, snapshot.kind == .noTreatment {
+      } else if let snapshot = model.snapshot, (snapshot.kind == .noTreatment || snapshot.kind == .retainerMode) {
         VStack(spacing: 6) {
           Image(systemName: "iphone")
             .font(.title2)
-          Text("Set up treatment")
+          Text(snapshot.kind == .retainerMode ? "Track retainers" : "Set up treatment")
             .font(.headline)
           Text("on your iPhone")
             .font(.caption)

@@ -22,6 +22,7 @@ enum AlignerWearMutation: Sendable {
   case changed(AlignerWearChange)
   case already(AlignerWearStatus)
   case noActiveTreatment
+  case retainerMode
 }
 
 enum AlignerTrackerStoreError: Error {
@@ -150,7 +151,22 @@ private final class AlignerSQLiteConnection {
 
 enum AlignerTrackerStore {
   private static let minimumSupportedDatabaseVersion = 4
-  private static let maximumSupportedDatabaseVersion = 7
+  private static let maximumSupportedDatabaseVersion = 8
+
+  private static func hasActiveRetainer(_ connection: AlignerSQLiteConnection) throws -> Bool {
+    let version = try connection.prepare("PRAGMA user_version")
+    defer { exsqlite3_finalize(version) }
+    guard exsqlite3_step(version) == SQLITE_ROW, exsqlite3_column_int(version, 0) >= 8 else { return false }
+    let statement = try connection.prepare("SELECT 1 FROM retainer_periods WHERE ended_at IS NULL LIMIT 1")
+    defer { exsqlite3_finalize(statement) }
+    return exsqlite3_step(statement) == SQLITE_ROW
+  }
+
+  static func isRetainerMode(databaseURL: URL? = nil) throws -> Bool {
+    let connection = try AlignerSQLiteConnection(databaseURL: databaseURL)
+    try requireSupportedSchema(connection)
+    return try hasActiveRetainer(connection)
+  }
 
   static func ensureWearStatus(
     _ desiredStatus: AlignerWearStatus,
@@ -168,6 +184,11 @@ enum AlignerTrackerStore {
       }
     }
 
+    if try hasActiveRetainer(connection) {
+      try connection.execute("ROLLBACK")
+      transactionFinished = true
+      return .retainerMode
+    }
     let activeTrayPeriodIds = try loadActiveTrayPeriodIds(connection)
     guard !activeTrayPeriodIds.isEmpty else {
       try connection.execute("ROLLBACK")

@@ -1,3 +1,4 @@
+import { useTimelineRepository, useTimelineScope } from '@/features/edit-times/timeline-context';
 import { DatePicker, Form, Host, Picker, Section, Text } from '@expo/ui/swift-ui';
 import { disabled, environment, pickerStyle, tag } from '@expo/ui/swift-ui/modifiers';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -8,10 +9,7 @@ import { ActionButton, ValidationMessage } from '@/components/expo-ui-components
 import type { WearStatus } from '@/db/schema';
 import { CorrectionValidationError } from '@/features/edit-times/edit-times-corrections';
 import { parseLocalDateKey } from '@/features/edit-times/edit-times-dates';
-import {
-  addMissingWearPeriod,
-  CorrectionConflictError,
-} from '@/features/edit-times/edit-times-repository';
+import { CorrectionConflictError } from '@/features/edit-times/edit-times-repository';
 import { reconcileLocalNotifications } from '@/features/notifications/local-notifications';
 import { refreshWatchTrackerSnapshot } from '@/features/siri/aligner-tracker-intents';
 import { useAppTheme } from '@/theme/use-app-theme';
@@ -45,6 +43,8 @@ function startOfMinute(date: Date) {
 }
 
 export function AddMissingTimeScreen() {
+  const retainer = useTimelineScope().timeline === 'retainer';
+  const { addMissingWearPeriod } = useTimelineRepository();
   const db = useSQLiteContext();
   const router = useRouter();
   const theme = useAppTheme();
@@ -62,7 +62,7 @@ export function AddMissingTimeScreen() {
       return;
     }
     if (status === null) {
-      setError('Choose whether the trays were OUT or IN.');
+      setError(retainer ? 'Choose whether the retainers were OUT or IN.' : 'Choose whether the trays were OUT or IN.');
       return;
     }
 
@@ -95,7 +95,7 @@ export function AddMissingTimeScreen() {
 
         <Section title="During this period">
           <Picker<WearStatus | null>
-            label="Trays were"
+            label={retainer ? "Retainers were" : "Trays were"}
             modifiers={[pickerStyle('segmented'), disabled(isSaving)]}
             onSelectionChange={(selection) => {
               setStatus(selection);

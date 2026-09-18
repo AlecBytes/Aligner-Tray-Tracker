@@ -115,6 +115,8 @@ public class AlignerTrackerIntentsModule: Module {
         "outcome": "already-in-state",
         "status": status.rawValue,
       ]
+    case .retainerMode:
+      return ["outcome": "no-active-treatment"]
     case .noActiveTreatment:
       return [
         "outcome": "no-active-treatment",

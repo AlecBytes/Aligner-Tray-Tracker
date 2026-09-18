@@ -9,7 +9,7 @@ export const REMINDER_KIND_DATA_KEY = 'alignerReminderKind';
 export const REMINDER_FINGERPRINT_DATA_KEY = 'alignerReminderFingerprint';
 export const REMINDER_SOUND = 'default' as const;
 
-export type ReminderKind = 'out-too-long' | 'tray-change' | 'tray-change-overdue';
+export type ReminderKind = 'out-too-long' | 'tray-change' | 'tray-change-overdue' | 'retainer-bedtime' | 'retainer-morning';
 
 export type ReminderRequest = {
   body: string;
@@ -173,7 +173,7 @@ export function buildReminderRequests(
 }
 
 function isReminderKind(value: unknown): value is ReminderKind {
-  return value === 'out-too-long' || value === 'tray-change' || value === 'tray-change-overdue';
+  return value === 'retainer-bedtime' || value === 'retainer-morning' || value === 'out-too-long' || value === 'tray-change' || value === 'tray-change-overdue';
 }
 
 export function planReminderReconciliation(

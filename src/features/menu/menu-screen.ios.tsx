@@ -1,3 +1,4 @@
+import { useTrackingMode } from '@/features/retainer/use-tracking-mode';
 import { Alert, Button, Form, Host, Section, Text } from '@expo/ui/swift-ui';
 import { disabled, foregroundStyle } from '@expo/ui/swift-ui/modifiers';
 import { useRouter } from 'expo-router';
@@ -15,6 +16,8 @@ import { refreshWatchTrackerSnapshot } from '@/features/siri/aligner-tracker-int
 import { useAppTheme, useAppThemeState } from '@/theme/use-app-theme';
 
 export function MenuScreen() {
+  const { mode } = useTrackingMode();
+  const retainer = mode?.kind === 'retainer';
   const db = useSQLiteContext();
   const router = useRouter();
   const theme = useAppTheme();
@@ -54,6 +57,7 @@ export function MenuScreen() {
     <Host seedColor={theme.primary} style={{ flex: 1 }}>
       <Form>
         <Section>
+          <NavigationRow label="Retainer Mode" onPress={() => router.push('/retainer-mode')} systemImage="moon" />
           <NavigationRow
             label="Themes"
             onPress={() => router.push('/themes' as never)}
@@ -67,8 +71,8 @@ export function MenuScreen() {
             />
           ) : null}
           <NavigationRow
-            label="Treatment Plan"
-            onPress={() => router.push('/treatment-plan')}
+            label={retainer ? "Completed Treatment History" : "Treatment Plan"}
+            onPress={() => router.push(retainer ? '/treatment-plan-history' : '/treatment-plan')}
             systemImage="list.bullet.clipboard"
           />
           <NavigationRow
@@ -82,15 +86,15 @@ export function MenuScreen() {
             systemImage="clock.arrow.circlepath"
           />
           <NavigationRow
-            label="Statistics"
+            label={retainer ? "Completed Treatment Statistics" : "Statistics"}
             onPress={() => router.push('/statistics')}
             systemImage="chart.bar"
           />
-          <NavigationRow
+          {!retainer ? <NavigationRow
             label="Share Progress"
             onPress={() => router.push('/share-progress')}
             systemImage="square.and.arrow.up"
-          />
+          /> : null}
         </Section>
 
         {isSupportEnabled ? (

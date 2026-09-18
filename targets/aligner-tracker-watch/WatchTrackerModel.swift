@@ -6,6 +6,7 @@ import WatchKit
 struct WatchTrackerSnapshot: Codable, Equatable {
   enum Kind: String, Codable {
     case noTreatment = "no-treatment"
+    case retainerMode = "retainer-mode"
     case ready
   }
 
@@ -40,7 +41,7 @@ struct WatchTrackerSnapshot: Codable, Equatable {
     self.kind = kind
     generatedAtMs = generatedAt.int64Value
 
-    if kind == .noTreatment {
+    if kind == .noTreatment || kind == .retainerMode {
       currentTrayNumber = nil
       totalTrays = nil
       trayDay = nil

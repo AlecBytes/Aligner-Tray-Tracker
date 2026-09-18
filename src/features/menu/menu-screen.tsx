@@ -1,3 +1,4 @@
+import { useTrackingMode } from '@/features/retainer/use-tracking-mode';
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useRef, useState } from 'react';
@@ -52,6 +53,8 @@ function MenuItem({
 }
 
 export function MenuScreen() {
+  const { mode } = useTrackingMode();
+  const retainer = mode?.kind === 'retainer';
   const db = useSQLiteContext();
   const router = useRouter();
   const resetInProgress = useRef(false);
@@ -93,7 +96,8 @@ export function MenuScreen() {
         {releaseFeatures.cloudBackup ? (
           <MenuItem label="Account" onPress={() => router.push('/account')} />
         ) : null}
-        <MenuItem label="Treatment Plan" onPress={() => router.push('/treatment-plan')} />
+        <MenuItem label="Retainer Mode" onPress={() => router.push('/retainer-mode')} />
+        <MenuItem label={retainer ? "Completed Treatment History" : "Treatment Plan"} onPress={() => router.push(retainer ? '/treatment-plan-history' : '/treatment-plan')} />
         <MenuItem label="Notifications" onPress={() => router.push('/notifications')} />
         <MenuItem
           label="Edit In/Out Times"

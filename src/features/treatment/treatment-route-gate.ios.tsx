@@ -1,3 +1,4 @@
+import { subscribeTracking } from '@/features/retainer/retainer-repository';
 import { Host } from '@expo/ui/swift-ui';
 import { Redirect, type Href } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -24,6 +25,8 @@ export function TreatmentRouteGate({
   const [treatmentExists, setTreatmentExists] = useState<boolean | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [loadAttempt, setLoadAttempt] = useState(0);
+
+  useEffect(() => subscribeTracking(() => setLoadAttempt((value) => value + 1)), []);
 
   const retry = useCallback(() => {
     setTreatmentExists(null);

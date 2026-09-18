@@ -1,3 +1,4 @@
+import { getTrackingMode, notifyTrackingChanged } from '@/features/retainer/retainer-repository';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import type { TreatmentPlanVersion } from '@/db/schema';
@@ -31,11 +32,7 @@ function mapTreatmentPlanVersion(row: TreatmentPlanVersionRow): TreatmentPlanVer
 }
 
 export async function hasTreatment(db: SQLiteDatabase) {
-  const row = await db.getFirstAsync<{ treatment_exists: number }>(
-    'SELECT 1 AS treatment_exists FROM treatments LIMIT 1',
-  );
-
-  return row?.treatment_exists === 1;
+  return (await getTrackingMode(db)).kind !== 'setup';
 }
 
 export async function getCurrentTreatmentPlan(
@@ -51,6 +48,7 @@ export async function getCurrentTreatmentPlan(
        effective_at,
        created_at
      FROM treatment_plan_versions
+     WHERE treatment_id = (SELECT id FROM treatments ORDER BY created_at DESC, id DESC LIMIT 1)
      ORDER BY effective_at DESC, id DESC
      LIMIT 1`,
   );
@@ -71,6 +69,7 @@ export async function getTreatmentPlanHistory(
        effective_at,
        created_at
      FROM treatment_plan_versions
+     WHERE treatment_id = (SELECT id FROM treatments ORDER BY created_at DESC, id DESC LIMIT 1)
      ORDER BY effective_at DESC, id DESC`,
   );
 
@@ -109,13 +108,14 @@ export async function createTreatmentPlanVersion(
       daily_wear_goal_minutes,
       effective_at,
       created_at
-    ) VALUES (?, ?, ?, ?, ?, ?)`,
+    ) SELECT ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM treatments WHERE id = ? AND completed_at IS NULL)`,
     currentPlan.treatmentId,
     input.totalTrays,
     input.daysPerTray,
     dailyWearGoalMinutes,
     timestamp,
     timestamp,
+    currentPlan.treatmentId,
   );
 
   if (result.changes !== 1) {
@@ -149,7 +149,7 @@ export async function createInitialTreatment(
 
   await withUserMutationTransaction(db, async (transaction) => {
     const existingTreatment = await transaction.getFirstAsync<{ treatment_exists: number }>(
-      'SELECT 1 AS treatment_exists FROM treatments LIMIT 1',
+      `SELECT 1 AS treatment_exists FROM treatments WHERE completed_at IS NULL UNION ALL SELECT 1 FROM retainer_periods WHERE ended_at IS NULL LIMIT 1`,
     );
 
     if (existingTreatment?.treatment_exists === 1) {
@@ -207,5 +207,6 @@ export async function createInitialTreatment(
     throw new Error('Treatment creation did not complete.');
   }
 
+  notifyTrackingChanged();
   return createdRecords as InitialTreatmentRecordIds;
 }

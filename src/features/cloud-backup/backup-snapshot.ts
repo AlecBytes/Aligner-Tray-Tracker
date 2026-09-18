@@ -1,11 +1,13 @@
+import { getRetainerSettings, type RetainerPeriod, type RetainerPunch, type RetainerSettings } from '@/features/retainer/retainer-repository';
 import * as Crypto from 'expo-crypto';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-export const BACKUP_SNAPSHOT_SCHEMA_VERSION = 1 as const;
+export const BACKUP_SNAPSHOT_SCHEMA_VERSION = 2 as const;
 
 export type BackupTreatmentV1 = {
   id: number;
   createdAt: number;
+  completedAt?: number | null;
 };
 
 export type BackupTreatmentPlanVersionV1 = {
@@ -44,6 +46,7 @@ export type BackupNotificationSettingsV1 = {
 };
 
 export type BackupSnapshotPayloadV1 = {
+  retainerData?: { periods: RetainerPeriod[]; punches: RetainerPunch[]; settings: RetainerSettings };
   treatments: BackupTreatmentV1[];
   treatmentPlanVersions: BackupTreatmentPlanVersionV1[];
   trayPeriods: BackupTrayPeriodV1[];
@@ -52,14 +55,14 @@ export type BackupSnapshotPayloadV1 = {
 };
 
 export type BackupSnapshotEnvelopeV1 = {
-  schemaVersion: typeof BACKUP_SNAPSHOT_SCHEMA_VERSION;
+  schemaVersion: 1 | 2;
   sourceAppVersion: string;
   payload: BackupSnapshotPayloadV1;
 };
 
 export type SerializedBackupSnapshot = {
   json: string;
-  schemaVersion: typeof BACKUP_SNAPSHOT_SCHEMA_VERSION;
+  schemaVersion: 1 | 2;
   sourceAppVersion: string;
   contentHash: string;
   payloadBytes: number;
@@ -75,6 +78,7 @@ export class BackupSnapshotValidationError extends Error {
 type TreatmentRow = {
   id: number;
   created_at: number;
+  completed_at: number | null;
 };
 
 type TreatmentPlanVersionRow = {
@@ -323,12 +327,12 @@ function validateNotificationSettings(
   };
 }
 
-export function validateBackupSnapshotEnvelope(
+function validateV1(
   value: unknown,
 ): BackupSnapshotEnvelopeV1 {
   const envelope = requireRecord(value, 'snapshot');
   requireExactKeys(envelope, ['schemaVersion', 'sourceAppVersion', 'payload'], 'snapshot');
-  if (envelope.schemaVersion !== BACKUP_SNAPSHOT_SCHEMA_VERSION) {
+  if (envelope.schemaVersion !== 1) {
     validationError(
       'snapshot.schemaVersion',
       `must equal ${BACKUP_SNAPSHOT_SCHEMA_VERSION}`,
@@ -407,7 +411,7 @@ export function validateBackupSnapshotEnvelope(
   }
 
   return {
-    schemaVersion: BACKUP_SNAPSHOT_SCHEMA_VERSION,
+    schemaVersion: 1,
     sourceAppVersion,
     payload: {
       treatments,
@@ -427,8 +431,13 @@ export function canonicalizeBackupSnapshotPayloadV1(
   payload: BackupSnapshotPayloadV1,
 ): BackupSnapshotPayloadV1 {
   return {
+    ...(payload.retainerData ? { retainerData: {
+      periods: [...payload.retainerData.periods].sort((a,b) => a.id-b.id).map(({id,treatment_id,started_at,ended_at}) => ({id,treatment_id,started_at,ended_at})),
+      punches: [...payload.retainerData.punches].sort((a,b) => a.id-b.id).map(({id,retainer_period_id,status,timestamp,origin,auto_out_suppressed}) => ({id,retainer_period_id,status,timestamp,origin,auto_out_suppressed})),
+      settings: Object.fromEntries(Object.entries(payload.retainerData.settings).sort(([a],[b]) => a.localeCompare(b))) as RetainerSettings,
+    } } : {}),
     treatments: payload.treatments
-      .map(({ id, createdAt }) => ({ id, createdAt }))
+      .map(({ id, createdAt, completedAt }) => ({ id, createdAt, ...(completedAt !== undefined ? { completedAt } : {}) }))
       .sort((left, right) => compareNumbers(left.id, right.id)),
     treatmentPlanVersions: payload.treatmentPlanVersions
       .map(
@@ -546,7 +555,7 @@ export async function serializeBackupSnapshot(
 
   await db.withExclusiveTransactionAsync(async (transaction) => {
     const treatments = await transaction.getAllAsync<TreatmentRow>(
-      `SELECT id, created_at
+      `SELECT id, created_at, completed_at
        FROM treatments
        ORDER BY id`,
     );
@@ -590,7 +599,12 @@ export async function serializeBackupSnapshot(
     }
 
     readPayload = {
-      treatments: treatments.map((row) => ({ id: row.id, createdAt: row.created_at })),
+      retainerData: {
+        periods: await transaction.getAllAsync<RetainerPeriod>('SELECT id,treatment_id,started_at,ended_at FROM retainer_periods ORDER BY id'),
+        punches: await transaction.getAllAsync<RetainerPunch>('SELECT id,retainer_period_id,status,timestamp,origin,auto_out_suppressed FROM retainer_wear_punches ORDER BY id'),
+        settings: await getRetainerSettings(transaction),
+      },
+      treatments: treatments.map((row) => ({ id: row.id, createdAt: row.created_at, completedAt: row.completed_at })),
       treatmentPlanVersions: treatmentPlanVersions.map((row) => ({
         id: row.id,
         treatmentId: row.treatment_id,
@@ -646,3 +660,42 @@ export async function serializeBackupSnapshot(
     payloadBytes: backupSnapshotUtf8ByteLength(json),
   };
 }
+
+/** V1 bytes retain their original canonical representation and checksum. */
+export function validateBackupSnapshotEnvelope(value: unknown): BackupSnapshotEnvelopeV1 {
+  const envelope = requireRecord(value, 'snapshot');
+  if (envelope.schemaVersion !== 2) return validateV1(value);
+  requireExactKeys(envelope, ['schemaVersion', 'sourceAppVersion', 'payload'], 'snapshot');
+  const payload = requireRecord(envelope.payload, 'payload');
+  requireExactKeys(payload, ['treatments','treatmentPlanVersions','trayPeriods','wearPunches','notificationSettings','retainerData'], 'payload');
+  const rawTreatments = requireArray(payload.treatments, 'treatments').map((item) => {
+    const treatment = requireRecord(item, 'treatment');
+    requireExactKeys(treatment, ['id','createdAt','completedAt'], 'treatment');
+    const completedAt = treatment.completedAt === null ? null : requireNonNegativeInteger(treatment.completedAt, 'completedAt');
+    return { id: treatment.id, createdAt: treatment.createdAt, completedAt };
+  });
+  const { retainerData: rawData, ...basePayload } = payload;
+  const base = validateV1({ schemaVersion: 1, sourceAppVersion: envelope.sourceAppVersion, payload: { ...basePayload, treatments: rawTreatments.map(({id,createdAt}) => ({id,createdAt})) } });
+  const data = requireRecord(rawData, 'retainerData');
+  requireExactKeys(data, ['periods','punches','settings'], 'retainerData');
+  const periods = requireArray(data.periods, 'periods').map((item): RetainerPeriod => {
+    const row = requireRecord(item, 'period'); requireExactKeys(row, ['id','treatment_id','started_at','ended_at'], 'period');
+    return { id: requirePositiveInteger(row.id,'id'), treatment_id: requirePositiveInteger(row.treatment_id,'treatment_id'), started_at: requireNonNegativeInteger(row.started_at,'started_at'), ended_at: row.ended_at === null ? null : requireNonNegativeInteger(row.ended_at,'ended_at') };
+  });
+  const punches = requireArray(data.punches, 'punches').map((item): RetainerPunch => {
+    const row = requireRecord(item,'punch'); requireExactKeys(row,['id','retainer_period_id','status','timestamp','origin','auto_out_suppressed'],'punch');
+    if (row.status !== 'IN' && row.status !== 'OUT') validationError('status','invalid');
+    if (!['manual','automatic','lifecycle','correction'].includes(String(row.origin))) validationError('origin','invalid');
+    if (row.auto_out_suppressed !== 0 && row.auto_out_suppressed !== 1) validationError('auto_out_suppressed','invalid');
+    return { id: requirePositiveInteger(row.id,'id'), retainer_period_id: requirePositiveInteger(row.retainer_period_id,'retainer_period_id'), status: row.status, timestamp: requireNonNegativeInteger(row.timestamp,'timestamp'), origin: row.origin as RetainerPunch['origin'], auto_out_suppressed: row.auto_out_suppressed };
+  });
+  requireUniqueIds(periods,'periods'); requireUniqueIds(punches,'punches');
+  const settings = requireRecord(data.settings,'retainerSettings');
+  requireExactKeys(settings,['bedtime_enabled','bedtime_minutes','morning_enabled','morning_minutes','automatic_enabled','automatic_minutes','automatic_effective_at'],'retainerSettings');
+  for (const [key,value] of Object.entries(settings)) {
+    const number = requireNonNegativeInteger(value,key);
+    if ((key.endsWith('_enabled') && number > 1) || (key.endsWith('_minutes') && number > 1439)) validationError(key,'out of range');
+  }
+  return { ...base, schemaVersion: 2, payload: { ...base.payload, treatments: base.payload.treatments.map((t,index) => ({ ...t, completedAt: rawTreatments[index].completedAt })), retainerData: { periods, punches, settings: settings as RetainerSettings } } };
+}
+function requireNonNegativeInteger(value: unknown, path: string) { return requireIntegerInRange(value, 0, Number.MAX_SAFE_INTEGER, path); }

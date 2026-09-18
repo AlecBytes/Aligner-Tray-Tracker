@@ -6,12 +6,15 @@ import Foundation
 private enum AlignerTrackerAppIntentError: Error, CustomLocalizedStringResourceConvertible {
   case appOpenRequired
   case noActiveTreatment
+  case retainerMode
   case updateFailed
 
   var localizedStringResource: LocalizedStringResource {
     switch self {
     case .appOpenRequired:
       return "Open Aligner Tracker once, then try again."
+    case .retainerMode:
+      return "Retainer Mode is active. Open Aligner Tracker on your iPhone to track retainers."
     case .noActiveTreatment:
       return "Open Aligner Tracker to set up your treatment first."
     case .updateFailed:
@@ -53,6 +56,8 @@ struct MarkTraysOutIntent: AppIntent {
       return .result(dialog: "Your trays are already out.")
     case .appOpenRequired:
       throw AlignerTrackerAppIntentError.appOpenRequired
+    case .retainerMode:
+      throw AlignerTrackerAppIntentError.retainerMode
     case .noActiveTreatment:
       throw AlignerTrackerAppIntentError.noActiveTreatment
     }
@@ -92,6 +97,8 @@ struct MarkTraysInIntent: AppIntent {
       return .result(dialog: "Your trays are already in.")
     case .appOpenRequired:
       throw AlignerTrackerAppIntentError.appOpenRequired
+    case .retainerMode:
+      throw AlignerTrackerAppIntentError.retainerMode
     case .noActiveTreatment:
       throw AlignerTrackerAppIntentError.noActiveTreatment
     }

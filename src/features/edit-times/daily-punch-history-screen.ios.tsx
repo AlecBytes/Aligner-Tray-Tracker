@@ -1,3 +1,4 @@
+import { useTimelineRepository, useTimelineScope } from '@/features/edit-times/timeline-context';
 import { Host, List, Section, Text } from '@expo/ui/swift-ui';
 import { foregroundStyle } from '@expo/ui/swift-ui/modifiers';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -16,7 +17,7 @@ import {
   parseLocalDateKey,
 } from '@/features/edit-times/edit-times-dates';
 import type { EditableWearPunch } from '@/features/edit-times/edit-times-model';
-import { getWearPunchesForDay } from '@/features/edit-times/edit-times-repository';
+
 import { useAppTheme } from '@/theme/use-app-theme';
 
 const headingFormatter = new Intl.DateTimeFormat(undefined, {
@@ -30,8 +31,10 @@ function firstParameter(value: string | string[] | undefined) {
 }
 
 export function DailyPunchHistoryScreen() {
+  const { getWearPunchesForDay } = useTimelineRepository();
   const db = useSQLiteContext();
   const router = useRouter();
+  const scope = useTimelineScope();
   const theme = useAppTheme();
   const params = useLocalSearchParams<{ date?: string | string[] }>();
   const dateKey = firstParameter(params.date);
@@ -45,7 +48,7 @@ export function DailyPunchHistoryScreen() {
       throw new Error('Invalid date.');
     }
     return getWearPunchesForDay(db, dayStart, addLocalDays(dayStart, 1));
-  }, [dayStart, db]);
+  }, [dayStart, db, getWearPunchesForDay]);
 
   useFocusEffect(
     useCallback(() => {
@@ -114,7 +117,7 @@ export function DailyPunchHistoryScreen() {
                   onPress={() =>
                     router.push({
                       pathname: '/edit-times/event',
-                      params: { id: String(punch.id) },
+                      params: { ...scope, id: String(punch.id) },
                     })
                   }
                   secondaryValue={punch.status}
@@ -128,7 +131,7 @@ export function DailyPunchHistoryScreen() {
               <ActionButton
                 label="Add Missing Time"
                 onPress={() =>
-                  router.push({ pathname: '/edit-times/add', params: { date: dateKey } })
+                  router.push({ pathname: '/edit-times/add', params: { ...scope, date: dateKey } })
                 }
                 systemImage="plus"
               />

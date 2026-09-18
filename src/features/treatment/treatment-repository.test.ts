@@ -60,7 +60,7 @@ describe('createInitialTreatment', () => {
 
     expect(database.withExclusiveTransactionAsync).toHaveBeenCalledTimes(1);
     expect(database.getFirstAsync).toHaveBeenCalledWith(
-      'SELECT 1 AS treatment_exists FROM treatments LIMIT 1',
+      'SELECT 1 AS treatment_exists FROM treatments WHERE completed_at IS NULL UNION ALL SELECT 1 FROM retainer_periods WHERE ended_at IS NULL LIMIT 1',
     );
     expect(database.runAsync).toHaveBeenCalledTimes(4);
 
@@ -109,7 +109,7 @@ describe('hasTreatment', () => {
       getFirstAsync: jest.fn(async () => null),
     } as unknown as SQLiteDatabase;
     const withTreatment = {
-      getFirstAsync: jest.fn(async () => ({ treatment_exists: 1 })),
+      getFirstAsync: jest.fn(async () => ({ treatment_id: 1 })),
     } as unknown as SQLiteDatabase;
 
     await expect(hasTreatment(withoutTreatment)).resolves.toBe(false);
@@ -296,6 +296,7 @@ describe('createTreatmentPlanVersion', () => {
       1350,
       timestamp,
       timestamp,
+      101,
     );
     await expect(getCurrentTreatmentPlan(database.db)).resolves.toMatchObject({
       daysPerTray: 10,

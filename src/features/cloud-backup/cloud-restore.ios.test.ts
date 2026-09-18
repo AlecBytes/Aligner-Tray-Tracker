@@ -18,6 +18,7 @@ import {
 import { validateDownloadedBackupSnapshot } from '@/features/cloud-backup/restore-snapshot';
 import { reconcileLocalNotifications } from '@/features/notifications/local-notifications';
 
+jest.mock('@/features/retainer/retainer-repository', () => ({ reconcileAutomaticOut: jest.fn(async () => undefined) }));
 jest.mock('@/features/cloud-backup/cloud-backup-client.ios', () => {
   return {
     getConfiguredCloudBackupClient: jest.fn(),

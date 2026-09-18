@@ -22,7 +22,7 @@ SQLite remains the on-device source of truth. Core tracking must work without an
 - The latest backup is the default restore choice, with an option to choose an older retained backup.
 - Retain 7 daily snapshots, then 8 weekly snapshots, then one snapshot per month indefinitely while the cloud account exists.
 - Empty-installation restore must be reachable from treatment setup; it cannot live only behind the treatment-present route gate.
-- Restore V1 accepts snapshot schema version 1 only. A newer unsupported version is shown as incompatible and is never partially imported.
+- Restore accepts snapshot schema versions 1 and 2. Version 2 adds the Retainer Mode lifecycle, history, preferences, and automation metadata; version 1 retains its original canonical representation and defaults. A newer unsupported version is shown as incompatible and is never partially imported.
 - Automatic backup uses foreground, best-effort work. The first implementation does not add an OS background task, continuous polling, or a required network step to any local write.
 - Retention buckets use UTC calendar boundaries so the same recovery points are selected regardless of the device or server time zone.
 - Signing out is local and preserves cloud data. Cloud-account deletion is a separate destructive server operation and preserves local treatment data.

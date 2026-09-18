@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-export const DATABASE_VERSION = 7;
+export const DATABASE_VERSION = 8;
 
 type DuplicateActiveTrayPeriodsRow = {
   active_period_count: number;
@@ -111,6 +111,68 @@ const migrationSeven = `
       CHECK (tray_change_overdue_reminder_enabled IN (0, 1));
 `;
 
+const migrationEight = `
+  ALTER TABLE treatments ADD COLUMN completed_at INTEGER
+    CHECK (completed_at IS NULL OR completed_at >= created_at);
+  CREATE UNIQUE INDEX treatments_one_active ON treatments ((1)) WHERE completed_at IS NULL;
+  CREATE UNIQUE INDEX tray_periods_one_active ON tray_periods ((1)) WHERE ended_at IS NULL;
+  CREATE TABLE retainer_periods (
+    id INTEGER PRIMARY KEY NOT NULL,
+    treatment_id INTEGER NOT NULL REFERENCES treatments(id) ON DELETE CASCADE,
+    started_at INTEGER NOT NULL,
+    ended_at INTEGER CHECK (ended_at IS NULL OR ended_at >= started_at)
+  );
+  CREATE UNIQUE INDEX retainer_periods_one_active ON retainer_periods ((1)) WHERE ended_at IS NULL;
+  CREATE TABLE retainer_wear_punches (
+    id INTEGER PRIMARY KEY NOT NULL,
+    retainer_period_id INTEGER NOT NULL REFERENCES retainer_periods(id) ON DELETE CASCADE,
+    status TEXT NOT NULL CHECK (status IN ('IN', 'OUT')),
+    timestamp INTEGER NOT NULL,
+    origin TEXT NOT NULL DEFAULT 'manual' CHECK (origin IN ('manual','automatic','lifecycle','correction')),
+    auto_out_suppressed INTEGER NOT NULL DEFAULT 0 CHECK (auto_out_suppressed IN (0,1))
+  );
+  CREATE INDEX retainer_punches_timeline ON retainer_wear_punches(retainer_period_id, timestamp, id);
+  CREATE TABLE retainer_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    bedtime_enabled INTEGER NOT NULL DEFAULT 1 CHECK (bedtime_enabled IN (0,1)),
+    bedtime_minutes INTEGER NOT NULL DEFAULT 1320 CHECK (bedtime_minutes BETWEEN 0 AND 1439),
+    morning_enabled INTEGER NOT NULL DEFAULT 1 CHECK (morning_enabled IN (0,1)),
+    morning_minutes INTEGER NOT NULL DEFAULT 420 CHECK (morning_minutes BETWEEN 0 AND 1439),
+    automatic_enabled INTEGER NOT NULL DEFAULT 0 CHECK (automatic_enabled IN (0,1)),
+    automatic_minutes INTEGER NOT NULL DEFAULT 420 CHECK (automatic_minutes BETWEEN 0 AND 1439),
+    automatic_effective_at INTEGER NOT NULL DEFAULT 0
+  );
+  INSERT INTO retainer_settings(id) VALUES (1);
+  CREATE TRIGGER retainer_active_insert BEFORE INSERT ON retainer_periods
+  WHEN NEW.ended_at IS NULL AND (
+    EXISTS(SELECT 1 FROM tray_periods WHERE ended_at IS NULL) OR
+    EXISTS(SELECT 1 FROM treatments WHERE completed_at IS NULL) OR
+    NOT EXISTS(SELECT 1 FROM treatments WHERE id = NEW.treatment_id AND completed_at <= NEW.started_at)
+  ) BEGIN SELECT RAISE(ABORT, 'Invalid active retainer period'); END;
+  CREATE TRIGGER retainer_active_update BEFORE UPDATE ON retainer_periods
+  WHEN NEW.ended_at IS NULL AND (
+    EXISTS(SELECT 1 FROM tray_periods WHERE ended_at IS NULL) OR
+    EXISTS(SELECT 1 FROM treatments WHERE completed_at IS NULL) OR
+    NOT EXISTS(SELECT 1 FROM treatments WHERE id = NEW.treatment_id AND completed_at <= NEW.started_at)
+  ) BEGIN SELECT RAISE(ABORT, 'Invalid active retainer period'); END;
+  CREATE TRIGGER tray_active_insert BEFORE INSERT ON tray_periods
+  WHEN NEW.ended_at IS NULL AND (EXISTS(SELECT 1 FROM retainer_periods WHERE ended_at IS NULL)
+    OR NOT EXISTS(SELECT 1 FROM treatments WHERE id = NEW.treatment_id AND completed_at IS NULL))
+  BEGIN SELECT RAISE(ABORT, 'Invalid active tray period'); END;
+  CREATE TRIGGER tray_active_update BEFORE UPDATE ON tray_periods
+  WHEN NEW.ended_at IS NULL AND (EXISTS(SELECT 1 FROM retainer_periods WHERE ended_at IS NULL)
+    OR NOT EXISTS(SELECT 1 FROM treatments WHERE id = NEW.treatment_id AND completed_at IS NULL))
+  BEGIN SELECT RAISE(ABORT, 'Invalid active tray period'); END;
+  CREATE TRIGGER treatment_active_insert BEFORE INSERT ON treatments
+  WHEN NEW.completed_at IS NULL AND EXISTS(SELECT 1 FROM retainer_periods WHERE ended_at IS NULL)
+  BEGIN SELECT RAISE(ABORT, 'Retainer mode is active'); END;
+  CREATE TRIGGER treatment_lifecycle_update BEFORE UPDATE ON treatments
+  WHEN (OLD.completed_at IS NOT NULL AND NEW.completed_at IS NOT OLD.completed_at)
+    OR (NEW.completed_at IS NOT NULL AND EXISTS(SELECT 1 FROM tray_periods WHERE treatment_id = NEW.id AND ended_at IS NULL))
+    OR (NEW.completed_at IS NULL AND EXISTS(SELECT 1 FROM retainer_periods WHERE ended_at IS NULL))
+  BEGIN SELECT RAISE(ABORT, 'Invalid treatment lifecycle'); END;
+`;
+
 export async function migrateDatabase(db: SQLiteDatabase) {
   await db.execAsync('PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;');
 
@@ -186,6 +248,18 @@ export async function migrateDatabase(db: SQLiteDatabase) {
     await db.withTransactionAsync(async () => {
       await db.execAsync(migrationSeven);
       await db.execAsync('PRAGMA user_version = 7');
+    });
+  }
+  if (currentVersion < 8) {
+    await db.withTransactionAsync(async () => {
+      const invalid = await db.getFirstAsync<{ count: number }>(
+        'SELECT COUNT(*) AS count FROM treatments',
+      );
+      if ((invalid?.count ?? 0) > 1) {
+        throw new DatabaseIntegrityError('Cannot upgrade multiple unfinished legacy treatments.');
+      }
+      await db.execAsync(migrationEight);
+      await db.execAsync('PRAGMA user_version = 8');
     });
   }
 }

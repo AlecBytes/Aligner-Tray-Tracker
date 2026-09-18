@@ -1,3 +1,4 @@
+import { useTimelineRepository, useTimelineScope } from '@/features/edit-times/timeline-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
@@ -11,7 +12,7 @@ import {
   type TreatmentHistoryDay,
   type TreatmentHistoryWeek,
 } from '@/features/edit-times/edit-times-dates';
-import { getTreatmentHistoryStart } from '@/features/edit-times/edit-times-repository';
+
 import { radius, spacing } from '@/theme/tokens';
 import { useAppTheme } from '@/theme/use-app-theme';
 
@@ -27,13 +28,14 @@ const rangeFormatter = new Intl.DateTimeFormat(undefined, {
 
 function DayRow({ day, isToday }: { day: TreatmentHistoryDay; isToday: boolean }) {
   const router = useRouter();
+  const scope = useTimelineScope();
   const theme = useAppTheme();
 
   return (
     <Pressable
       accessibilityRole="button"
       onPress={() =>
-        router.push({ pathname: '/edit-times/day', params: { date: day.dateKey } })
+        router.push({ pathname: '/edit-times/day', params: { ...scope, date: day.dateKey } })
       }
       style={({ pressed }) => [
         styles.row,
@@ -89,6 +91,7 @@ function WeekRow({
 }
 
 export function DateHistoryScreen() {
+  const { getTreatmentHistoryStart } = useTimelineRepository();
   const db = useSQLiteContext();
   const theme = useAppTheme();
   const [treatmentStartedAt, setTreatmentStartedAt] = useState<number | null>(null);
@@ -105,7 +108,7 @@ export function DateHistoryScreen() {
     }
 
     return start;
-  }, [db]);
+  }, [db, getTreatmentHistoryStart]);
 
   useFocusEffect(
     useCallback(() => {

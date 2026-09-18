@@ -38,6 +38,9 @@ enum AlignerTrackerWatchBridge {
     now: Date = Date(),
     databaseURL: URL? = nil
   ) throws -> [String: Any] {
+    if try AlignerTrackerStore.isRetainerMode(databaseURL: databaseURL) {
+      return ["version": 1, "kind": "retainer-mode", "generatedAtMs": Int64(now.timeIntervalSince1970 * 1000)]
+    }
     if let snapshot = try AlignerTrackerStore.loadWatchTrackerSnapshot(
       now: now,
       databaseURL: databaseURL
@@ -108,6 +111,8 @@ enum AlignerTrackerWatchBridge {
             outcome: "state-conflict",
             snapshot: snapshot
           )
+        case .retainerMode:
+          return AlignerWatchProtocol.response(requestId: requestId, outcome: "retainer-mode", snapshot: snapshot)
         case .noActiveTreatment:
           return AlignerWatchProtocol.response(
             requestId: requestId,

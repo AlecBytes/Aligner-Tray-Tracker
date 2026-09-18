@@ -1,3 +1,5 @@
+import { getRetainerSnapshot, getTrackingMode } from '@/features/retainer/retainer-repository';
+import { buildRetainerReminders } from '@/features/retainer/retainer-notifications';
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { Platform } from 'react-native';
 
@@ -21,6 +23,8 @@ import { getTrackerSnapshot } from '@/features/tracker/tracker-repository';
 const REMINDER_CHANNEL_ID = 'treatment-reminders';
 
 const REMINDER_IDENTIFIERS = {
+  'retainer-bedtime': 'retainer-bedtime',
+  'retainer-morning': 'retainer-morning',
   'out-too-long': 'aligner-tracker-out-too-long',
   'tray-change': 'aligner-tracker-tray-change',
   'tray-change-overdue': 'aligner-tracker-tray-change-overdue',
@@ -143,6 +147,8 @@ async function reconcileWithExpoNotifications(
   canSchedule: boolean,
 ) {
   const now = Date.now();
+  const mode = await getTrackingMode(db);
+  const retainer = mode.kind === 'retainer' ? await getRetainerSnapshot(db) : null;
   const [snapshot, settings] = await Promise.all([
     getTrackerSnapshot(db, now),
     getNotificationSettings(db),
@@ -154,7 +160,7 @@ async function reconcileWithExpoNotifications(
     kind: request.content.data?.[REMINDER_KIND_DATA_KEY],
   }));
   const reconciliation = planReminderReconciliation(
-    canSchedule ? buildReminderRequests(snapshot, settings, now) : [],
+    canSchedule ? (mode.kind === 'retainer' ? buildRetainerReminders(retainer, now) : buildReminderRequests(snapshot, settings, now)) : [],
     scheduledReminders,
   );
 
@@ -201,6 +207,14 @@ export function initializeLocalNotifications(db: SQLiteDatabase) {
       ? await requestPermissionIfNeeded(notifications)
       : notificationsAreAllowed(notifications, await notifications.getPermissionsAsync());
 
+    const mode = await getTrackingMode(db);
+    if (mode.kind === 'retainer' || mode.kind === 'setup') {
+      await reconcileWithExpoNotifications(db, notifications, allowed);
+      return;
+    }
+    // Native treatment scheduling owns aligner requests; remove stale retainer requests.
+    const pending = await notifications.getAllScheduledNotificationsAsync();
+    await Promise.all(pending.filter((request) => String(request.content.data?.[REMINDER_KIND_DATA_KEY] ?? '').startsWith('retainer-')).map((request) => notifications.cancelScheduledNotificationAsync(request.identifier)));
     await reconcileNotificationsForPlatform(
       Platform.OS,
       isNativeWearStatusAvailable(),
@@ -225,6 +239,14 @@ export function reconcileLocalNotifications(
       ? await requestPermissionIfNeeded(notifications)
       : notificationsAreAllowed(notifications, await notifications.getPermissionsAsync());
 
+    const mode = await getTrackingMode(db);
+    if (mode.kind === 'retainer' || mode.kind === 'setup') {
+      await reconcileWithExpoNotifications(db, notifications, allowed);
+      return;
+    }
+    // Native treatment scheduling owns aligner requests; remove stale retainer requests.
+    const pending = await notifications.getAllScheduledNotificationsAsync();
+    await Promise.all(pending.filter((request) => String(request.content.data?.[REMINDER_KIND_DATA_KEY] ?? '').startsWith('retainer-')).map((request) => notifications.cancelScheduledNotificationAsync(request.identifier)));
     await reconcileNotificationsForPlatform(
       Platform.OS,
       isNativeWearStatusAvailable(),

@@ -78,6 +78,7 @@ function createRestoreDatabase(options: { failTable?: keyof RestoreState; tracke
   const finalized: string[] = [];
 
   const getFirstAsync = jest.fn(async (sql: string, ...parameters: unknown[]) => {
+    if (sql.includes('AS retainer_treatment_id')) return { treatment_id: state.treatments[0]?.[0] ?? null, retainer_id: null, retainer_treatment_id: null };
     if (sql.includes('SELECT COUNT(*) FROM treatments')) {
       return {
         plan_count: state.plans.length,
@@ -184,11 +185,11 @@ describe('atomic backup restore repository', () => {
   it('preserves IDs, restores settings, verifies the tracker, and keeps installation data', async () => {
     const database = createRestoreDatabase();
     await expect(importBackupSnapshot(database.db, snapshot(), 500)).resolves.toMatchObject({
-      currentTrayNumber: 2,
-      trayPeriodId: 21,
+      kind: 'treatment',
+      treatmentId: 7,
     });
 
-    expect(database.state.treatments).toEqual([[7, 100]]);
+    expect(database.state.treatments).toEqual([[7, 100, null]]);
     expect(database.state.plans[0]?.[0]).toBe(11);
     expect(database.state.trayPeriods[0]?.[0]).toBe(21);
     expect(database.state.punches.map((row) => row[0])).toEqual([31, 32]);

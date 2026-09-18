@@ -292,7 +292,7 @@ function getStatisticsTreatmentBounds(snapshot: StatisticsSnapshot, now: number)
   const orderedTrayPeriods = orderTrayPeriods(snapshot.trayPeriods);
   const firstTray = orderedTrayPeriods[0];
   const activeTray = [...orderedTrayPeriods]
-    .filter((period) => period.endedAt === null && period.startedAt <= now)
+    .filter((period) => (period.endedAt === null || snapshot.completedAt != null) && period.startedAt <= now)
     .sort((left, right) => right.startedAt - left.startedAt || right.id - left.id)[0];
 
   if (!activeTray || !firstTray || !Number.isFinite(firstTray.startedAt)) {
@@ -391,6 +391,7 @@ export function createStatisticsGraphReadModel(
   range: StatisticsGraphRange,
   now = Date.now(),
 ): StatisticsGraphReadModel {
+  now = Math.min(now, snapshot.completedAt ?? now);
   const { firstTray, orderedTrayPeriods } = getStatisticsTreatmentBounds(snapshot, now);
   const rangeStartedAt = getStatisticsGraphRangeStart(range, firstTray.startedAt, now);
 
@@ -411,6 +412,7 @@ export function createStatisticsReadModel(
   snapshot: StatisticsSnapshot,
   now = Date.now(),
 ): StatisticsReadModel {
+  now = Math.min(now, snapshot.completedAt ?? now);
   const { activeTray, firstTray } = getStatisticsTreatmentBounds(snapshot, now);
 
   const treatmentStartedAt = firstTray.startedAt;

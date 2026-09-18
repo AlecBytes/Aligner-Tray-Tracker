@@ -1,3 +1,4 @@
+import { useTimelineRepository, useTimelineScope } from '@/features/edit-times/timeline-context';
 import { Button, DisclosureGroup, Host, HStack, Image, List, Section, Spacer, Text } from '@expo/ui/swift-ui';
 import { buttonStyle, font, frame, padding } from '@expo/ui/swift-ui/modifiers';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -10,7 +11,7 @@ import {
   buildTreatmentDateHistory,
   type TreatmentHistoryDay,
 } from '@/features/edit-times/edit-times-dates';
-import { getTreatmentHistoryStart } from '@/features/edit-times/edit-times-repository';
+
 import { useAppTheme } from '@/theme/use-app-theme';
 
 const dayFormatter = new Intl.DateTimeFormat(undefined, {
@@ -25,10 +26,11 @@ const rangeFormatter = new Intl.DateTimeFormat(undefined, {
 
 function DayRow({ day, isToday }: { day: TreatmentHistoryDay; isToday: boolean }) {
   const router = useRouter();
+  const scope = useTimelineScope();
   return (
     <Button
       modifiers={[buttonStyle('plain')]}
-      onPress={() => router.push({ pathname: '/edit-times/day', params: { date: day.dateKey } })}>
+      onPress={() => router.push({ pathname: '/edit-times/day', params: { ...scope, date: day.dateKey } })}>
       <HStack
         spacing={8}
         modifiers={[frame({ maxWidth: Infinity, minHeight: 44 }), padding({ vertical: 3 })]}>
@@ -44,6 +46,7 @@ function DayRow({ day, isToday }: { day: TreatmentHistoryDay; isToday: boolean }
 }
 
 export function DateHistoryScreen() {
+  const { getTreatmentHistoryStart } = useTimelineRepository();
   const db = useSQLiteContext();
   const theme = useAppTheme();
   const [treatmentStartedAt, setTreatmentStartedAt] = useState<number | null>(null);
@@ -58,7 +61,7 @@ export function DateHistoryScreen() {
       throw new Error('No treatment history exists.');
     }
     return start;
-  }, [db]);
+  }, [db, getTreatmentHistoryStart]);
 
   const refreshHistory = useCallback(async () => {
     setIsLoading(true);

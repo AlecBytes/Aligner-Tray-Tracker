@@ -41,7 +41,7 @@ describe('cloud restore recovery-point metadata', () => {
       userId: USER_ID,
     });
     expect(
-      validateRecoveryPointForUser(row(id, undefined, { schema_version: 2 }), USER_ID),
+      validateRecoveryPointForUser(row(id, undefined, { schema_version: 3 }), USER_ID),
     ).toMatchObject({ supported: false });
   });
 
@@ -93,7 +93,7 @@ describe('cloud restore recovery-point metadata', () => {
 
   it('defaults to the newest supported recovery point', () => {
     const unsupported = validateRecoveryPointForUser(
-      row(snapshotId(2), undefined, { schema_version: 2 }),
+      row(snapshotId(2), undefined, { schema_version: 3 }),
       USER_ID,
     );
     const supported = validateRecoveryPointForUser(row(snapshotId(1)), USER_ID);

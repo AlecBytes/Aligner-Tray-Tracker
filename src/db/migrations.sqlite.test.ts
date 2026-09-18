@@ -48,7 +48,7 @@ function createVersionFourDatabase() {
     );
     INSERT INTO settings (id) VALUES (1);
 
-    INSERT INTO treatments (id, created_at) VALUES (1, 100), (2, 100);
+    INSERT INTO treatments (id, created_at) VALUES (1, 100);
     PRAGMA user_version = 4;
   `);
 
@@ -89,7 +89,7 @@ describe('active tray migration SQLite behavior', () => {
 
       await migrateDatabase(db);
 
-      expect(sqlite.prepare('PRAGMA user_version').get()).toMatchObject({ user_version: 7 });
+      expect(sqlite.prepare('PRAGMA user_version').get()).toMatchObject({ user_version: 8 });
       expect(() =>
         sqlite.exec(`
           INSERT INTO tray_periods (treatment_id, tray_number, started_at, ended_at)
@@ -101,7 +101,7 @@ describe('active tray migration SQLite behavior', () => {
           INSERT INTO tray_periods (treatment_id, tray_number, started_at)
           VALUES (2, 1, 100);
         `),
-      ).not.toThrow();
+      ).toThrow();
       expect(() =>
         sqlite.exec(`
           INSERT INTO tray_periods (treatment_id, tray_number, started_at)
@@ -169,7 +169,7 @@ describe('overdue preference migration', () => {
       expect(sqlite.prepare('SELECT * FROM settings').get()).toEqual({
         ...before, tray_change_overdue_reminder_enabled: 0,
       });
-      expect(sqlite.prepare('PRAGMA user_version').get()).toEqual({ user_version: 7 });
+      expect(sqlite.prepare('PRAGMA user_version').get()).toEqual({ user_version: 8 });
       sqlite.exec('UPDATE settings SET tray_change_overdue_reminder_enabled = 1');
       await migrateDatabase(db);
       expect(sqlite.prepare('SELECT tray_change_overdue_reminder_enabled AS enabled FROM settings').get())
@@ -189,7 +189,7 @@ describe('overdue preference migration', () => {
       await migrateDatabase(db);
       expect(sqlite.prepare('SELECT tray_change_overdue_reminder_enabled AS enabled FROM settings').get())
         .toEqual({ enabled: 0 });
-      expect(sqlite.prepare('PRAGMA user_version').get()).toEqual({ user_version: 7 });
+      expect(sqlite.prepare('PRAGMA user_version').get()).toEqual({ user_version: 8 });
     } finally {
       sqlite.close();
     }

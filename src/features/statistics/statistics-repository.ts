@@ -10,6 +10,7 @@ import type {
 
 type ActiveTreatmentRow = {
   treatment_id: number;
+  completed_at: number | null;
 };
 
 type StatisticsPlanVersionRow = {
@@ -66,10 +67,9 @@ export async function getStatisticsSnapshot(
   db: SQLiteDatabase,
 ): Promise<StatisticsSnapshot | null> {
   const activeTreatment = await db.getFirstAsync<ActiveTreatmentRow>(
-    `SELECT treatment_id
-     FROM tray_periods
-     WHERE ended_at IS NULL
-     ORDER BY started_at DESC, id DESC
+    `SELECT id AS treatment_id, completed_at
+     FROM treatments
+     ORDER BY created_at DESC, id DESC
      LIMIT 1`,
   );
 
@@ -104,6 +104,7 @@ export async function getStatisticsSnapshot(
   ]);
 
   return {
+    completedAt: activeTreatment.completed_at,
     planVersions: planRows.map(mapPlanVersion),
     punches: punchRows.map(mapWearPunch),
     trayPeriods: trayPeriodRows.map(mapTrayPeriod),

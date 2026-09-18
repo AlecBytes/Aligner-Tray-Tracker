@@ -141,7 +141,7 @@ export async function getWearPunchForEdit(db: SQLiteDatabase, punchId: number) {
             tray_periods.started_at, tray_periods.ended_at
      FROM wear_punches
      JOIN tray_periods ON tray_periods.id = wear_punches.tray_period_id
-     WHERE wear_punches.id = ?
+     WHERE wear_punches.id = ? AND EXISTS (SELECT 1 FROM treatments WHERE id=tray_periods.treatment_id AND completed_at IS NULL)
      LIMIT 1`,
     punchId,
   );
@@ -171,6 +171,7 @@ export async function updateWearPunchTimestamp(
   db: SQLiteDatabase,
   punchId: number,
   newTimestamp: number,
+  expectedPunch?: EditableWearPunch,
 ) {
   let correctedPunch: EditableWearPunch | null = null;
 
@@ -181,12 +182,12 @@ export async function updateWearPunchTimestamp(
               tray_periods.started_at, tray_periods.ended_at
        FROM wear_punches
        JOIN tray_periods ON tray_periods.id = wear_punches.tray_period_id
-       WHERE wear_punches.id = ?
+       WHERE wear_punches.id = ? AND EXISTS (SELECT 1 FROM treatments WHERE id=tray_periods.treatment_id AND completed_at IS NULL)
        LIMIT 1`,
       punchId,
     );
 
-    if (row === null) {
+    if (row === null || (expectedPunch && !punchesMatch(mapWearPunch(row), expectedPunch))) {
       throw new CorrectionConflictError();
     }
 
@@ -235,7 +236,7 @@ export async function deleteWearPunch(
               tray_periods.started_at, tray_periods.ended_at
        FROM wear_punches
        JOIN tray_periods ON tray_periods.id = wear_punches.tray_period_id
-       WHERE wear_punches.id = ?
+       WHERE wear_punches.id = ? AND EXISTS (SELECT 1 FROM treatments WHERE id=tray_periods.treatment_id AND completed_at IS NULL)
        LIMIT 1`,
       expectedPlan.selectedPunch.id,
     );

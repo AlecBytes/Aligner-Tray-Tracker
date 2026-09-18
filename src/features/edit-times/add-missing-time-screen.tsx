@@ -1,3 +1,4 @@
+import { useTimelineRepository, useTimelineScope } from '@/features/edit-times/timeline-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useRef, useState } from 'react';
@@ -10,10 +11,7 @@ import type { WearStatus } from '@/db/schema';
 import { DateTimeFields } from '@/features/edit-times/date-time-fields';
 import { CorrectionValidationError } from '@/features/edit-times/edit-times-corrections';
 import { parseLocalDateKey, parseLocalDateTime } from '@/features/edit-times/edit-times-dates';
-import {
-  addMissingWearPeriod,
-  CorrectionConflictError,
-} from '@/features/edit-times/edit-times-repository';
+import { CorrectionConflictError } from '@/features/edit-times/edit-times-repository';
 import { reconcileLocalNotifications } from '@/features/notifications/local-notifications';
 import { radius, spacing } from '@/theme/tokens';
 import { useAppTheme } from '@/theme/use-app-theme';
@@ -29,6 +27,8 @@ function knownCorrectionMessage(error: unknown) {
 }
 
 export function AddMissingTimeScreen() {
+  const retainer = useTimelineScope().timeline === 'retainer';
+  const { addMissingWearPeriod } = useTimelineRepository();
   const db = useSQLiteContext();
   const router = useRouter();
   const theme = useAppTheme();
@@ -51,7 +51,7 @@ export function AddMissingTimeScreen() {
     }
 
     if (status === null) {
-      setError('Choose whether the trays were OUT or IN.');
+      setError(retainer ? 'Choose whether the retainers were OUT or IN.' : 'Choose whether the trays were OUT or IN.');
       return;
     }
 
@@ -113,7 +113,7 @@ export function AddMissingTimeScreen() {
                   },
                 ]}>
                 <AppText style={{ color: selected ? theme.onPrimary : theme.text }}>
-                  Trays were {choice}
+                  {retainer ? 'Retainers' : 'Trays'} were {choice}
                 </AppText>
               </Pressable>
             );

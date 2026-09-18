@@ -6,6 +6,7 @@ public enum AlignerTrackerIntentOutcome: String, Sendable {
   case alreadyInState = "already-in-state"
   case appOpenRequired = "app-open-required"
   case changed
+  case retainerMode = "retainer-mode"
   case noActiveTreatment = "no-active-treatment"
 }
 
@@ -66,6 +67,8 @@ public enum AlignerTrackerIntentBridge {
         notificationFailed: false,
         outcome: .alreadyInState
       )
+    case .retainerMode:
+      return AlignerTrackerIntentResult(notificationFailed: false, outcome: .retainerMode)
     case .noActiveTreatment:
       return AlignerTrackerIntentResult(
         notificationFailed: false,

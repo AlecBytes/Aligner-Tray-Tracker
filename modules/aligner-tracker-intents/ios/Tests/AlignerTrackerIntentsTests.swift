@@ -7,6 +7,26 @@ private enum WatchBridgeTestError: Error {
 }
 
 final class AlignerTrackerStoreTests: XCTestCase {
+  func testRetainerModeRejectsNativeWritesAndClearsWatchTrayState() async throws {
+    let url = try makeDatabase(databaseVersion: 8, initialStatus: "OUT")
+    var database: OpaquePointer?
+    XCTAssertEqual(exsqlite3_open(url.path, &database), SQLITE_OK)
+    defer { exsqlite3_close(database) }
+    try execute("""
+      UPDATE tray_periods SET ended_at = 1500;
+      UPDATE treatments SET completed_at = 1500;
+      INSERT INTO retainer_periods VALUES (1, 1, 1500, NULL);
+      """, database: database)
+    let result = try AlignerTrackerStore.ensureWearStatus(.inTrays, timestamp: 2000, databaseURL: url)
+    guard case .retainerMode = result else { return XCTFail("Retainer mode must reject aligner commands") }
+    XCTAssertEqual(try punchCount(url), 1)
+    let snapshot = try AlignerTrackerWatchBridge.currentSnapshotPayload(databaseURL: url)
+    XCTAssertEqual(snapshot["kind"] as? String, "retainer-mode")
+    XCTAssertNil(snapshot["currentTrayNumber"])
+    let intent = try await AlignerTrackerIntentBridge.ensureWearStatus("IN", timestamp: 2000, databaseURL: url)
+    guard case .retainerMode = intent.outcome else { return XCTFail("Siri must explain retainer mode") }
+  }
+
   func testExpoConnectionSeesNativeCommitsAndNativeSeesExpoCommits() throws {
     let url = try makeDatabase(initialStatus: "OUT")
     var reader: OpaquePointer?
@@ -130,7 +150,7 @@ final class AlignerTrackerStoreTests: XCTestCase {
     XCTAssertEqual(try punchCount(migrationDatabase), 1)
 
     let newerDatabase = try makeDatabase(
-      databaseVersion: 8,
+      databaseVersion: 9,
       initialStatus: "IN"
     )
     XCTAssertThrowsError(
@@ -200,7 +220,7 @@ final class AlignerTrackerStoreTests: XCTestCase {
     }
 
     let newerDatabase = try makeDatabase(
-      databaseVersion: 8,
+      databaseVersion: 9,
       initialStatus: "IN"
     )
     do {
@@ -665,6 +685,12 @@ final class AlignerTrackerStoreTests: XCTestCase {
       )
     }
 
+    if databaseVersion >= 8 {
+      try execute("""
+        ALTER TABLE treatments ADD COLUMN completed_at INTEGER;
+        CREATE TABLE retainer_periods (id INTEGER PRIMARY KEY, treatment_id INTEGER, started_at INTEGER, ended_at INTEGER);
+        """, database: database)
+    }
     if databaseVersion >= 7 {
       try execute("""
         ALTER TABLE settings ADD COLUMN tray_change_overdue_reminder_enabled INTEGER NOT NULL DEFAULT 0

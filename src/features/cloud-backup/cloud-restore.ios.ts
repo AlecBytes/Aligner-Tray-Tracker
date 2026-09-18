@@ -1,3 +1,4 @@
+import { reconcileAutomaticOut } from '@/features/retainer/retainer-repository';
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import {
@@ -136,6 +137,7 @@ export async function restoreRecoveryPoint(
     await importBackupSnapshot(db, envelope);
 
     try {
+      await reconcileAutomaticOut(db);
       await reconcileLocalNotifications(db);
       return { status: 'restored', reminders: 'reconciled' };
     } catch {

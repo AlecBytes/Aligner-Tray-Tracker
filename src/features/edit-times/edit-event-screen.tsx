@@ -1,3 +1,4 @@
+import { useTimelineRepository } from '@/features/edit-times/timeline-context';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useRef, useState } from 'react';
@@ -19,12 +20,7 @@ import type {
   EditableWearPunch,
   WearPunchDeletionPlan,
 } from '@/features/edit-times/edit-times-model';
-import {
-  CorrectionConflictError,
-  deleteWearPunch,
-  getWearPunchForEdit,
-  updateWearPunchTimestamp,
-} from '@/features/edit-times/edit-times-repository';
+import { CorrectionConflictError } from '@/features/edit-times/edit-times-repository';
 import { reconcileLocalNotifications } from '@/features/notifications/local-notifications';
 import { radius, spacing } from '@/theme/tokens';
 import { useAppTheme } from '@/theme/use-app-theme';
@@ -40,6 +36,7 @@ function knownCorrectionMessage(error: unknown) {
 }
 
 export function EditEventScreen() {
+  const { deleteWearPunch, getWearPunchForEdit, updateWearPunchTimestamp } = useTimelineRepository();
   const db = useSQLiteContext();
   const router = useRouter();
   const theme = useAppTheme();
@@ -61,7 +58,7 @@ export function EditEventScreen() {
       throw new Error('Invalid punch.');
     }
     return getWearPunchForEdit(db, punchId);
-  }, [db, punchId]);
+  }, [db, punchId, getWearPunchForEdit]);
 
   useFocusEffect(
     useCallback(() => {
@@ -122,7 +119,7 @@ export function EditEventScreen() {
     setError(null);
 
     try {
-      await updateWearPunchTimestamp(db, punch.id, timestamp);
+      await updateWearPunchTimestamp(db, punch.id, timestamp, punch);
       void reconcileLocalNotifications(db);
       router.back();
     } catch (saveError) {

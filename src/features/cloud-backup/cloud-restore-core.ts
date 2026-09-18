@@ -189,7 +189,7 @@ export function validateRecoveryPointForUser(
     payloadBytes: value.payload_bytes,
     schemaVersion: value.schema_version,
     storagePath: expectedPath,
-    supported: value.schema_version === BACKUP_SNAPSHOT_SCHEMA_VERSION,
+    supported: [1, BACKUP_SNAPSHOT_SCHEMA_VERSION].includes(value.schema_version),
     userId: verifiedUserId,
   };
 }
