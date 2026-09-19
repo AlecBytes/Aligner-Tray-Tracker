@@ -110,6 +110,7 @@ jest.mock('@/components/expo-ui-components', () => ({
   ActionButton: 'ActionButton', CenteredState: 'CenteredState', ValidationMessage: 'ValidationMessage',
   isLiquidGlassPlatform: () => true,
 }));
+jest.mock('@/config/support-config', () => ({ isSupportEnabled: true }));
 jest.mock('@/theme/use-app-theme', () => ({
   useAppTheme: () => ({
     border: 'gray',
@@ -424,6 +425,29 @@ it('opens Help from its compact control beside Change tray', async () => {
   expect(mockPush).toHaveBeenCalledWith('/help');
 });
 
+it('opens Support from a compact heart control before Help', async () => {
+  await mount();
+  const support = accessibleButton('Support Aligner Tracker');
+  const help = accessibleButton('Open help');
+  const supportIcon = support.findAllByType('Image').find(
+    node => node.props.systemName === 'heart',
+  );
+  const bottomActions = tree.root.findAll(
+    node => node.props.testID === 'tracker-bottom-actions',
+  )[0]!;
+
+  expect(bottomActions.findAllByType('Button')).toEqual([support, help]);
+  expect(support.findAllByType('Text')).toHaveLength(0);
+  expect(supportIcon?.props.size).toBe(24);
+  expect(support.props.modifiers).toEqual(expect.arrayContaining([
+    { frame: { minWidth: 44, minHeight: 44 } },
+    { accessibilityHint: 'Opens Support Aligner Tracker.' },
+  ]));
+
+  await act(async () => support.props.onPress!());
+  expect(mockPush).toHaveBeenCalledWith('/support');
+});
+
 it('uses compact equal-width cards for today’s IN and OUT durations', async () => {
   await mount();
   const cards = tree.root.findAll(node =>
@@ -481,6 +505,7 @@ it('uses the compact header and bottom Help control in Retainer Mode', async () 
   });
 
   const help = accessibleButton('Open help');
+  const support = accessibleButton('Support Aligner Tracker');
   const notifications = accessibleButton('Open notifications');
   const header = tree.root.findAll(node => node.props.testID === 'tracker-compact-header')[0]!;
   const bottomActions = tree.root.findAll(
@@ -496,18 +521,24 @@ it('uses the compact header and bottom Help control in Retainer Mode', async () 
   expect(bottomActions.findAllByType('Text').map(node => node.props.children)).toContain(
     'Reminders off',
   );
-  expect(bottomActions.findAllByType('Button')).toContain(help);
+  expect(bottomActions.findAllByType('Button')).toEqual([support, help]);
+  expect(support.findAllByType('Image').find(
+    node => node.props.systemName === 'heart',
+  )?.props.size).toBe(24);
   expect(help).toBeDefined();
   expect(notifications).toBeDefined();
   expect(notifications.props.systemImage).toBe('bell');
   await act(async () => notifications.props.onPress!());
   expect(mockPush).toHaveBeenCalledWith('/notifications');
   mockPush.mockClear();
+  await act(async () => support.props.onPress!());
+  expect(mockPush).toHaveBeenCalledWith('/support');
+  mockPush.mockClear();
   await act(async () => help.props.onPress!());
   expect(mockPush).toHaveBeenCalledWith('/help');
 });
 
-it('keeps Help enabled while a tracker save completes', async () => {
+it('keeps Help and Support enabled while a tracker save completes', async () => {
   await mount();
   const commit = deferred<{
     nativeCommitDurationMs: number;
@@ -522,7 +553,9 @@ it('keeps Help enabled while a tracker save completes', async () => {
 
   act(() => button('toggle').props.onPress!());
   const help = accessibleButton('Open help');
+  const support = accessibleButton('Support Aligner Tracker');
   expect(help.props.modifiers).not.toContainEqual({ disabled: true });
+  expect(support.props.modifiers).not.toContainEqual({ disabled: true });
   await act(async () => help.props.onPress!());
   expect(mockPush).toHaveBeenCalledWith('/help');
 

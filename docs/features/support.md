@@ -41,6 +41,13 @@ Suggested language:
 
 > Support the continued development of Aligner Tracker.
 
+## Entry Points
+
+When Support is enabled, users may intentionally open it from the Menu or from a passive,
+heart-only shortcut in the Tracker's bottom action row. The Tracker shortcut must remain gated by
+Support availability and must not display promotional copy, badges, urgency, or repeated prompts.
+Rendering the shortcut must not initialize purchases or perform network work.
+
 ---
 
 # V1 — One-Time Support
@@ -313,7 +320,8 @@ Do not implement as part of the first Support feature:
 - Stripe in the mobile app
 - web payments
 - purchase analytics beyond what is operationally necessary
-- promotional support prompts during normal tracker usage
+- promotional support prompts during normal tracker usage beyond the passive, gated navigation
+  shortcut described above
 
 ---
 

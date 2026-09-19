@@ -2,6 +2,7 @@ import { AppLoadingScreen } from '@/components/app-loading-screen';
 import { ActionButton, CenteredState, isLiquidGlassPlatform, ValidationMessage } from '@/components/expo-ui-components';
 import { formatDuration } from '@/features/tracker/tracker-calculations';
 import { useTrackerStatusFeedback } from '@/features/tracker/use-tracker-status-feedback.ios';
+import { isSupportEnabled } from '@/config/support-config';
 import { useAppTheme } from '@/theme/use-app-theme';
 import { trackerStatusControlStyle } from '../../../modules/tracker-status-control';
 import { Button, Host, HStack, Image, Spacer, Text, VStack } from '@expo/ui/swift-ui';
@@ -109,6 +110,26 @@ function HelpButton({ liquidGlass, onPress }: { liquidGlass: boolean; onPress: (
         <Image size={24} systemName="questionmark.circle" />
         <Text>Help</Text>
       </HStack>
+    </Button>
+  );
+}
+
+function SupportButton({ liquidGlass, onPress }: { liquidGlass: boolean; onPress: () => void }) {
+  return (
+    <Button
+      modifiers={[
+        buttonStyle(liquidGlass ? 'glass' : 'bordered'),
+        controlSize('large'),
+        frame({ minWidth: 44, minHeight: 44 }),
+        accessibilityLabel('Support Aligner Tracker'),
+        accessibilityHint('Opens Support Aligner Tracker.'),
+      ]}
+      onPress={onPress}>
+      <Image
+        size={24}
+        systemName="heart"
+        modifiers={[accessibilityHidden()]}
+      />
     </Button>
   );
 }
@@ -361,6 +382,9 @@ export function TrackerPresentation({ status, treatment, retainer, latestPunch, 
               ]}>
               <Text modifiers={[font({ textStyle: 'headline' })]}>{retainer.reminder}</Text>
             </VStack>
+            {isSupportEnabled ? (
+              <SupportButton liquidGlass={liquidGlass} onPress={() => router.push('/support')} />
+            ) : null}
             <HelpButton liquidGlass={liquidGlass} onPress={() => router.push('/help')} />
           </HStack>
         ) : (
@@ -391,6 +415,9 @@ export function TrackerPresentation({ status, treatment, retainer, latestPunch, 
                 onPress={() => router.push('/change-tray')}
                 prominent={false}
               />
+              {isSupportEnabled ? (
+                <SupportButton liquidGlass={liquidGlass} onPress={() => router.push('/support')} />
+              ) : null}
               <HelpButton liquidGlass={liquidGlass} onPress={() => router.push('/help')} />
             </HStack>
           </>
