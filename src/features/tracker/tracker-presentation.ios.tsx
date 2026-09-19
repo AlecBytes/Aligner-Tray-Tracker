@@ -19,6 +19,7 @@ import {
     font,
     foregroundStyle,
     frame,
+    imageScale,
     labelStyle,
     lineLimit,
     minimumScaleFactor,
@@ -34,10 +35,8 @@ import { useRouter } from 'expo-router';
 import type { TrackerPresentationProps } from './tracker-presentation-model';
 const trayInImageModule = require('../../../assets/images/tray-in.png');
 const trayOutImageModule = require('../../../assets/images/tray-out.png');
-const traysImageModule = require('../../../assets/images/trays.png');
 const trayInImageAspectRatio = 1448 / 1086;
 const trayOutImageAspectRatio = 1188 / 681;
-const traysImageAspectRatio = 1103 / 705;
 
 function TimeMetric({
   disabled: isDisabled,
@@ -98,7 +97,7 @@ function TimeMetric({
 export function TrackerPresentation({ status, treatment, retainer, latestPunch, canEdit, canUndo, canRedo, isLoading, isMutating, actionsDisabled, error, needsRetry, refreshTracker, toggleTracker, undoTracker, redoTracker }: TrackerPresentationProps) {
   const router = useRouter();
   const theme = useAppTheme();
-  const [trackerAssets] = useAssets([trayInImageModule, trayOutImageModule, traysImageModule]);
+  const [trackerAssets] = useAssets([trayInImageModule, trayOutImageModule]);
   const beginTrackerStatusFeedback = useTrackerStatusFeedback();
   const isIn = status === 'IN';
   const trayImage = trackerAssets?.[isIn ? 0 : 1];
@@ -116,27 +115,21 @@ export function TrackerPresentation({ status, treatment, retainer, latestPunch, 
           frame({ maxWidth: Infinity, maxHeight: Infinity, alignment: 'top' }),
           padding({ all: 16 }),
         ]}>
-        <HStack>
-          {treatment ? <Button
+        <HStack alignment="top">
+          <Button
+            label="Notifications"
+            systemImage="bell"
             modifiers={[
               buttonStyle(liquidGlass ? 'glass' : 'bordered'),
               controlSize('large'),
               disabled(actionsDisabled),
+              labelStyle('iconOnly'),
               frame({ minWidth: 44, minHeight: 44 }),
-              accessibilityLabel('Open treatment plan'),
-              accessibilityHint('Opens your treatment plan.'),
+              accessibilityLabel('Open notifications'),
+              accessibilityHint('Opens notification settings.'),
             ]}
-            onPress={() => router.push('/treatment-plan')}>
-            <Image
-              uiImage={trackerAssets?.[2]?.localUri ?? undefined}
-              modifiers={[
-                resizable(),
-                aspectRatio({ ratio: traysImageAspectRatio, contentMode: 'fit' }),
-                frame({ width: 56, height: 36 }),
-                accessibilityHidden(),
-              ]}
-            />
-          </Button> : null}
+            onPress={() => router.push('/notifications')}
+          />
           <Spacer />
           <VStack alignment="trailing" spacing={8}>
             <Button
@@ -157,6 +150,7 @@ export function TrackerPresentation({ status, treatment, retainer, latestPunch, 
                 buttonStyle(liquidGlass ? 'glass' : 'bordered'),
                 controlSize('large'),
                 labelStyle('iconOnly'),
+                imageScale('large'),
                 frame({ minWidth: 44, minHeight: 44 }),
                 accessibilityLabel('Open help'),
                 accessibilityHint('Opens help for using Aligner Tracker.'),

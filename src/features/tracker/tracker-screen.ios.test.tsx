@@ -91,7 +91,7 @@ jest.mock('@expo/ui/swift-ui', () => ({
 jest.mock('@expo/ui/swift-ui/modifiers', () => ({
   ...Object.fromEntries([
     'accessibilityHidden', 'accessibilityHint', 'accessibilityLabel', 'accessibilityValue', 'aspectRatio', 'background', 'buttonBorderShape', 'buttonStyle',
-    'contentTransition', 'controlSize', 'disabled', 'font', 'foregroundStyle', 'frame', 'labelStyle', 'lineLimit',
+    'contentTransition', 'controlSize', 'disabled', 'font', 'foregroundStyle', 'frame', 'imageScale', 'labelStyle', 'lineLimit',
     'minimumScaleFactor', 'monospacedDigit', 'opacity', 'padding', 'resizable',
   ].map(name => [name, (value: unknown) => ({ [name]: value })])),
   shapes: { roundedRectangle: () => ({}) },
@@ -101,7 +101,6 @@ jest.mock('expo-asset', () => ({
     [
       { localUri: 'file:///tray-in.png' },
       { localUri: 'file:///tray-out.png' },
-      { localUri: 'file:///trays.png' },
     ],
     undefined,
   ],
@@ -141,7 +140,7 @@ jest.mock('./tracker-repository', () => ({
   redoWearStatus: (...args: unknown[]) => mockRedo(...args),
 }));
 
-type TestNode = { props: { label?: string; systemImage?: string; onPress?: () => void; onPressIn?: (event: unknown) => void; onPressOut?: (event: unknown) => void; message?: string; children?: unknown; modifiers?: Record<string, unknown>[]; uiImage?: string; source?: { uri: string }; style?: { opacity?: number }; disabled?: boolean; accessibilityValue?: { text: string }; testID?: string; onLayout?: (event: unknown) => void } };
+type TestNode = { props: { alignment?: string; label?: string; systemImage?: string; onPress?: () => void; onPressIn?: (event: unknown) => void; onPressOut?: (event: unknown) => void; message?: string; children?: unknown; modifiers?: Record<string, unknown>[]; uiImage?: string; source?: { uri: string }; style?: { opacity?: number }; disabled?: boolean; accessibilityValue?: { text: string }; testID?: string; onLayout?: (event: unknown) => void } };
 const renderer = jest.requireActual('react-test-renderer') as {
   act: (callback: () => void | Promise<void>) => Promise<void>;
   create: (element: React.ReactElement) => {
@@ -362,24 +361,28 @@ it('persists the timestamp captured for the accepted toggle', async () => {
   expect(mockPersisted!.punches.at(-1)?.timestamp).toBe(acceptedTimestamp);
 });
 
-it('opens the treatment plan from the bundled trays shortcut', async () => {
+it('opens Notifications from the top action beside Menu', async () => {
   await mount();
-  const image = tree.root.findAllByType('Image').find(
-    node => node.props.uiImage === 'file:///trays.png',
-  )!;
-  const treatmentPlanButton = accessibleButton('Open treatment plan');
+  const notifications = accessibleButton('Open notifications');
+  const topActions = tree.root.findAllByType('HStack')[0];
 
-  expect(image.props.modifiers).toContainEqual({
-    aspectRatio: { ratio: 1103 / 705, contentMode: 'fit' },
-  });
-  expect(image.props.modifiers).toContainEqual({ frame: { width: 56, height: 36 } });
-  expect(image.props.modifiers).toContainEqual({ accessibilityHidden: undefined });
-  expect(treatmentPlanButton.props.modifiers).toContainEqual({
+  expect(topActions.props.alignment).toBe('top');
+  expect(notifications.props.label).toBe('Notifications');
+  expect(notifications.props.systemImage).toBe('bell');
+  expect(notifications.props.modifiers).toContainEqual({ labelStyle: 'iconOnly' });
+  expect(notifications.props.modifiers).toContainEqual({
     frame: { minWidth: 44, minHeight: 44 },
   });
+  expect(notifications.props.modifiers).toContainEqual({
+    accessibilityHint: 'Opens notification settings.',
+  });
+  expect(accessibleButton('Open treatment plan')).toBeUndefined();
+  expect(tree.root.findAllByType('Image').some(
+    node => node.props.uiImage === 'file:///trays.png',
+  )).toBe(false);
 
-  await act(async () => treatmentPlanButton.props.onPress!());
-  expect(mockPush).toHaveBeenCalledWith('/treatment-plan');
+  await act(async () => notifications.props.onPress!());
+  expect(mockPush).toHaveBeenCalledWith('/notifications');
 });
 
 it('opens Help from its compact accessible control', async () => {
@@ -390,6 +393,7 @@ it('opens Help from its compact accessible control', async () => {
   expect(help.props.systemImage).toBe('questionmark.circle');
   expect(help.props.modifiers).toEqual(expect.arrayContaining([
     { labelStyle: 'iconOnly' },
+    { imageScale: 'large' },
     { frame: { minWidth: 44, minHeight: 44 } },
     { accessibilityHint: 'Opens help for using Aligner Tracker.' },
   ]));
@@ -427,7 +431,13 @@ it('shows the same Help destination in Retainer Mode', async () => {
   });
 
   const help = accessibleButton('Open help');
+  const notifications = accessibleButton('Open notifications');
   expect(help).toBeDefined();
+  expect(notifications).toBeDefined();
+  expect(notifications.props.systemImage).toBe('bell');
+  await act(async () => notifications.props.onPress!());
+  expect(mockPush).toHaveBeenCalledWith('/notifications');
+  mockPush.mockClear();
   await act(async () => help.props.onPress!());
   expect(mockPush).toHaveBeenCalledWith('/help');
 });
