@@ -25,11 +25,6 @@ const codeExtensions = [
   '.cjs',
 ];
 
-// Branch-only exception: see docs/experiments/tray-button-3d.md.
-// Restrict visual imports to the one experimental adapter; still traverse its dependencies.
-const experimentalTrayButtonPath = 'src/features/tracker/experimental-tray-button.ios.tsx';
-const experimentalTrayButtonImports = new Set(['AccessibilityInfo', 'Image', 'Text', 'View']);
-
 const approvedReactNativeRuntimeImports = new Set([
   'AppState',
   'Linking',
@@ -228,9 +223,7 @@ function auditReactNativeImports(filePath, sourceFile, violations) {
         continue;
       }
       const importedName = element.propertyName?.text ?? element.name.text;
-      const experimentalImport = path.relative(projectRoot, filePath) === experimentalTrayButtonPath
-        && experimentalTrayButtonImports.has(importedName);
-      if (!approvedReactNativeRuntimeImports.has(importedName) && !experimentalImport) {
+      if (!approvedReactNativeRuntimeImports.has(importedName)) {
         addViolation(
           violations,
           filePath,
@@ -407,11 +400,6 @@ while (pending.length > 0) {
   auditReactNativeImports(filePath, sourceFile, violations);
 
   for (const specifier of collectRuntimeSpecifiers(sourceFile)) {
-    if ((specifier === 'react-native-really-awesome-button' || specifier.startsWith('react-native-really-awesome-button/'))
-      && path.relative(projectRoot, filePath) !== experimentalTrayButtonPath) {
-      addViolation(violations, filePath, sourceFile, sourceFile,
-        'The experimental button library is allowed only inside the tray button adapter.');
-    }
     const resolved = resolveAppModule(filePath, specifier);
     if (resolved && resolved.startsWith(sourceRoot) && !visited.has(resolved)) {
       pending.push(resolved);

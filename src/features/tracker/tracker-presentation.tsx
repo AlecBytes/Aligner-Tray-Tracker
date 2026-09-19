@@ -200,7 +200,7 @@ export function TrackerPresentation({ status, treatment, retainer, latestPunch, 
         </Pressable>
       </View>
 
-      {retainer ? <View style={[styles.metric, { flex: 0, minHeight: 72 }]}><AppText variant="heading">{retainer.reminder}</AppText></View> : <>      <View style={styles.metrics}>
+      {retainer ? <View style={[styles.metric, { flex: 0, minHeight: 72 }]}><AppText variant="heading">{retainer.reminder}</AppText></View> : <><View style={styles.metrics}>
         <TimeMetric
           disabled={actionsDisabled}
           label="IN TODAY"

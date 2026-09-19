@@ -1,5 +1,4 @@
 import React from 'react';
-import { Image as NativeImage, Text as NativeText, View as NativeView } from 'react-native';
 import { clearTrackerSessionHistory } from './tracker-history-session';
 import type { TrackerSnapshot } from './tracker-model';
 import { TrackerScreen } from './tracker-screen.ios';
@@ -86,7 +85,7 @@ jest.mock('expo-haptics', () => ({
   notificationAsync: (...args: unknown[]) => mockNotification(...args),
 }));
 jest.mock('@expo/ui/swift-ui', () => ({
-  RNHostView: 'RNHostView', Button: 'Button', Host: 'Host', HStack: 'HStack', Image: 'Image', Spacer: 'Spacer', Text: 'Text', VStack: 'VStack',
+  Button: 'Button', Host: 'Host', HStack: 'HStack', Image: 'Image', Spacer: 'Spacer', Text: 'Text', VStack: 'VStack',
 }));
 jest.mock('@expo/ui/swift-ui/modifiers', () => ({
   ...Object.fromEntries([
@@ -121,6 +120,9 @@ jest.mock('@/theme/use-app-theme', () => ({
     text: 'black',
   }),
 }));
+jest.mock('../../../modules/tracker-status-control', () => ({
+  trackerStatusControlStyle: (value: unknown) => ({ trackerStatusControlStyle: value }),
+}));
 jest.mock('@/features/notifications/local-notifications', () => ({ reconcileLocalNotifications: jest.fn() }));
 jest.mock('@/features/siri/aligner-tracker-intents', () => ({
   isNativeWearStatusAvailable: () => true,
@@ -154,11 +156,20 @@ function deferred<T>() {
   const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; });
   return { promise, resolve, reject };
 }
-const text = () => [...tree.root.findAllByType('Text'), ...tree.root.findAllByType(NativeText)].map(node => node.props.children).join(' ');
+const text = () => tree.root.findAllByType('Text').map(node => node.props.children).join(' ');
 const error = () => tree.root.findAllByType('ValidationMessage')[0]?.props.message;
+function rawTextInSwiftUIContainers() {
+  return ['Host', 'HStack', 'VStack', 'Button'].flatMap(type =>
+    tree.root.findAllByType(type).flatMap(node =>
+      React.Children.toArray(node.props.children as React.ReactNode).filter(
+        child => typeof child === 'string',
+      ),
+    ),
+  );
+}
 function button(label: string) {
   if (label === 'toggle') {
-    return tree.root.findAll(node => node.props.testID === 'experimental-tray-button' && typeof node.props.onPress === 'function')[0]!;
+    return tree.root.findAll(node => node.props.testID === 'tracker-toggle-button' && typeof node.props.onPress === 'function')[0]!;
   }
   return tree.root.findAllByType('Button').find(node => node.props.label === label)!;
 }
@@ -249,16 +260,16 @@ it('skips unavailable initial audio setup and retries until it succeeds', async 
 
 it('shows the decorative tray image for the current tracker state', async () => {
   await mount();
-  await act(async () => {
-    tree.root.findAllByType(NativeView).find(node => node.props.onLayout)!.props.onLayout!({ nativeEvent: { layout: { height: 380 } } });
-  });
-  const trayImage = () => tree.root.findAllByType(NativeImage).find(node => node.props.source?.uri?.startsWith('file:///tray-'))!;
-  const duration = () => tree.root.findAllByType(NativeText).find(node => node.props.style?.opacity !== undefined)!;
-  expect(trayImage().props.source?.uri).toBe('file:///tray-out.png');
-  expect(duration().props.style?.opacity).toBe(1);
+  expect(rawTextInSwiftUIContainers()).toEqual([]);
+  const trayImage = () => tree.root.findAllByType('Image').find(node => node.props.uiImage?.startsWith('file:///tray-'))!;
+  const duration = () => tree.root.findAllByType('Text').find(node =>
+    node.props.modifiers?.some(modifier => 'opacity' in modifier),
+  )!;
+  expect(trayImage().props.uiImage).toBe('file:///tray-out.png');
+  expect(duration().props.modifiers).toContainEqual({ opacity: 1 });
   await press('toggle');
-  expect(trayImage().props.source?.uri).toBe('file:///tray-in.png');
-  expect(duration().props.style?.opacity).toBe(0);
+  expect(trayImage().props.uiImage).toBe('file:///tray-in.png');
+  expect(duration().props.modifiers).toContainEqual({ opacity: 0 });
 });
 
 it('keeps confirmed state while committing, then renders the commit before notifications finish', async () => {
@@ -279,7 +290,8 @@ it('keeps confirmed state while committing, then renders the commit before notif
   act(() => button('toggle').props.onPress!());
   expect(text()).toContain('TRAYS ARE OUT');
   expect(text()).toContain('Saving…');
-  expect(button('toggle').props.accessibilityValue).toEqual({ text: 'OUT, saving' });
+  expect(button('toggle').props.modifiers).toContainEqual({ accessibilityValue: 'OUT, saving' });
+  expect(button('toggle').props.modifiers).toContainEqual({ disabled: true });
 
   mockPersisted = { ...mockPersisted!, punches: [predecessor, punch] };
   await act(async () => commit.resolve({
@@ -291,7 +303,7 @@ it('keeps confirmed state while committing, then renders the commit before notif
   }));
   expect(text()).toContain('TRAYS ARE IN');
   expect(text()).not.toContain('Saving…');
-  expect(button('toggle').props.disabled).toBe(false);
+  expect(button('toggle').props.modifiers).toContainEqual({ disabled: false });
   expect(error()).toBeUndefined();
 
   await act(async () => notifications.resolve(true));
@@ -770,22 +782,8 @@ it.each([true, false])('offers Retry when readback fails (save succeeded: %s)', 
   await press('toggle');
   expect(error()).toContain('displayed state may be outdated');
   expect(error()).toContain(saved ? 'Tracker saved' : 'could not be updated');
-  expect(button('toggle').props.disabled).toBe(true);
+  expect(button('toggle').props.modifiers).toContainEqual({ disabled: true });
   await press('Retry');
-  expect(button('toggle').props.disabled).toBe(false);
+  expect(button('toggle').props.modifiers).toContainEqual({ disabled: false });
   expect(error() ?? '').not.toContain('outdated');
-});
-
-
-it('does not record a cancelled gesture or wait for the release animation', async () => {
-  await mount();
-  const event = { nativeEvent: {} };
-  await act(async () => {
-    button('toggle').props.onPressIn!(event);
-    button('toggle').props.onPressOut!(event);
-  });
-  expect(mockEnsure).not.toHaveBeenCalled();
-  expect(mockImpact).not.toHaveBeenCalled();
-  await press('toggle');
-  expect(mockEnsure).toHaveBeenCalledTimes(1);
 });

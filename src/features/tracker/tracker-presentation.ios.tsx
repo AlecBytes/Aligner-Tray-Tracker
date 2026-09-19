@@ -3,11 +3,13 @@ import { ActionButton, CenteredState, isLiquidGlassPlatform, ValidationMessage }
 import { formatDuration } from '@/features/tracker/tracker-calculations';
 import { useTrackerStatusFeedback } from '@/features/tracker/use-tracker-status-feedback.ios';
 import { useAppTheme } from '@/theme/use-app-theme';
-import { Button, Host, HStack, Image, RNHostView, Spacer, Text, VStack } from '@expo/ui/swift-ui';
+import { trackerStatusControlStyle } from '../../../modules/tracker-status-control';
+import { Button, Host, HStack, Image, Spacer, Text, VStack } from '@expo/ui/swift-ui';
 import {
     accessibilityHidden,
     accessibilityHint,
     accessibilityLabel,
+    accessibilityValue,
     aspectRatio,
     background,
     buttonStyle,
@@ -20,18 +22,20 @@ import {
     lineLimit,
     minimumScaleFactor,
     monospacedDigit,
+    opacity,
     padding,
     resizable,
     shapes,
 } from '@expo/ui/swift-ui/modifiers';
 import { useAssets } from 'expo-asset';
 import { useRouter } from 'expo-router';
-import { ExperimentalTrayButton } from './experimental-tray-button.ios';
 
 import type { TrackerPresentationProps } from './tracker-presentation-model';
 const trayInImageModule = require('../../../assets/images/tray-in.png');
 const trayOutImageModule = require('../../../assets/images/tray-out.png');
 const traysImageModule = require('../../../assets/images/trays.png');
+const trayInImageAspectRatio = 1448 / 1086;
+const trayOutImageAspectRatio = 1188 / 681;
 const traysImageAspectRatio = 1;
 
 function TimeMetric({
@@ -97,9 +101,11 @@ export function TrackerPresentation({ status, treatment, retainer, latestPunch, 
   const beginTrackerStatusFeedback = useTrackerStatusFeedback();
   const isIn = status === 'IN';
   const trayImage = trackerAssets?.[isIn ? 0 : 1];
+  const trayImageAspectRatio = isIn ? trayInImageAspectRatio : trayOutImageAspectRatio;
   const currentOutDuration = formatDuration(treatment?.currentOutSeconds ?? 0);
   const daysRemainingLabel = treatment ? `${treatment.daysRemaining} ${Math.abs(treatment.daysRemaining) === 1 ? 'day' : 'days'} left` : '';
   const liquidGlass = isLiquidGlassPlatform();
+  const trackerSubject = retainer ? 'Retainers' : 'Trays';
 
   return (
     <Host seedColor={theme.primary} style={{ flex: 1 }}>
@@ -231,48 +237,100 @@ export function TrackerPresentation({ status, treatment, retainer, latestPunch, 
           />
         </HStack>
 
-        <VStack modifiers={[frame({ maxWidth: Infinity, maxHeight: Infinity, minHeight: 124 })]}>
-          <RNHostView>
-            <ExperimentalTrayButton
-              status={status}
-              saving={isMutating}
+        <Button
+          testID="tracker-toggle-button"
+          modifiers={[
+            trackerStatusControlStyle({
+              faceColor: isIn ? theme.primary : theme.surface,
+              baseColor: isIn ? theme.primaryPressed : theme.border,
+              foregroundColor: isIn ? theme.onPrimary : theme.text,
+            }),
+            disabled(actionsDisabled),
+            frame({ maxWidth: Infinity, maxHeight: Infinity, minHeight: 124 }),
+            accessibilityLabel(trackerSubject),
+            accessibilityValue(`${status}${isMutating ? ', saving' : ''}`),
+            accessibilityHint(
+              isMutating
+                ? 'Saving the tracker change.'
+                : `Tap when ${trackerSubject.toLowerCase()} are ${isIn ? 'removed' : 'inserted'}.`,
+            ),
+          ]}
+          onPress={() => void toggleTracker(beginTrackerStatusFeedback())}>
+          <VStack
+            spacing={8}
+            modifiers={[frame({ maxWidth: Infinity, maxHeight: Infinity, minHeight: 112 })]}>
+            <Spacer />
+            {trayImage?.localUri ? (
+              <Image
+                uiImage={trayImage.localUri}
+                modifiers={[
+                  resizable(),
+                  aspectRatio({ ratio: trayImageAspectRatio, contentMode: 'fit' }),
+                  frame({ width: 260, height: 195 }),
+                  accessibilityHidden(),
+                ]}
+              />
+            ) : null}
+            <Text
+              modifiers={[
+                font({ textStyle: 'title2', weight: 'bold' }),
+                minimumScaleFactor(0.75),
+                lineLimit(1),
+              ]}>
+              {`${trackerSubject.toUpperCase()} ARE ${status}`}
+            </Text>
+            {!retainer ? (
+              <Text
+                modifiers={[
+                  font({ textStyle: 'title', weight: 'bold' }),
+                  monospacedDigit(),
+                  contentTransition('numericText'),
+                  minimumScaleFactor(0.75),
+                  lineLimit(1),
+                  opacity(isIn ? 0 : 1),
+                  accessibilityHidden(isIn),
+                ]}>
+                {currentOutDuration}
+              </Text>
+            ) : null}
+            <Text>{isMutating ? 'Saving…' : isIn ? 'Tap when removed' : 'Tap when inserted'}</Text>
+            <Spacer />
+          </VStack>
+        </Button>
+
+        {retainer ? (
+          <VStack modifiers={[frame({ minHeight: 72, maxWidth: Infinity }), padding({ all: 12 }), background(theme.surface, shapes.roundedRectangle({ cornerRadius: 16 }))]}>
+            <Text modifiers={[font({ textStyle: 'headline' })]}>{retainer.reminder}</Text>
+          </VStack>
+        ) : (
+          <>
+            <HStack spacing={10}>
+              <TimeMetric
+                disabled={actionsDisabled}
+                label="IN TODAY"
+                onPress={() =>
+                  router.push({ pathname: '/intervals', params: { highlight: 'IN' } })
+                }
+                seconds={treatment!.inTodaySeconds}
+              />
+              <TimeMetric
+                disabled={actionsDisabled}
+                label="OUT TODAY"
+                onPress={() =>
+                  router.push({ pathname: '/intervals', params: { highlight: 'OUT' } })
+                }
+                seconds={treatment!.outTodaySeconds}
+              />
+            </HStack>
+
+            <ActionButton
               disabled={actionsDisabled}
-              imageUri={trayImage?.localUri ?? undefined}
-              outDuration={currentOutDuration}
-              subject={retainer ? 'Retainers' : 'Trays'}
-              showDuration={!retainer && !isIn}
-              onPress={() => void toggleTracker(beginTrackerStatusFeedback())}
+              label="Change tray"
+              onPress={() => router.push('/change-tray')}
+              prominent={false}
             />
-          </RNHostView>
-        </VStack>
-
-        {retainer ? <VStack modifiers={[frame({ minHeight: 72, maxWidth: Infinity }), padding({ all: 12 }), background(theme.surface, shapes.roundedRectangle({ cornerRadius: 16 }))]}>
-          <Text modifiers={[font({ textStyle: 'headline' })]}>{retainer.reminder}</Text>
-        </VStack> : <>        <HStack spacing={10}>
-          <TimeMetric
-            disabled={actionsDisabled}
-            label="IN TODAY"
-            onPress={() =>
-              router.push({ pathname: '/intervals', params: { highlight: 'IN' } })
-            }
-            seconds={treatment!.inTodaySeconds}
-          />
-          <TimeMetric
-            disabled={actionsDisabled}
-            label="OUT TODAY"
-            onPress={() =>
-              router.push({ pathname: '/intervals', params: { highlight: 'OUT' } })
-            }
-            seconds={treatment!.outTodaySeconds}
-          />
-        </HStack>
-
-        <ActionButton
-          disabled={actionsDisabled}
-          label="Change tray"
-          onPress={() => router.push('/change-tray')}
-          prominent={false}
-        /></>}
+          </>
+        )}
       </VStack>
     </Host>
   );
