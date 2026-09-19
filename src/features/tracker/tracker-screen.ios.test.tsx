@@ -272,6 +272,25 @@ it('shows the decorative tray image for the current tracker state', async () => 
   expect(duration().props.modifiers).toContainEqual({ opacity: 0 });
 });
 
+it('describes the current action and state to assistive technology', async () => {
+  await mount();
+  const toggle = () => button('toggle');
+
+  expect(toggle().props.modifiers).toEqual(expect.arrayContaining([
+    { accessibilityLabel: 'Trays' },
+    { accessibilityValue: 'OUT' },
+    { accessibilityHint: 'Tap when trays are inserted.' },
+  ]));
+
+  await press('toggle');
+
+  expect(toggle().props.modifiers).toEqual(expect.arrayContaining([
+    { accessibilityLabel: 'Trays' },
+    { accessibilityValue: 'IN' },
+    { accessibilityHint: 'Tap when trays are removed.' },
+  ]));
+});
+
 it('keeps confirmed state while committing, then renders the commit before notifications finish', async () => {
   await mount();
   const commit = deferred<{
@@ -291,7 +310,12 @@ it('keeps confirmed state while committing, then renders the commit before notif
   expect(text()).toContain('TRAYS ARE OUT');
   expect(text()).toContain('Saving…');
   expect(button('toggle').props.modifiers).toContainEqual({ accessibilityValue: 'OUT, saving' });
+  expect(button('toggle').props.modifiers).toContainEqual({ accessibilityHint: 'Saving the tracker change.' });
   expect(button('toggle').props.modifiers).toContainEqual({ disabled: true });
+  expect(mockImpact).not.toHaveBeenCalled();
+  expect(mockNotification).not.toHaveBeenCalled();
+  expect(mockInPlayer.play).not.toHaveBeenCalled();
+  expect(mockOutPlayer.play).not.toHaveBeenCalled();
 
   mockPersisted = { ...mockPersisted!, punches: [predecessor, punch] };
   await act(async () => commit.resolve({
@@ -303,7 +327,10 @@ it('keeps confirmed state while committing, then renders the commit before notif
   }));
   expect(text()).toContain('TRAYS ARE IN');
   expect(text()).not.toContain('Saving…');
+  expect(button('toggle').props.modifiers).toContainEqual({ accessibilityHint: 'Tap when trays are removed.' });
   expect(button('toggle').props.modifiers).toContainEqual({ disabled: false });
+  expect(mockImpact).toHaveBeenCalledTimes(1);
+  expect(mockInPlayer.play).toHaveBeenCalledTimes(1);
   expect(error()).toBeUndefined();
 
   await act(async () => notifications.resolve(true));
@@ -319,7 +346,11 @@ it('ignores duplicate toggles while the first commit is pending', async () => {
     button('toggle').props.onPress!();
   });
   expect(mockEnsure).toHaveBeenCalledTimes(1);
+  expect(mockImpact).not.toHaveBeenCalled();
+  expect(mockInPlayer.play).not.toHaveBeenCalled();
+  expect(mockOutPlayer.play).not.toHaveBeenCalled();
   await act(async () => commit.reject(new Error('write failed')));
+  expect(mockNotification).toHaveBeenCalledTimes(1);
 });
 
 it('persists the timestamp captured for the accepted toggle', async () => {
