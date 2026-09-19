@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Image, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppLoadingScreen } from '@/components/app-loading-screen';
 import { AppScreen } from '@/components/app-screen';
@@ -21,6 +21,9 @@ import {
 import { TreatmentFormField } from '@/features/treatment/treatment-form-field';
 import { radius, spacing } from '@/theme/tokens';
 import { useAppTheme } from '@/theme/use-app-theme';
+
+const topTrayImage = require('../../../assets/images/top-tray.png');
+const bottomTrayImage = require('../../../assets/images/bottom-tray.png');
 
 export function TreatmentPlanScreen() {
   const db = useSQLiteContext();
@@ -169,6 +172,13 @@ export function TreatmentPlanScreen() {
 
   return (
     <AppScreen keyboardAccessory={keyboardNavigation.accessory} scrollable>
+      <Image
+        accessibilityIgnoresInvertColors
+        accessible={false}
+        source={topTrayImage}
+        style={styles.topTrayImage}
+      />
+
       <View style={styles.heading}>
         <AppText muted>Update the plan prescribed for your current treatment.</AppText>
       </View>
@@ -243,6 +253,13 @@ export function TreatmentPlanScreen() {
           </AppText>
         </Pressable>
       </View>
+
+      <Image
+        accessibilityIgnoresInvertColors
+        accessible={false}
+        source={bottomTrayImage}
+        style={styles.bottomTrayImage}
+      />
     </AppScreen>
   );
 }
@@ -289,5 +306,19 @@ const styles = StyleSheet.create({
     minHeight: 54,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
+  },
+  bottomTrayImage: {
+    alignSelf: 'center',
+    aspectRatio: 1097 / 398,
+    height: undefined,
+    resizeMode: 'contain',
+    width: '100%',
+  },
+  topTrayImage: {
+    alignSelf: 'center',
+    aspectRatio: 1088 / 365,
+    height: undefined,
+    resizeMode: 'contain',
+    width: '100%',
   },
 });

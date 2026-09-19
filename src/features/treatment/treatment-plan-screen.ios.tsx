@@ -1,6 +1,7 @@
 import {
   Form,
   Host,
+  Image,
   Section,
   Text,
   TextField,
@@ -8,15 +9,21 @@ import {
   useNativeState,
 } from '@expo/ui/swift-ui';
 import {
+  accessibilityHidden,
   accessibilityLabel,
+  aspectRatio,
   autocorrectionDisabled,
   disabled,
   keyboardType,
+  listRowBackground,
+  listRowSeparator,
   onSubmit,
+  resizable,
   scrollDismissesKeyboard,
   submitLabel,
   textInputAutocapitalization,
 } from '@expo/ui/swift-ui/modifiers';
+import { useAssets } from 'expo-asset';
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -43,6 +50,11 @@ import { useAppTheme } from '@/theme/use-app-theme';
 
 type PlanField = keyof TreatmentPlanFormValues;
 
+const topTrayImageModule = require('../../../assets/images/top-tray.png');
+const bottomTrayImageModule = require('../../../assets/images/bottom-tray.png');
+const topTrayImageAspectRatio = 1088 / 365;
+const bottomTrayImageAspectRatio = 1097 / 398;
+
 const FIELD_ORDER: readonly PlanField[] = [
   'totalTrays',
   'daysPerTray',
@@ -53,6 +65,8 @@ export function TreatmentPlanScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
   const theme = useAppTheme();
+  const [trayImages] = useAssets([topTrayImageModule, bottomTrayImageModule]);
+  const [topTrayImage, bottomTrayImage] = trayImages ?? [];
   const totalTrays = useNativeState('');
   const daysPerTray = useNativeState('');
   const prescribedHoursPerDay = useNativeState('');
@@ -236,6 +250,21 @@ export function TreatmentPlanScreen() {
   return (
     <Host seedColor={theme.primary} style={{ flex: 1 }}>
       <Form modifiers={[scrollDismissesKeyboard('interactively')]}>
+        {topTrayImage?.localUri ? (
+          <Section>
+            <Image
+              uiImage={topTrayImage.localUri}
+              modifiers={[
+                resizable(),
+                aspectRatio({ ratio: topTrayImageAspectRatio, contentMode: 'fit' }),
+                listRowBackground('#00000000'),
+                listRowSeparator('hidden'),
+                accessibilityHidden(),
+              ]}
+            />
+          </Section>
+        ) : null}
+
         <Section footer={<ValidationMessage message={errors.totalTrays} />} title="Total trays">
           <TextField
             onTextChange={() => clearFieldError('totalTrays')}
@@ -306,6 +335,21 @@ export function TreatmentPlanScreen() {
             systemImage="clock.arrow.circlepath"
           />
         </Section>
+
+        {bottomTrayImage?.localUri ? (
+          <Section>
+            <Image
+              uiImage={bottomTrayImage.localUri}
+              modifiers={[
+                resizable(),
+                aspectRatio({ ratio: bottomTrayImageAspectRatio, contentMode: 'fit' }),
+                listRowBackground('#00000000'),
+                listRowSeparator('hidden'),
+                accessibilityHidden(),
+              ]}
+            />
+          </Section>
+        ) : null}
       </Form>
     </Host>
   );
