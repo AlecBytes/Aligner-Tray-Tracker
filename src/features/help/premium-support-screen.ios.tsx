@@ -69,7 +69,7 @@ export function PremiumSupportScreen() {
           <ValidationMessage
             message={
               contactError
-                ? 'No email app could be opened. You can copy the address above.'
+                ? 'Email is unavailable on this device. Select and copy the address above instead.'
                 : null
             }
           />

@@ -1,6 +1,7 @@
 import React from 'react';
 import { clearTrackerSessionHistory } from './tracker-history-session';
 import type { TrackerSnapshot } from './tracker-model';
+import { TrackerPresentation } from './tracker-presentation.ios';
 import { TrackerScreen } from './tracker-screen.ios';
 
 let mockFocusCallbacks: (() => () => void)[] = [];
@@ -90,7 +91,7 @@ jest.mock('@expo/ui/swift-ui', () => ({
 jest.mock('@expo/ui/swift-ui/modifiers', () => ({
   ...Object.fromEntries([
     'accessibilityHidden', 'accessibilityHint', 'accessibilityLabel', 'accessibilityValue', 'aspectRatio', 'background', 'buttonBorderShape', 'buttonStyle',
-    'contentTransition', 'controlSize', 'disabled', 'font', 'foregroundStyle', 'frame', 'lineLimit',
+    'contentTransition', 'controlSize', 'disabled', 'font', 'foregroundStyle', 'frame', 'labelStyle', 'lineLimit',
     'minimumScaleFactor', 'monospacedDigit', 'opacity', 'padding', 'resizable',
   ].map(name => [name, (value: unknown) => ({ [name]: value })])),
   shapes: { roundedRectangle: () => ({}) },
@@ -140,7 +141,7 @@ jest.mock('./tracker-repository', () => ({
   redoWearStatus: (...args: unknown[]) => mockRedo(...args),
 }));
 
-type TestNode = { props: { label?: string; onPress?: () => void; onPressIn?: (event: unknown) => void; onPressOut?: (event: unknown) => void; message?: string; children?: unknown; modifiers?: Record<string, unknown>[]; uiImage?: string; source?: { uri: string }; style?: { opacity?: number }; disabled?: boolean; accessibilityValue?: { text: string }; testID?: string; onLayout?: (event: unknown) => void } };
+type TestNode = { props: { label?: string; systemImage?: string; onPress?: () => void; onPressIn?: (event: unknown) => void; onPressOut?: (event: unknown) => void; message?: string; children?: unknown; modifiers?: Record<string, unknown>[]; uiImage?: string; source?: { uri: string }; style?: { opacity?: number }; disabled?: boolean; accessibilityValue?: { text: string }; testID?: string; onLayout?: (event: unknown) => void } };
 const renderer = jest.requireActual('react-test-renderer') as {
   act: (callback: () => void | Promise<void>) => Promise<void>;
   create: (element: React.ReactElement) => {
@@ -381,12 +382,108 @@ it('opens the treatment plan from the bundled trays shortcut', async () => {
   expect(mockPush).toHaveBeenCalledWith('/treatment-plan');
 });
 
+it('opens Help from its compact accessible control', async () => {
+  await mount();
+  const help = accessibleButton('Open help');
+
+  expect(help.props.label).toBe('Help');
+  expect(help.props.systemImage).toBe('questionmark.circle');
+  expect(help.props.modifiers).toEqual(expect.arrayContaining([
+    { labelStyle: 'iconOnly' },
+    { frame: { minWidth: 44, minHeight: 44 } },
+    { accessibilityHint: 'Opens help for using Aligner Tracker.' },
+  ]));
+
+  await act(async () => help.props.onPress!());
+  expect(mockPush).toHaveBeenCalledWith('/help');
+});
+
+it('shows the same Help destination in Retainer Mode', async () => {
+  await act(async () => {
+    tree = renderer.create(
+      <TrackerPresentation
+        actionsDisabled={false}
+        canEdit
+        canRedo={false}
+        canUndo={false}
+        error={null}
+        isLoading={false}
+        isMutating={false}
+        latestPunch={{ id: 1, status: 'OUT', timestamp: Date.now() }}
+        needsRetry={false}
+        redoTracker={jest.fn(async () => undefined)}
+        refreshTracker={jest.fn(async () => undefined)}
+        retainer={{
+          duration: '2 days',
+          durationLabel: 'Current retainer period',
+          periodId: 1,
+          reminder: 'Reminders off',
+        }}
+        status="OUT"
+        toggleTracker={jest.fn(async () => undefined)}
+        undoTracker={jest.fn(async () => undefined)}
+      />,
+    );
+  });
+
+  const help = accessibleButton('Open help');
+  expect(help).toBeDefined();
+  await act(async () => help.props.onPress!());
+  expect(mockPush).toHaveBeenCalledWith('/help');
+});
+
+it('keeps Help enabled while a tracker save completes', async () => {
+  await mount();
+  const commit = deferred<{
+    nativeCommitDurationMs: number;
+    outcome: 'changed';
+    predecessor: TrackerSnapshot['punches'][number];
+    punch: TrackerSnapshot['punches'][number];
+    trayPeriodId: number;
+  }>();
+  const predecessor = mockPersisted!.punches[0];
+  const punch = { id: 2, status: 'IN' as const, timestamp: Date.now() };
+  mockEnsure.mockReturnValueOnce(commit.promise);
+
+  act(() => button('toggle').props.onPress!());
+  const help = accessibleButton('Open help');
+  expect(help.props.modifiers).not.toContainEqual({ disabled: true });
+  await act(async () => help.props.onPress!());
+  expect(mockPush).toHaveBeenCalledWith('/help');
+
+  mockPersisted = { ...mockPersisted!, punches: [predecessor, punch] };
+  await act(async () => commit.resolve({
+    nativeCommitDurationMs: 2,
+    outcome: 'changed',
+    predecessor,
+    punch,
+    trayPeriodId: 1,
+  }));
+  expect(text()).toContain('TRAYS ARE IN');
+  expect(text()).not.toContain('Saving…');
+});
+
 it('keeps IN after Menu navigation, then records OUT on the next tap', async () => {
   await mount();
   await press('toggle');
   expect(text()).toContain('TRAYS ARE IN');
   await press('Menu');
   expect(mockPush).toHaveBeenCalledWith('/menu');
+  await act(async () => blurScreen());
+  await act(async () => focusScreen());
+  expect(text()).toContain('TRAYS ARE IN');
+  await press('toggle');
+  expect(mockEnsure.mock.calls.map(call => call[0])).toEqual(['IN', 'OUT']);
+  expect(mockPersisted!.punches.map(punch => punch.status)).toEqual(['OUT', 'IN', 'OUT']);
+  expect(error()).toBeUndefined();
+});
+
+it('keeps IN after Help navigation, then records OUT on the next tap', async () => {
+  await mount();
+  await press('toggle');
+  expect(text()).toContain('TRAYS ARE IN');
+  await press('Help');
+  expect(mockPush).toHaveBeenCalledWith('/help');
   await act(async () => blurScreen());
   await act(async () => focusScreen());
   expect(text()).toContain('TRAYS ARE IN');

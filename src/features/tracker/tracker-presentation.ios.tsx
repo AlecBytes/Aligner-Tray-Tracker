@@ -19,6 +19,7 @@ import {
     font,
     foregroundStyle,
     frame,
+    labelStyle,
     lineLimit,
     minimumScaleFactor,
     monospacedDigit,
@@ -137,17 +138,32 @@ export function TrackerPresentation({ status, treatment, retainer, latestPunch, 
             />
           </Button> : null}
           <Spacer />
-          <Button
-            label="Menu"
-            systemImage="line.3.horizontal"
-            modifiers={[
-              buttonStyle(liquidGlass ? 'glass' : 'bordered'),
-              controlSize('large'),
-              disabled(actionsDisabled),
-              accessibilityLabel('Open menu'),
-            ]}
-            onPress={() => router.push('/menu')}
-          />
+          <VStack alignment="trailing" spacing={8}>
+            <Button
+              label="Menu"
+              systemImage="line.3.horizontal"
+              modifiers={[
+                buttonStyle(liquidGlass ? 'glass' : 'bordered'),
+                controlSize('large'),
+                disabled(actionsDisabled),
+                accessibilityLabel('Open menu'),
+              ]}
+              onPress={() => router.push('/menu')}
+            />
+            <Button
+              label="Help"
+              systemImage="questionmark.circle"
+              modifiers={[
+                buttonStyle(liquidGlass ? 'glass' : 'bordered'),
+                controlSize('large'),
+                labelStyle('iconOnly'),
+                frame({ minWidth: 44, minHeight: 44 }),
+                accessibilityLabel('Open help'),
+                accessibilityHint('Opens help for using Aligner Tracker.'),
+              ]}
+              onPress={() => router.push('/help')}
+            />
+          </VStack>
         </HStack>
 
         {retainer ? <VStack spacing={2} modifiers={[frame({ minHeight: 116 })]}>

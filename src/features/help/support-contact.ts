@@ -13,7 +13,9 @@ export function buildSupportEmailUrl(
     return null;
   }
 
-  const recipient = encodeURIComponent(contact);
+  const recipient = encodeURIComponent(contact)
+    .replace(/%40/gi, '@')
+    .replace(/%2B/gi, '+');
 
   if (intent === 'standard') {
     return `mailto:${recipient}`;

@@ -1,4 +1,4 @@
-import { Button, Form, Host, HStack, Section, Text, VStack } from '@expo/ui/swift-ui';
+import { Button, DisclosureGroup, Form, Host, HStack, Section, Text, VStack } from '@expo/ui/swift-ui';
 import {
   accessibilityLabel,
   buttonStyle,
@@ -15,16 +15,10 @@ import { Linking } from 'react-native';
 import { ValidationMessage } from '@/components/expo-ui-components';
 import { supportContact } from '@/config/app-config';
 import { useAppTheme } from '@/theme/use-app-theme';
+import { HELP_CONTENT_SECTIONS } from './help-content';
 import { openSupportEmail } from './support-contact';
 
-const GETTING_STARTED_STEPS = [
-  'Enter the treatment plan prescribed for you during setup.',
-  'On the tracker, tap the large button whenever you remove or insert your trays.',
-  'Use Change Tray when you begin a different tray. A new tray starts OUT until you mark it IN.',
-  'Your timers and current tray are saved on this device and restore when you reopen the app.',
-] as const;
-
-function GettingStartedStep({ index, step }: { index: number; step: string }) {
+function HelpItem({ index, ordered, text }: { index: number; ordered: boolean; text: string }) {
   const theme = useAppTheme();
 
   return (
@@ -34,9 +28,9 @@ function GettingStartedStep({ index, step }: { index: number; step: string }) {
           font({ textStyle: 'headline', weight: 'bold' }),
           foregroundStyle(theme.primary),
         ]}>
-        {index + 1}.
+        {ordered ? `${index + 1}.` : '•'}
       </Text>
-      <Text modifiers={[frame({ maxWidth: Infinity, alignment: 'leading' })]}>{step}</Text>
+      <Text modifiers={[frame({ maxWidth: Infinity, alignment: 'leading' })]}>{text}</Text>
     </HStack>
   );
 }
@@ -44,6 +38,21 @@ function GettingStartedStep({ index, step }: { index: number; step: string }) {
 export function HelpScreen() {
   const theme = useAppTheme();
   const [contactError, setContactError] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+
+  function setSectionExpanded(title: string, isExpanded: boolean) {
+    setExpandedSections((current) => {
+      const next = new Set(current);
+      if (isExpanded) {
+        next.add(title);
+      } else {
+        next.delete(title);
+      }
+      return next;
+    });
+  }
 
   async function contactSupport() {
     setContactError(false);
@@ -60,16 +69,36 @@ export function HelpScreen() {
   return (
     <Host seedColor={theme.primary} style={{ flex: 1 }}>
       <Form>
-        <Section title="Getting started">
-          {GETTING_STARTED_STEPS.map((step, index) => (
-            <GettingStartedStep index={index} key={step} step={step} />
-          ))}
+        <Section>
+          {HELP_CONTENT_SECTIONS.map((section) => {
+            const expanded = expandedSections.has(section.title);
+            return (
+              <DisclosureGroup
+                isExpanded={expanded}
+                key={section.title}
+                label={section.title}
+                onIsExpandedChange={(isExpanded) =>
+                  setSectionExpanded(section.title, isExpanded)
+                }>
+                {expanded
+                  ? section.items.map((item, index) => (
+                      <HelpItem
+                        index={index}
+                        key={item}
+                        ordered={section.ordered === true}
+                        text={item}
+                      />
+                    ))
+                  : null}
+              </DisclosureGroup>
+            );
+          })}
         </Section>
 
         <Section
           footer={
             contactError ? (
-              <ValidationMessage message="No email app could be opened. You can copy the address above." />
+              <ValidationMessage message="Email is unavailable on this device. Select and copy the address above instead." />
             ) : (
               <Text modifiers={[foregroundStyle({ type: 'hierarchical', style: 'secondary' })]}>
                 Questions or feedback are welcome.
@@ -93,7 +122,6 @@ export function HelpScreen() {
             />
           </VStack>
         </Section>
-
       </Form>
     </Host>
   );

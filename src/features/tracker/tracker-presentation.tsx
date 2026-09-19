@@ -69,6 +69,20 @@ export function TrackerPresentation({ status, treatment, retainer, latestPunch, 
           ]}>
           <AppText style={styles.menuButtonLabel}>Menu</AppText>
         </Pressable>
+        <Pressable
+          accessibilityHint="Opens help for using Aligner Tracker."
+          accessibilityLabel="Open help"
+          accessibilityRole="button"
+          onPress={() => router.push('/help')}
+          style={({ pressed }) => [
+            styles.menuButton,
+            {
+              backgroundColor: pressed ? theme.border : theme.surface,
+              borderColor: theme.border,
+            },
+          ]}>
+          <AppText style={styles.menuButtonLabel}>Help</AppText>
+        </Pressable>
       </View>
 
       {retainer ? <View style={[styles.traySummary, { minHeight: 116 }]}>
@@ -343,6 +357,7 @@ const styles = StyleSheet.create({
   },
   topActions: {
     alignItems: 'flex-end',
+    gap: spacing.xs,
   },
   screenContent: {
     gap: spacing.sm,

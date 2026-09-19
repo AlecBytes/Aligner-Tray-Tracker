@@ -3,7 +3,7 @@ import { buildSupportEmailUrl, openSupportEmail } from './support-contact';
 describe('support contact email', () => {
   it('builds a standard support email without prefilled content', () => {
     expect(buildSupportEmailUrl('help+app@example.com', 'standard')).toBe(
-      'mailto:help%2Bapp%40example.com',
+      'mailto:help+app@example.com',
     );
   });
 
@@ -11,7 +11,7 @@ describe('support contact email', () => {
     const url = buildSupportEmailUrl('help@example.com', 'premium');
 
     expect(url).toBe(
-      'mailto:help%40example.com?subject=Aligner%20Tracker%20Pro%20Support&body=How%20can%20I%20help%3F',
+      'mailto:help@example.com?subject=Aligner%20Tracker%20Pro%20Support&body=How%20can%20I%20help%3F',
     );
     expect(url).not.toMatch(/version|device|identifier|history|diagnostic|token|log/i);
   });
@@ -29,7 +29,7 @@ describe('support contact email', () => {
       openSupportEmail({ contact: 'help@example.com', intent: 'premium', openUrl }),
     ).resolves.toBe(true);
     expect(openUrl).toHaveBeenCalledWith(
-      'mailto:help%40example.com?subject=Aligner%20Tracker%20Pro%20Support&body=How%20can%20I%20help%3F',
+      'mailto:help@example.com?subject=Aligner%20Tracker%20Pro%20Support&body=How%20can%20I%20help%3F',
     );
     await expect(
       openSupportEmail({ contact: 'help@example.com', intent: 'standard', openUrl: rejectUrl }),

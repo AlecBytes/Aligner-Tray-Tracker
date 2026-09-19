@@ -6,18 +6,27 @@ import { AppText } from '@/components/app-text';
 import { supportContact } from '@/config/app-config';
 import { radius, spacing } from '@/theme/tokens';
 import { useAppTheme } from '@/theme/use-app-theme';
+import { HELP_CONTENT_SECTIONS } from './help-content';
 import { openSupportEmail } from './support-contact';
-
-const GETTING_STARTED_STEPS = [
-  'Enter the treatment plan prescribed for you during setup.',
-  'On the tracker, tap the large button whenever you remove or insert your trays.',
-  'Use Change Tray when you begin a different tray. A new tray starts OUT until you mark it IN.',
-  'Your timers and current tray are saved on this device and restore when you reopen the app.',
-] as const;
 
 export function HelpScreen() {
   const theme = useAppTheme();
   const [contactError, setContactError] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+
+  function toggleSection(title: string) {
+    setExpandedSections((current) => {
+      const next = new Set(current);
+      if (next.has(title)) {
+        next.delete(title);
+      } else {
+        next.add(title);
+      }
+      return next;
+    });
+  }
 
   async function contactSupport() {
     setContactError(false);
@@ -33,23 +42,44 @@ export function HelpScreen() {
 
   return (
     <AppScreen scrollable>
-      <View style={styles.section}>
-        <AppText variant="heading">Getting started</AppText>
-        <View style={styles.steps}>
-          {GETTING_STARTED_STEPS.map((step, index) => (
-            <View key={step} style={styles.step}>
-              <View style={[styles.stepNumber, { backgroundColor: theme.primary }]}>
-                <AppText
-                  style={[styles.stepNumberLabel, { color: theme.onPrimary }]}
-                  variant="caption">
-                  {index + 1}
-                </AppText>
+      {HELP_CONTENT_SECTIONS.map((section) => {
+        const expanded = expandedSections.has(section.title);
+        return (
+          <View
+            key={section.title}
+            style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ expanded }}
+              onPress={() => toggleSection(section.title)}
+              style={styles.sectionHeader}>
+              <AppText style={styles.sectionTitle} variant="heading">{section.title}</AppText>
+              <AppText
+                accessibilityElementsHidden
+                importantForAccessibility="no"
+                style={{ color: theme.primary }}>
+                {expanded ? '⌄' : '›'}
+              </AppText>
+            </Pressable>
+            {expanded ? (
+              <View style={styles.items}>
+                {section.items.map((item, index) => (
+                  <View key={item} style={styles.item}>
+                    <AppText
+                      accessibilityElementsHidden
+                      importantForAccessibility="no"
+                      style={[styles.itemMarker, { color: theme.primary }]}
+                      variant="caption">
+                      {section.ordered ? `${index + 1}.` : '•'}
+                    </AppText>
+                    <AppText style={styles.itemText}>{item}</AppText>
+                  </View>
+                ))}
               </View>
-              <AppText style={styles.stepText}>{step}</AppText>
-            </View>
-          ))}
-        </View>
-      </View>
+            ) : null}
+          </View>
+        );
+      })}
 
       <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
         <AppText variant="heading">Contact Support</AppText>
@@ -74,7 +104,7 @@ export function HelpScreen() {
         </Pressable>
         {contactError ? (
           <AppText accessibilityLiveRegion="polite" style={{ color: theme.error }} variant="caption">
-            No email app could be opened. You can copy the address above.
+            Email is unavailable on this device. Select and copy the address above instead.
           </AppText>
         ) : null}
       </View>
@@ -96,52 +126,33 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
     gap: spacing.sm,
-    marginTop: spacing.sm,
     padding: spacing.lg,
   },
   contact: {
     fontWeight: '700',
   },
-  navigationAccessory: {
-    alignItems: 'center',
+  itemMarker: {
+    fontWeight: '700',
+    minWidth: 22,
+  },
+  item: {
+    alignItems: 'flex-start',
     flexDirection: 'row',
     gap: spacing.sm,
   },
-  navigationLabel: {
-    fontWeight: '700',
+  items: {
+    gap: spacing.sm,
   },
-  navigationRow: {
-    alignItems: 'center',
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    minHeight: 56,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  section: {
-    gap: spacing.md,
-  },
-  step: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  stepNumber: {
-    alignItems: 'center',
-    borderRadius: 14,
-    height: 28,
-    justifyContent: 'center',
-    width: 28,
-  },
-  stepNumberLabel: {
-    fontWeight: '800',
-  },
-  stepText: {
+  itemText: {
     flex: 1,
   },
-  steps: {
-    gap: spacing.md,
+  sectionHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    minHeight: 44,
+  },
+  sectionTitle: {
+    flex: 1,
   },
 });

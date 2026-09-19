@@ -72,5 +72,9 @@ it('orders the primary menu actions by workflow priority', async () => {
     'Help',
   ]);
 
+  const help = tree.root.findAllByType('NavigationRow').find((row) => row.props.label === 'Help');
+  help?.props.onPress?.();
+  expect(mockPush).toHaveBeenCalledWith('/help');
+
   await renderer.act(async () => tree.unmount());
 });

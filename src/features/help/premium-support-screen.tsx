@@ -66,7 +66,7 @@ export function PremiumSupportScreen() {
         )}
         {contactError ? (
           <AppText accessibilityLiveRegion="polite" style={{ color: theme.error }} variant="caption">
-            No email app could be opened. You can copy the address above.
+            Email is unavailable on this device. Select and copy the address above instead.
           </AppText>
         ) : null}
       </View>
