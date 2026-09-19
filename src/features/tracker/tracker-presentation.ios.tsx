@@ -19,7 +19,6 @@ import {
     font,
     foregroundStyle,
     frame,
-    imageScale,
     labelStyle,
     lineLimit,
     minimumScaleFactor,
@@ -65,11 +64,12 @@ function TimeMetric({
       ]}
       onPress={onPress}>
       <VStack
+        testID={`tracker-time-metric-${label.startsWith('IN') ? 'in' : 'out'}`}
         alignment="leading"
         spacing={4}
         modifiers={[
-          frame({ maxWidth: Infinity, minHeight: 72, alignment: 'leading' }),
-          padding({ all: 12 }),
+          frame({ maxWidth: Infinity, minHeight: 56, alignment: 'leading' }),
+          padding({ horizontal: 12, vertical: 8 }),
           background(theme.surface, shapes.roundedRectangle({ cornerRadius: 16 })),
         ]}>
         <Text
@@ -90,6 +90,25 @@ function TimeMetric({
           {duration}
         </Text>
       </VStack>
+    </Button>
+  );
+}
+
+function HelpButton({ liquidGlass, onPress }: { liquidGlass: boolean; onPress: () => void }) {
+  return (
+    <Button
+      modifiers={[
+        buttonStyle(liquidGlass ? 'glass' : 'bordered'),
+        controlSize('large'),
+        frame({ minWidth: 44, minHeight: 44 }),
+        accessibilityLabel('Open help'),
+        accessibilityHint('Opens help for using Aligner Tracker.'),
+      ]}
+      onPress={onPress}>
+      <HStack spacing={6}>
+        <Image size={24} systemName="questionmark.circle" />
+        <Text>Help</Text>
+      </HStack>
     </Button>
   );
 }
@@ -115,23 +134,95 @@ export function TrackerPresentation({ status, treatment, retainer, latestPunch, 
           frame({ maxWidth: Infinity, maxHeight: Infinity, alignment: 'top' }),
           padding({ all: 16 }),
         ]}>
-        <HStack alignment="top">
-          <Button
-            label="Notifications"
-            systemImage="bell"
-            modifiers={[
-              buttonStyle(liquidGlass ? 'glass' : 'bordered'),
-              controlSize('large'),
-              disabled(actionsDisabled),
-              labelStyle('iconOnly'),
-              frame({ minWidth: 44, minHeight: 44 }),
-              accessibilityLabel('Open notifications'),
-              accessibilityHint('Opens notification settings.'),
-            ]}
-            onPress={() => router.push('/notifications')}
-          />
-          <Spacer />
-          <VStack alignment="trailing" spacing={8}>
+        <HStack testID="tracker-compact-header" alignment="top" spacing={8}>
+          <VStack
+            alignment="leading"
+            modifiers={[frame({ maxWidth: Infinity, alignment: 'topLeading' })]}>
+            <Button
+              label="Notifications"
+              systemImage="bell"
+              modifiers={[
+                buttonStyle(liquidGlass ? 'glass' : 'bordered'),
+                controlSize('large'),
+                disabled(actionsDisabled),
+                labelStyle('iconOnly'),
+                frame({ minWidth: 44, minHeight: 44 }),
+                accessibilityLabel('Open notifications'),
+                accessibilityHint('Opens notification settings.'),
+              ]}
+              onPress={() => router.push('/notifications')}
+            />
+          </VStack>
+
+          {retainer ? (
+            <VStack
+              spacing={2}
+              modifiers={[frame({ maxWidth: Infinity, minHeight: 116, alignment: 'top' })]}>
+              <Text modifiers={[font({ textStyle: 'caption', weight: 'semibold' })]}>
+                RETAINER MODE
+              </Text>
+              <Text
+                modifiers={[
+                  font({ textStyle: 'headline' }),
+                  minimumScaleFactor(0.7),
+                  lineLimit(1),
+                ]}>
+                {retainer.durationLabel}
+              </Text>
+              <Text
+                modifiers={[
+                  font({ textStyle: 'largeTitle', weight: 'heavy' }),
+                  monospacedDigit(),
+                  minimumScaleFactor(0.7),
+                  lineLimit(1),
+                ]}>
+                {retainer.duration}
+              </Text>
+            </VStack>
+          ) : (
+            <VStack
+              spacing={2}
+              modifiers={[frame({ maxWidth: Infinity, minHeight: 116, alignment: 'top' })]}>
+              <Text
+                modifiers={[
+                  font({ textStyle: 'caption', weight: 'semibold' }),
+                  foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+                ]}>
+                TRAY
+              </Text>
+              <Text
+                modifiers={[
+                  font({ textStyle: 'largeTitle', weight: 'heavy' }),
+                  monospacedDigit(),
+                  minimumScaleFactor(0.75),
+                  lineLimit(1),
+                ]}>
+                {treatment!.currentTrayNumber} / {treatment!.totalTrays}
+              </Text>
+              <Text
+                modifiers={[
+                  font({ textStyle: 'headline', weight: 'semibold' }),
+                  minimumScaleFactor(0.75),
+                  lineLimit(1),
+                ]}>
+                Day {treatment!.trayDay}
+              </Text>
+              <Text
+                modifiers={[
+                  minimumScaleFactor(0.75),
+                  lineLimit(1),
+                  treatment!.daysRemaining < 0
+                    ? foregroundStyle('red')
+                    : foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
+                ]}>
+                {daysRemainingLabel}
+              </Text>
+            </VStack>
+          )}
+
+          <VStack
+            alignment="trailing"
+            modifiers={[frame({ maxWidth: Infinity, alignment: 'topTrailing' })]}>
             <Button
               label="Menu"
               systemImage="line.3.horizontal"
@@ -143,56 +234,8 @@ export function TrackerPresentation({ status, treatment, retainer, latestPunch, 
               ]}
               onPress={() => router.push('/menu')}
             />
-            <Button
-              label="Help"
-              systemImage="questionmark.circle"
-              modifiers={[
-                buttonStyle(liquidGlass ? 'glass' : 'bordered'),
-                controlSize('large'),
-                labelStyle('iconOnly'),
-                imageScale('large'),
-                frame({ minWidth: 44, minHeight: 44 }),
-                accessibilityLabel('Open help'),
-                accessibilityHint('Opens help for using Aligner Tracker.'),
-              ]}
-              onPress={() => router.push('/help')}
-            />
           </VStack>
         </HStack>
-
-        {retainer ? <VStack spacing={2} modifiers={[frame({ minHeight: 116 })]}>
-          <Text modifiers={[font({ textStyle: 'caption', weight: 'semibold' })]}>RETAINER MODE</Text>
-          <Text modifiers={[font({ textStyle: 'headline' })]}>{retainer.durationLabel}</Text>
-          <Text modifiers={[font({ textStyle: 'largeTitle', weight: 'heavy' }), monospacedDigit(), minimumScaleFactor(0.7), lineLimit(1)]}>{retainer.duration}</Text>
-        </VStack> : <VStack spacing={2}>
-          <Text
-            modifiers={[
-              font({ textStyle: 'caption', weight: 'semibold' }),
-              foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
-            ]}>
-            TRAY
-          </Text>
-          <Text
-            modifiers={[
-              font({ textStyle: 'largeTitle', weight: 'heavy' }),
-              monospacedDigit(),
-              minimumScaleFactor(0.75),
-              lineLimit(1),
-            ]}>
-            {treatment!.currentTrayNumber} / {treatment!.totalTrays}
-          </Text>
-          <Text modifiers={[font({ textStyle: 'headline', weight: 'semibold' })]}>
-            Day {treatment!.trayDay}
-          </Text>
-          <Text
-            modifiers={[
-              treatment!.daysRemaining < 0
-                ? foregroundStyle('red')
-                : foregroundStyle({ type: 'hierarchical', style: 'secondary' }),
-            ]}>
-            {daysRemainingLabel}
-          </Text>
-        </VStack>}
 
         {error ? <ValidationMessage message={error} /> : null}
         {needsRetry ? (
@@ -309,9 +352,17 @@ export function TrackerPresentation({ status, treatment, retainer, latestPunch, 
         </Button>
 
         {retainer ? (
-          <VStack modifiers={[frame({ minHeight: 72, maxWidth: Infinity }), padding({ all: 12 }), background(theme.surface, shapes.roundedRectangle({ cornerRadius: 16 }))]}>
-            <Text modifiers={[font({ textStyle: 'headline' })]}>{retainer.reminder}</Text>
-          </VStack>
+          <HStack testID="tracker-bottom-actions" spacing={10}>
+            <VStack
+              modifiers={[
+                frame({ minHeight: 72, maxWidth: Infinity }),
+                padding({ all: 12 }),
+                background(theme.surface, shapes.roundedRectangle({ cornerRadius: 16 })),
+              ]}>
+              <Text modifiers={[font({ textStyle: 'headline' })]}>{retainer.reminder}</Text>
+            </VStack>
+            <HelpButton liquidGlass={liquidGlass} onPress={() => router.push('/help')} />
+          </HStack>
         ) : (
           <>
             <HStack spacing={10}>
@@ -333,12 +384,15 @@ export function TrackerPresentation({ status, treatment, retainer, latestPunch, 
               />
             </HStack>
 
-            <ActionButton
-              disabled={actionsDisabled}
-              label="Change tray"
-              onPress={() => router.push('/change-tray')}
-              prominent={false}
-            />
+            <HStack testID="tracker-bottom-actions" spacing={10}>
+              <ActionButton
+                disabled={actionsDisabled}
+                label="Change tray"
+                onPress={() => router.push('/change-tray')}
+                prominent={false}
+              />
+              <HelpButton liquidGlass={liquidGlass} onPress={() => router.push('/help')} />
+            </HStack>
           </>
         )}
       </VStack>

@@ -140,11 +140,15 @@ jest.mock('./tracker-repository', () => ({
   redoWearStatus: (...args: unknown[]) => mockRedo(...args),
 }));
 
-type TestNode = { props: { alignment?: string; label?: string; systemImage?: string; onPress?: () => void; onPressIn?: (event: unknown) => void; onPressOut?: (event: unknown) => void; message?: string; children?: unknown; modifiers?: Record<string, unknown>[]; uiImage?: string; source?: { uri: string }; style?: { opacity?: number }; disabled?: boolean; accessibilityValue?: { text: string }; testID?: string; onLayout?: (event: unknown) => void } };
+type TestNode = {
+  props: { alignment?: string; label?: string; systemImage?: string; systemName?: string; size?: number; onPress?: () => void; onPressIn?: (event: unknown) => void; onPressOut?: (event: unknown) => void; message?: string; children?: unknown; modifiers?: Record<string, unknown>[]; uiImage?: string; source?: { uri: string }; style?: { opacity?: number }; disabled?: boolean; accessibilityValue?: { text: string }; testID?: string; onLayout?: (event: unknown) => void };
+  findAll: (predicate: (node: TestNode) => boolean) => TestNode[];
+  findAllByType: (type: unknown) => TestNode[];
+};
 const renderer = jest.requireActual('react-test-renderer') as {
   act: (callback: () => void | Promise<void>) => Promise<void>;
   create: (element: React.ReactElement) => {
-    root: { findAll: (predicate: (node: TestNode) => boolean) => TestNode[]; findAllByType: (type: unknown) => TestNode[] };
+    root: TestNode;
     unmount: () => void;
   };
 };
@@ -171,6 +175,7 @@ function button(label: string) {
   if (label === 'toggle') {
     return tree.root.findAll(node => node.props.testID === 'tracker-toggle-button' && typeof node.props.onPress === 'function')[0]!;
   }
+  if (label === 'Help') return accessibleButton('Open help');
   return tree.root.findAllByType('Button').find(node => node.props.label === label)!;
 }
 function accessibleButton(label: string) {
@@ -361,12 +366,18 @@ it('persists the timestamp captured for the accepted toggle', async () => {
   expect(mockPersisted!.punches.at(-1)?.timestamp).toBe(acceptedTimestamp);
 });
 
-it('opens Notifications from the top action beside Menu', async () => {
+it('places Notifications, tray progress, and Menu in the compact header', async () => {
   await mount();
   const notifications = accessibleButton('Open notifications');
-  const topActions = tree.root.findAllByType('HStack')[0];
+  const header = tree.root.findAll(node => node.props.testID === 'tracker-compact-header')[0]!;
+  const headerText = header.findAllByType('Text').map(node =>
+    React.Children.toArray(node.props.children as React.ReactNode).join(''),
+  );
+  const headerButtons = header.findAllByType('Button');
 
-  expect(topActions.props.alignment).toBe('top');
+  expect(header.props.alignment).toBe('top');
+  expect(headerText).toEqual(expect.arrayContaining(['TRAY', '30 / 45', 'Day 2', '5 days left']));
+  expect(headerButtons.map(node => node.props.label)).toEqual(['Notifications', 'Menu']);
   expect(notifications.props.label).toBe('Notifications');
   expect(notifications.props.systemImage).toBe('bell');
   expect(notifications.props.modifiers).toContainEqual({ labelStyle: 'iconOnly' });
@@ -385,15 +396,26 @@ it('opens Notifications from the top action beside Menu', async () => {
   expect(mockPush).toHaveBeenCalledWith('/notifications');
 });
 
-it('opens Help from its compact accessible control', async () => {
+it('opens Help from its compact control beside Change tray', async () => {
   await mount();
   const help = accessibleButton('Open help');
+  const helpIcon = help.findAllByType('Image').find(
+    node => node.props.systemName === 'questionmark.circle',
+  );
+  const helpText = help.findAllByType('Text').map(node => node.props.children);
+  const bottomActions = tree.root.findAll(
+    node => node.props.testID === 'tracker-bottom-actions',
+  )[0]!;
 
-  expect(help.props.label).toBe('Help');
-  expect(help.props.systemImage).toBe('questionmark.circle');
+  expect(bottomActions.findAllByType('ActionButton').map(node => node.props.label)).toEqual([
+    'Change tray',
+  ]);
+  expect(bottomActions.findAllByType('Button')).toContain(help);
+  expect(help.props.label).toBeUndefined();
+  expect(help.props.systemImage).toBeUndefined();
+  expect(helpIcon?.props.size).toBe(24);
+  expect(helpText).toContain('Help');
   expect(help.props.modifiers).toEqual(expect.arrayContaining([
-    { labelStyle: 'iconOnly' },
-    { imageScale: 'large' },
     { frame: { minWidth: 44, minHeight: 44 } },
     { accessibilityHint: 'Opens help for using Aligner Tracker.' },
   ]));
@@ -402,7 +424,35 @@ it('opens Help from its compact accessible control', async () => {
   expect(mockPush).toHaveBeenCalledWith('/help');
 });
 
-it('shows the same Help destination in Retainer Mode', async () => {
+it('uses compact equal-width cards for today’s IN and OUT durations', async () => {
+  await mount();
+  const cards = tree.root.findAll(node =>
+    node.props.testID?.startsWith('tracker-time-metric-') ?? false,
+  );
+  const metricButtons = tree.root.findAllByType('Button').filter(node =>
+    node.props.modifiers?.some(modifier =>
+      typeof modifier.accessibilityLabel === 'string'
+      && /^(IN|OUT) TODAY,/.test(modifier.accessibilityLabel),
+    ),
+  );
+
+  expect(cards.map(node => node.props.testID)).toEqual([
+    'tracker-time-metric-in',
+    'tracker-time-metric-out',
+  ]);
+  for (const card of cards) {
+    expect(card.props.modifiers).toEqual(expect.arrayContaining([
+      { frame: { maxWidth: Infinity, minHeight: 56, alignment: 'leading' } },
+      { padding: { horizontal: 12, vertical: 8 } },
+    ]));
+  }
+  expect(metricButtons).toHaveLength(2);
+  for (const metricButton of metricButtons) {
+    expect(metricButton.props.modifiers).toContainEqual({ frame: { maxWidth: Infinity } });
+  }
+});
+
+it('uses the compact header and bottom Help control in Retainer Mode', async () => {
   await act(async () => {
     tree = renderer.create(
       <TrackerPresentation
@@ -432,6 +482,21 @@ it('shows the same Help destination in Retainer Mode', async () => {
 
   const help = accessibleButton('Open help');
   const notifications = accessibleButton('Open notifications');
+  const header = tree.root.findAll(node => node.props.testID === 'tracker-compact-header')[0]!;
+  const bottomActions = tree.root.findAll(
+    node => node.props.testID === 'tracker-bottom-actions',
+  )[0]!;
+  expect(header.findAllByType('Text').map(node =>
+    React.Children.toArray(node.props.children as React.ReactNode).join(''),
+  )).toEqual(expect.arrayContaining(['RETAINER MODE', 'Current retainer period', '2 days']));
+  expect(header.findAllByType('Button').map(node => node.props.label)).toEqual([
+    'Notifications',
+    'Menu',
+  ]);
+  expect(bottomActions.findAllByType('Text').map(node => node.props.children)).toContain(
+    'Reminders off',
+  );
+  expect(bottomActions.findAllByType('Button')).toContain(help);
   expect(help).toBeDefined();
   expect(notifications).toBeDefined();
   expect(notifications.props.systemImage).toBe('bell');
