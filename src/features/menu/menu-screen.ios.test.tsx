@@ -55,3 +55,22 @@ it('shows Themes in the production-style menu when paid access is disabled', asy
 
   await renderer.act(async () => tree.unmount());
 });
+
+it('orders the primary menu actions by workflow priority', async () => {
+  let tree!: ReturnType<typeof renderer.create>;
+  await renderer.act(async () => { tree = renderer.create(<MenuScreen />); });
+
+  const labels = tree.root.findAllByType('NavigationRow').map((row) => row.props.label);
+  expect(labels).toEqual([
+    'Notifications',
+    'Edit In/Out Times',
+    'Share Progress',
+    'Statistics',
+    'Themes',
+    'Retainer Mode',
+    'Treatment Plan',
+    'Help',
+  ]);
+
+  await renderer.act(async () => tree.unmount());
+});

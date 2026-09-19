@@ -57,24 +57,6 @@ export function MenuScreen() {
     <Host seedColor={theme.primary} style={{ flex: 1 }}>
       <Form>
         <Section>
-          <NavigationRow label="Retainer Mode" onPress={() => router.push('/retainer-mode')} systemImage="moon" />
-          <NavigationRow
-            label="Themes"
-            onPress={() => router.push('/themes' as never)}
-            systemImage="paintpalette"
-          />
-          {releaseFeatures.cloudBackup ? (
-            <NavigationRow
-              label="Cloud Backup"
-              onPress={() => router.push('/account')}
-              systemImage="person.circle"
-            />
-          ) : null}
-          <NavigationRow
-            label={retainer ? "Completed Treatment History" : "Treatment Plan"}
-            onPress={() => router.push(retainer ? '/treatment-plan-history' : '/treatment-plan')}
-            systemImage="list.bullet.clipboard"
-          />
           <NavigationRow
             label="Notifications"
             onPress={() => router.push('/notifications')}
@@ -85,16 +67,34 @@ export function MenuScreen() {
             onPress={() => router.push('/edit-times')}
             systemImage="clock.arrow.circlepath"
           />
-          <NavigationRow
-            label={retainer ? "Completed Treatment Statistics" : "Statistics"}
-            onPress={() => router.push('/statistics')}
-            systemImage="chart.bar"
-          />
           {!retainer ? <NavigationRow
             label="Share Progress"
             onPress={() => router.push('/share-progress')}
             systemImage="square.and.arrow.up"
           /> : null}
+          <NavigationRow
+            label={retainer ? "Completed Treatment Statistics" : "Statistics"}
+            onPress={() => router.push('/statistics')}
+            systemImage="chart.bar"
+          />
+          {releaseFeatures.cloudBackup ? (
+            <NavigationRow
+              label="Cloud Backup"
+              onPress={() => router.push('/account')}
+              systemImage="person.circle"
+            />
+          ) : null}
+          <NavigationRow
+            label="Themes"
+            onPress={() => router.push('/themes' as never)}
+            systemImage="paintpalette"
+          />
+          <NavigationRow label="Retainer Mode" onPress={() => router.push('/retainer-mode')} systemImage="moon" />
+          <NavigationRow
+            label={retainer ? "Completed Treatment History" : "Treatment Plan"}
+            onPress={() => router.push(retainer ? '/treatment-plan-history' : '/treatment-plan')}
+            systemImage="list.bullet.clipboard"
+          />
         </Section>
 
         {isSupportEnabled ? (
