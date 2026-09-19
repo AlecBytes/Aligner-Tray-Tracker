@@ -82,6 +82,20 @@ eas build --platform ios --profile development
 Open the resulting EAS install link on the registered iPhone. After installing
 the build, use `npm start` for subsequent JavaScript and TypeScript changes.
 
+For JavaScript, TypeScript, and asset-only updates, use EAS Update instead of
+rebuilding the native app:
+
+```sh
+eas update --channel development --message "Describe the development changes" --environment development --platform ios
+eas update --channel preview --message "Describe the preview changes" --environment preview --platform ios
+```
+
+The installed build must already include EAS Update configuration and the
+matching runtime version. Development builds pull published updates from the
+launcher’s **Extensions** tab; preview and production builds install the update
+when the app is reopened after download. Native changes still require a new
+build.
+
 ### Connect an iPhone from WSL
 
 If the app reports **“Failed to load app. The request timed out”**, the iPhone
