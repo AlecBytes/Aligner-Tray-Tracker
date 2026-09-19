@@ -131,7 +131,7 @@ export function TrackerPresentation({ status, treatment, retainer, latestPunch, 
               modifiers={[
                 resizable(),
                 aspectRatio({ ratio: traysImageAspectRatio, contentMode: 'fit' }),
-                frame({ width: 32, height: 32 }),
+                frame({ width: 44, height: 44 }),
                 accessibilityHidden(),
               ]}
             />
