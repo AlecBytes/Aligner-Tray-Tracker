@@ -36,7 +36,7 @@ const trayOutImageModule = require('../../../assets/images/tray-out.png');
 const traysImageModule = require('../../../assets/images/trays.png');
 const trayInImageAspectRatio = 1448 / 1086;
 const trayOutImageAspectRatio = 1188 / 681;
-const traysImageAspectRatio = 1;
+const traysImageAspectRatio = 1103 / 705;
 
 function TimeMetric({
   disabled: isDisabled,
@@ -131,7 +131,7 @@ export function TrackerPresentation({ status, treatment, retainer, latestPunch, 
               modifiers={[
                 resizable(),
                 aspectRatio({ ratio: traysImageAspectRatio, contentMode: 'fit' }),
-                frame({ width: 44, height: 44 }),
+                frame({ width: 56, height: 36 }),
                 accessibilityHidden(),
               ]}
             />

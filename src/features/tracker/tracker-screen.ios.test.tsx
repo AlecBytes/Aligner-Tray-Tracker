@@ -368,7 +368,10 @@ it('opens the treatment plan from the bundled trays shortcut', async () => {
   )!;
   const treatmentPlanButton = accessibleButton('Open treatment plan');
 
-  expect(image.props.modifiers).toContainEqual({ frame: { width: 32, height: 32 } });
+  expect(image.props.modifiers).toContainEqual({
+    aspectRatio: { ratio: 1103 / 705, contentMode: 'fit' },
+  });
+  expect(image.props.modifiers).toContainEqual({ frame: { width: 56, height: 36 } });
   expect(image.props.modifiers).toContainEqual({ accessibilityHidden: undefined });
   expect(treatmentPlanButton.props.modifiers).toContainEqual({
     frame: { minWidth: 44, minHeight: 44 },
