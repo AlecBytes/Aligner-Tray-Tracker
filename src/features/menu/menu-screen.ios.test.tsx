@@ -3,6 +3,7 @@ import React from 'react';
 import { MenuScreen } from './menu-screen.ios';
 
 const mockPush = jest.fn();
+let mockSupportEnabled = false;
 
 jest.mock('@/features/retainer/use-tracking-mode', () => ({ useTrackingMode: () => ({ mode: { kind: 'treatment', treatmentId: 1 } }) }));
 jest.mock('expo-router', () => ({
@@ -24,7 +25,11 @@ jest.mock('@/components/expo-ui-components', () => ({ NavigationRow: 'Navigation
 jest.mock('@/config/release-features', () => ({
   releaseFeatures: { cloudBackup: false, paidAccess: false },
 }));
-jest.mock('@/config/support-config', () => ({ isSupportEnabled: false }));
+jest.mock('@/config/support-config', () => ({
+  get isSupportEnabled() {
+    return mockSupportEnabled;
+  },
+}));
 jest.mock('@/features/cloud-auth/cloud-auth-service.ios', () => ({ clearLocalCloudSession: jest.fn() }));
 jest.mock('@/features/notifications/local-notifications', () => ({ reconcileLocalNotifications: jest.fn() }));
 jest.mock('@/features/reset/reset-app-repository', () => ({ resetAppData: jest.fn() }));
@@ -43,6 +48,11 @@ const renderer = jest.requireActual('react-test-renderer') as {
     unmount: () => void;
   };
 };
+
+beforeEach(() => {
+  mockPush.mockClear();
+  mockSupportEnabled = false;
+});
 
 it('shows Themes in the production-style menu when paid access is disabled', async () => {
   let tree!: ReturnType<typeof renderer.create>;
@@ -75,6 +85,24 @@ it('orders the primary menu actions by workflow priority', async () => {
   const help = tree.root.findAllByType('NavigationRow').find((row) => row.props.label === 'Help');
   help?.props.onPress?.();
   expect(mockPush).toHaveBeenCalledWith('/help');
+
+  await renderer.act(async () => tree.unmount());
+});
+
+it('shows customer-facing Support navigation when Support is enabled', async () => {
+  mockSupportEnabled = true;
+  let tree!: ReturnType<typeof renderer.create>;
+  await renderer.act(async () => { tree = renderer.create(<MenuScreen />); });
+
+  const support = tree.root.findAllByType('NavigationRow').find(
+    (row) => row.props.label === 'Support Aligner Tracker',
+  );
+  expect(support).toBeDefined();
+  expect(tree.root.findAllByType('NavigationRow').some(
+    (row) => row.props.label?.includes('(Preview)'),
+  )).toBe(false);
+  support?.props.onPress?.();
+  expect(mockPush).toHaveBeenCalledWith('/support');
 
   await renderer.act(async () => tree.unmount());
 });

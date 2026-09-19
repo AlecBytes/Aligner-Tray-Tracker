@@ -98,9 +98,9 @@ export function MenuScreen() {
         </Section>
 
         {isSupportEnabled ? (
-          <Section title="Development">
+          <Section>
             <NavigationRow
-              label="Support Aligner Tracker (Preview)"
+              label="Support Aligner Tracker"
               onPress={() => router.push('/support')}
               systemImage="heart"
             />

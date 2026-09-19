@@ -169,8 +169,9 @@ For preview, the checked-in profile currently requires:
 ```text
 APP_VARIANT=preview
 EXPO_PUBLIC_APP_VARIANT=preview
-EXPO_PUBLIC_SUPPORT_MODE=disabled
+EXPO_PUBLIC_SUPPORT_MODE=apple
 EXPO_PUBLIC_PAID_ACCESS_MODE=apple
+EXPO_PUBLIC_REVENUECAT_IOS_API_KEY=appl_…
 ```
 
 For development and production, check `eas env:list development` or

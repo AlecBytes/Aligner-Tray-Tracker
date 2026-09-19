@@ -106,7 +106,7 @@ export function MenuScreen() {
         <MenuItem label="Statistics" onPress={() => router.push('/statistics')} />
         {isSupportEnabled ? (
           <MenuItem
-            label="Support Aligner Tracker (Preview)"
+            label="Support Aligner Tracker"
             onPress={() => router.push('/support')}
           />
         ) : null}

@@ -1,6 +1,7 @@
 import Purchases, { type CustomerInfo } from 'react-native-purchases';
 import { createRevenueCatPaidAccessService } from './revenuecat-paid-access-service.ios';
 import { NO_PAID_ACCESS } from './paid-access-service';
+import { resetRevenueCatConfigurationForTests } from '@/features/purchases/revenuecat-configuration.ios';
 
 jest.mock('react-native-purchases', () => ({
   __esModule: true,
@@ -20,7 +21,10 @@ const packages = ['MONTHLY', 'ANNUAL', 'LIFETIME'].map((packageType) => ({
   identifier: packageType, packageType, product: { priceString: '$1.00' },
 }));
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  resetRevenueCatConfigurationForTests();
+});
 
 it('reads the app entitlement and does not grant access for the old premium identifier', async () => {
   const service = createRevenueCatPaidAccessService('test_public');
@@ -58,6 +62,7 @@ it('loads the existing Test Store catalog explicitly without changing the Apple 
   expect((await testStore.loadPackages()).map((item) => item.kind)).toEqual(['monthly', 'annual', 'lifetime']);
   jest.mocked(Purchases.purchasePackage).mockResolvedValue({ customerInfo: customer() } as Awaited<ReturnType<typeof Purchases.purchasePackage>>);
   expect((await testStore.purchase('LIFETIME')).access.hasPremiumAccess).toBe(true);
+  resetRevenueCatConfigurationForTests();
   const apple = createRevenueCatPaidAccessService('appl_public');
   expect(await apple.loadPackages()).toEqual([]);
 });

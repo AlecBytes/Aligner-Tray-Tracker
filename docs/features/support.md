@@ -180,15 +180,18 @@ Avoid implementing StoreKit or Google Play Billing directly unless RevenueCat no
 
 Real native purchase testing requires the RevenueCat native module and platform billing systems.
 
-Until RevenueCat is implemented, Support availability is controlled by
+Support availability is controlled by
 `EXPO_PUBLIC_SUPPORT_MODE`:
 
 - `mock`: show the Support menu item and use the local mock purchase service
+- `apple`: on iOS, require an `appl_` RevenueCat public SDK key and use offering `support`
 - `disabled` (or any missing/unrecognized value): hide Support and leave purchases unavailable
 
-Local development and EAS development/preview builds use `mock`. EAS production builds use
-`disabled`, so Support remains hidden in production until the real purchase implementation is
-ready. The `/support` route remains in place while Support is disabled.
+Local development and EAS development builds use `mock`. EAS preview uses `apple` with the
+production bundle identifier for Apple sandbox verification. EAS production uses `disabled`, so
+Support remains hidden in production until separately approved. The `/support` route remains in
+place while Support is disabled. See `dev/support-apple-revenuecat-setup.md` for the dashboard and
+device-test checklist.
 
 Use an **Expo development build** for real StoreKit / Google Play purchase testing.
 

@@ -1,4 +1,5 @@
 import Purchases, { PURCHASES_ERROR_CODE, type CustomerInfo, type PurchasesPackage } from 'react-native-purchases';
+import { configureRevenueCat } from '@/features/purchases/revenuecat-configuration.ios';
 import type { PaidAccessPackage, PaidAccessService, PaidAccessSnapshot } from './paid-access-service';
 import { NO_PAID_ACCESS, resolvePremiumAccess } from './paid-access-service';
 
@@ -12,8 +13,8 @@ function packageKind(value: string): PaidAccessPackage['kind'] | null {
 }
 export function createRevenueCatPaidAccessService(apiKey: string, offeringIdentifier = 'premium'): PaidAccessService {
   const packageCache = new Map<string, PurchasesPackage>();
-  let configured = false; let lastAccess = NO_PAID_ACCESS;
-  function configure() { if (!configured) { Purchases.configure({ apiKey }); configured = true; } }
+  let lastAccess = NO_PAID_ACCESS;
+  function configure() { configureRevenueCat(apiKey); }
   function remember(info: CustomerInfo) { lastAccess = accessFrom(info); return lastAccess; }
   return { available: true,
     async getAccess() { configure(); return remember(await Purchases.getCustomerInfo()); },
