@@ -8,6 +8,7 @@ let mockFocusCallbacks: (() => () => void)[] = [];
 let mockFocusCleanups: (() => void)[] = [];
 let mockAppStateListeners: ((state: string) => void)[] = [];
 let mockExternal: () => void;
+let mockLiquidGlassPlatform = true;
 let mockPersisted: TrackerSnapshot | null;
 const mockRead = jest.fn(async () => mockPersisted);
 const mockEnsure = jest.fn();
@@ -108,7 +109,7 @@ jest.mock('expo-asset', () => ({
 jest.mock('@/components/app-loading-screen', () => ({ AppLoadingScreen: 'AppLoadingScreen' }));
 jest.mock('@/components/expo-ui-components', () => ({
   ActionButton: 'ActionButton', CenteredState: 'CenteredState', ValidationMessage: 'ValidationMessage',
-  isLiquidGlassPlatform: () => true,
+  isLiquidGlassPlatform: () => mockLiquidGlassPlatform,
 }));
 jest.mock('@/config/support-config', () => ({ isSupportEnabled: true }));
 jest.mock('@/theme/use-app-theme', () => ({
@@ -202,6 +203,7 @@ beforeEach(() => {
   mockFocusCallbacks = [];
   mockFocusCleanups = [];
   mockAppStateListeners = [];
+  mockLiquidGlassPlatform = true;
   mockAudioPlayerCall = 0;
   mockInPlayer.isLoaded = true;
   mockInPlayer.volume = 1;
@@ -292,6 +294,112 @@ it('describes the current action and state to assistive technology', async () =>
 
   expect(toggle().props.modifiers).toEqual(expect.arrayContaining([
     { accessibilityLabel: 'Trays' },
+    { accessibilityValue: 'IN' },
+    { accessibilityHint: 'Tap when trays are removed.' },
+  ]));
+});
+
+it('uses the custom deep Liquid Glass style for the main control on iOS 26', async () => {
+  await mount();
+
+  expect(button('toggle').props.modifiers).toEqual(expect.arrayContaining([
+    {
+      trackerStatusControlStyle: {
+        faceColor: 'white',
+        baseColor: 'gray',
+        foregroundColor: 'black',
+        liquidGlass: true,
+      },
+    },
+    { disabled: false },
+    { accessibilityLabel: 'Trays' },
+    { accessibilityValue: 'OUT' },
+    { accessibilityHint: 'Tap when trays are inserted.' },
+  ]));
+  expect(button('toggle').props.modifiers).not.toContainEqual({ buttonStyle: 'plain' });
+  expect(button('toggle').props.modifiers).not.toContainEqual({
+    buttonStyle: 'glassProminent',
+  });
+
+  await press('toggle');
+
+  expect(button('toggle').props.modifiers).toEqual(expect.arrayContaining([
+    {
+      trackerStatusControlStyle: {
+        faceColor: 'purple',
+        baseColor: 'dark-purple',
+        foregroundColor: 'white',
+        liquidGlass: true,
+      },
+    },
+    { disabled: false },
+    { accessibilityValue: 'IN' },
+    { accessibilityHint: 'Tap when trays are removed.' },
+  ]));
+});
+
+it('keeps the custom style and state semantics below iOS 26', async () => {
+  mockLiquidGlassPlatform = false;
+  await mount();
+
+  const customStyle = () => button('toggle').props.modifiers?.find(
+    modifier => 'trackerStatusControlStyle' in modifier,
+  );
+  expect(customStyle()).toEqual({
+    trackerStatusControlStyle: {
+      faceColor: 'white',
+      baseColor: 'gray',
+      foregroundColor: 'black',
+      liquidGlass: false,
+    },
+  });
+
+  const commit = deferred<{
+    nativeCommitDurationMs: number;
+    outcome: 'changed';
+    predecessor: TrackerSnapshot['punches'][number];
+    punch: TrackerSnapshot['punches'][number];
+    trayPeriodId: number;
+  }>();
+  const predecessor = mockPersisted!.punches[0];
+  const punch = { id: 2, status: 'IN' as const, timestamp: Date.now() };
+  mockEnsure.mockReturnValueOnce(commit.promise);
+
+  act(() => button('toggle').props.onPress!());
+  expect(customStyle()).toEqual({
+    trackerStatusControlStyle: {
+      faceColor: 'white',
+      baseColor: 'gray',
+      foregroundColor: 'black',
+      liquidGlass: false,
+    },
+  });
+  expect(button('toggle').props.modifiers).toEqual(expect.arrayContaining([
+    { disabled: true },
+    { accessibilityLabel: 'Trays' },
+    { accessibilityValue: 'OUT, saving' },
+    { accessibilityHint: 'Saving the tracker change.' },
+  ]));
+
+  mockPersisted = { ...mockPersisted!, punches: [predecessor, punch] };
+  await act(async () => commit.resolve({
+    nativeCommitDurationMs: 2,
+    outcome: 'changed',
+    predecessor,
+    punch,
+    trayPeriodId: 1,
+  }));
+
+  expect(customStyle()).toEqual({
+    trackerStatusControlStyle: {
+      faceColor: 'purple',
+      baseColor: 'dark-purple',
+      foregroundColor: 'white',
+      liquidGlass: false,
+    },
+  });
+  expect(button('toggle').props.modifiers).toEqual(expect.arrayContaining([
+    { disabled: false },
     { accessibilityValue: 'IN' },
     { accessibilityHint: 'Tap when trays are removed.' },
   ]));

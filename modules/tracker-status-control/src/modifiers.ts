@@ -4,6 +4,7 @@ export function trackerStatusControlStyle(colors: {
   faceColor: string;
   baseColor: string;
   foregroundColor: string;
+  liquidGlass: boolean;
 }) {
   return createModifier('trackerStatusControlStyle', colors);
 }
